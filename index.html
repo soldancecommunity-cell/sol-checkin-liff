@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SoL チェックイン</title>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; padding: 16px; }
+    .muted { color:#777; font-size:12px; }
+    select, button { padding: 10px; font-size: 16px; }
+    select { min-width: 260px; }
+    #status { white-space: pre-wrap; font-size: 12px; color:#666; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <h2>SoL チェックイン</h2>
+  <p class="muted">LINEアプリ内で開いてください</p>
+
+  <pre id="status">起動中…</pre>
+
+  <label>受講クラスを選択してください</label><br><br>
+  <select id="classSelect">
+    <option value="">-- 読み込み中 --</option>
+  </select>
+
+  <br><br>
+  <button id="btn" onclick="checkin()" disabled>チェックイン</button>
+
+  <p id="result"></p>
+
+  <script>
+    // ====== ここを自分の値に差し替え ======
+    const LIFF_ID = "あなたのLIFF_ID";
+    const API_URL = "あなたのGAS_WEBAPP_EXEC_URL"; // 例: https://script.google.com/macros/s/XXXX/exec
+    const API_TOKEN = "あなたのAPI_TOKEN";
+    // ======================================
+
+    let LINE_USER_ID = null;
+    let LINE_DISPLAY_NAME = "";
+
+    function setStatus(msg) { document.getElementById("status").textContent = msg; }
+    function appendStatus(msg) { document.getElementById("status").textContent += "\n" + msg; }
+
+    // JSONP helper（CORS回避）
+    function jsonp(url) {
+      return new Promise((resolve, reject) => {
+        const cb = "cb_" + Math.random().toString(36).slice(2);
+        const s = document.createElement("script");
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error("JSONP timeout"));
+        }, 20000);
+
+        function cleanup() {
+          clearTimeout(timer);
+          try { delete window[cb]; } catch(e) {}
+          if (s && s.parentNode) s.parentNode.removeChild(s);
+        }
+
+        window[cb] = (data) => { cleanup(); resolve(data); };
+
+        const sep = url.includes("?") ? "&" : "?";
+        s.src = url + sep + "callback=" + cb;
+        s.onerror = () => { cleanup(); reject(new Error("JSONP load error")); };
+        document.body.appendChild(s);
+      });
+    }
+
+    async function loadClasses() {
+      const url = `${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`;
+      const res = await jsonp(url);
+      if (!res || res.status !== "success") throw new Error(res && res.message ? res.message : "classes error");
+
+      const sel = document.getElementById("classSelect");
+      sel.innerHTML = '<option value="">-- 選択してください --</option>';
+      res.classes.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+    }
+
+    async function init() {
+      setStatus("STEP0 start");
+
+      appendStatus("STEP1 liff.init...");
+      await liff.init({ liffId: LIFF_ID });
+      appendStatus("STEP1 liff.init OK");
+
+      if (!liff.isLoggedIn()) {
+        appendStatus("STEP2 not logged in -> login");
+        liff.login();
+        return;
+      }
+
+      appendStatus("STEP3 getProfile...");
+      const profile = await liff.getProfile();
+      LINE_USER_ID = profile.userId;
+      LINE_DISPLAY_NAME = profile.displayName || "";
+      appendStatus("STEP3 OK userId取得");
+
+      appendStatus("STEP4 load classes...");
+      await loadClasses();
+      appendStatus("STEP4 OK classes loaded");
+
+      document.getElementById("btn").disabled = false;
+      document.getElementById("classSelect").disabled = false;
+    }
+
+    async function checkin() {
+      const sel = document.getElementById("classSelect");
+      if (!LINE_USER_ID) { alert("LINEユーザー情報が未取得です"); return; }
+      if (!sel.value) { alert("クラスを選択してください"); return; }
+
+      const className = sel.options[sel.selectedIndex].text;
+      document.getElementById("result").textContent = "送信中…";
+
+      const url =
+        `${API_URL}?api=checkin&token=${encodeURIComponent(API_TOKEN)}` +
+        `&userId=${encodeURIComponent(LINE_USER_ID)}` +
+        `&displayName=${encodeURIComponent(LINE_DISPLAY_NAME)}` +
+        `&classId=${encodeURIComponent(sel.value)}` +
+        `&className=${encodeURIComponent(className)}`;
+
+      const res = await jsonp(url);
+      document.getElementById("result").textContent = res && res.message ? res.message : JSON.stringify(res);
+    }
+
+    init().catch(err => {
+      console.error(err);
+      appendStatus("ERROR: " + (err && err.message ? err.message : String(err)));
+    });
+  </script>
+</body>
+</html>
