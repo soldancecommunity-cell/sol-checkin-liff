@@ -5,213 +5,215 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SoL チェックイン</title>
 
+  <!-- LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; padding: 16px; }
-    .muted { color:#777; font-size:12px; }
-    select, button, input { padding: 10px; font-size: 16px; }
-    select { min-width: 260px; }
-    input { min-width: 260px; box-sizing: border-box; }
-    #status { white-space: pre-wrap; font-size: 12px; color:#666; margin: 12px 0; }
-    .card { padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin: 12px 0; }
-    .hidden { display: none; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial;
+      background: #f7f7f9;
+      margin: 0;
+      padding: 16px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 420px;
+      margin: 0 auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+    }
+
+    h2 {
+      text-align: center;
+      margin: 0 0 12px;
+    }
+
+    .muted {
+      text-align: center;
+      font-size: 12px;
+      color: #777;
+      margin-bottom: 16px;
+    }
+
+    label {
+      font-size: 14px;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    select, input {
+      width: 100%;
+      font-size: 16px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      margin-bottom: 12px;
+    }
+
+    button {
+      width: 100%;
+      font-size: 16px;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: #111;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: #aaa;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .success {
+      text-align: center;
+      font-size: 16px;
+      color: #0a7a2f;
+    }
+
+    .spinner {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      font-size: 14px;
+    }
   </style>
 </head>
+
 <body>
-  <h2>SoL チェックイン</h2>
-  <p class="muted">LINEアプリ内で開いてください</p>
+  <div class="card">
+    <h2>SoL チェックイン</h2>
+    <div class="muted">LINEアプリ内で開いてください</div>
 
-  <pre id="status">起動中…</pre>
+    <div id="loading" class="spinner">読み込み中…</div>
 
-  <div class="card hidden" id="phoneCard">
-    <div style="font-weight:600;margin-bottom:8px;">初回のみ</div>
-    <div class="muted" style="margin-bottom:8px;">会員登録時の電話番号（ハイフンなし）を入力してください</div>
-    <input id="phone" inputmode="numeric" placeholder="09012345678" />
+    <div id="form" class="hidden">
+      <label>受講クラス</label>
+      <select id="classSelect">
+        <option value="">-- 選択してください --</option>
+      </select>
+
+      <div id="phoneWrap" class="hidden">
+        <label>電話番号（初回のみ・ハイフンなし）</label>
+        <input id="phoneInput" type="tel" inputmode="numeric" placeholder="090xxxxxxxx" />
+      </div>
+
+      <button id="checkinBtn" onclick="checkin()">チェックイン</button>
+    </div>
+
+    <div id="result" class="hidden"></div>
   </div>
 
-  <label>受講クラスを選択してください</label><br><br>
-  <select id="classSelect" disabled>
-    <option value="">-- 読み込み中 --</option>
-  </select>
+<script>
+  /* ===== 設定 ===== */
+  const LIFF_ID = "2008938862-AlepUDEH";
+  const API_URL = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";
+  const API_TOKEN = "sol_checkin_2026_144025036146";
 
-  <br><br>
-  <button id="btn" onclick="checkin()" disabled>チェックイン</button>
+  const SHOP_CARD_URL = "https://u.lin.ee/AXMeVAa";
+  const REDIRECT_DELAY = 2500;
+  /* ================= */
 
-  <p id="result"></p>
+  let LINE_USER_ID = "";
+  let LINE_DISPLAY_NAME = "";
 
-  <script>
-    // ====== ここを自分の値に差し替え ======
-    const LIFF_ID = "2008938862-AlepUDEH";
-    const API_URL = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec"; // .../exec
-    const API_TOKEN = "sol_checkin_2026_144025036146";
-    // ======================================
+  function $(id){ return document.getElementById(id); }
 
-    let LINE_USER_ID = null;
-    let LINE_DISPLAY_NAME = "";
-    let IS_SENDING = false;
-    let IS_LINKED = false;
-
-    function setStatus(msg) { document.getElementById("status").textContent = msg; }
-    function appendStatus(msg) { document.getElementById("status").textContent += "\n" + msg; }
-
-    function showPhoneCard(show) {
-      const el = document.getElementById("phoneCard");
-      if (show) el.classList.remove("hidden");
-      else el.classList.add("hidden");
-    }
-
-    function normalizePhone(s) {
-      s = String(s || "").trim();
-      // 念のため数字以外除去（ハイフンが入ってもOK）
-      return s.replace(/[^\d]/g, "");
-    }
-
-    // JSONP helper（CORS回避）
-    function jsonp(url) {
-      return new Promise((resolve, reject) => {
-        const cb = "cb_" + Math.random().toString(36).slice(2);
-        const s = document.createElement("script");
-        const timer = setTimeout(() => {
-          cleanup();
-          reject(new Error("JSONP timeout"));
-        }, 20000);
-
-        function cleanup() {
-          clearTimeout(timer);
-          try { delete window[cb]; } catch(e) {}
-          if (s && s.parentNode) s.parentNode.removeChild(s);
-        }
-
-        window[cb] = (data) => { cleanup(); resolve(data); };
-
-        const sep = url.includes("?") ? "&" : "?";
-        s.src = url + sep + "callback=" + cb;
-        s.onerror = () => { cleanup(); reject(new Error("JSONP load error")); };
-        document.body.appendChild(s);
-      });
-    }
-
-    async function apiCall(params) {
-      const qs = new URLSearchParams({ token: API_TOKEN, ...params }).toString();
-      return jsonp(`${API_URL}?${qs}`);
-    }
-
-    async function loadClasses() {
-      const res = await apiCall({ api: "classes" });
-      if (!res || res.status !== "success") throw new Error(res && res.message ? res.message : "classes error");
-
-      const sel = document.getElementById("classSelect");
-      sel.innerHTML = '<option value="">-- 選択してください --</option>';
-      res.classes.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c.id;
-        opt.textContent = c.name;
-        sel.appendChild(opt);
-      });
-    }
-
-    async function checkLinked() {
-      const res = await apiCall({ api: "me", userId: LINE_USER_ID });
-      if (!res || res.status !== "success") throw new Error(res && res.message ? res.message : "me error");
-      IS_LINKED = !!res.linked;
-      showPhoneCard(!IS_LINKED);
-    }
-
-    async function init() {
-      setStatus("STEP0 start");
-
-      appendStatus("STEP1 liff.init...");
-      await liff.init({ liffId: LIFF_ID });
-      appendStatus("STEP1 liff.init OK");
-
-      if (!liff.isLoggedIn()) {
-        appendStatus("STEP2 not logged in -> login");
-        liff.login();
-        return;
-      }
-
-      appendStatus("STEP3 getProfile...");
-      const profile = await liff.getProfile();
-      LINE_USER_ID = profile.userId;
-      LINE_DISPLAY_NAME = profile.displayName || "";
-      appendStatus("STEP3 OK userId取得");
-
-      appendStatus("STEP4 check linked...");
-      await checkLinked();
-      appendStatus("STEP4 OK linked=" + IS_LINKED);
-
-      appendStatus("STEP5 load classes...");
-      await loadClasses();
-      appendStatus("STEP5 OK classes loaded");
-
-      document.getElementById("btn").disabled = false;
-      document.getElementById("classSelect").disabled = false;
-    }
-
-    async function checkin() {
-      if (IS_SENDING) return;
-      const btn = document.getElementById("btn");
-      const sel = document.getElementById("classSelect");
-
-      if (!LINE_USER_ID) { alert("LINEユーザー情報が未取得です"); return; }
-      if (!sel.value) { alert("クラスを選択してください"); return; }
-
-      const className = sel.options[sel.selectedIndex].text;
-
-      // 未紐付けなら電話番号必須
-      let phone = "";
-      if (!IS_LINKED) {
-        phone = normalizePhone(document.getElementById("phone").value);
-        if (!phone) {
-          alert("初回のみ、電話番号（ハイフンなし）を入力してください。");
-          return;
-        }
-      }
-
-      document.getElementById("result").textContent = "送信中…";
-      IS_SENDING = true;
-      btn.disabled = true;
-
-      appendStatus("STEP6 checkin request...");
-      try {
-        const res = await apiCall({
-          api: "checkin",
-          userId: LINE_USER_ID,
-          displayName: LINE_DISPLAY_NAME,
-          classId: sel.value,
-          className,
-          phone
-        });
-
-        appendStatus("STEP6 response: " + JSON.stringify(res));
-        document.getElementById("result").textContent = res && res.message ? res.message : JSON.stringify(res);
-
-        // 成功したら「紐付け済み」とみなす（次回以降は電話番号欄を隠す）
-        if (res && res.status === "success") {
-          IS_LINKED = true;
-          showPhoneCard(false);
-        }
-
-        // need_phone が来た場合も対応
-        if (res && res.status === "need_phone") {
-          IS_LINKED = false;
-          showPhoneCard(true);
-        }
-
-      } catch (err) {
-        appendStatus("STEP6 ERROR: " + (err && err.message ? err.message : String(err)));
-        document.getElementById("result").textContent = "送信失敗: " + (err && err.message ? err.message : String(err));
-      } finally {
-        IS_SENDING = false;
-        btn.disabled = false;
-      }
-    }
-
-    init().catch(err => {
-      console.error(err);
-      appendStatus("ERROR: " + (err && err.message ? err.message : String(err)));
+  async function jsonp(url){
+    return new Promise((resolve, reject) => {
+      const cb = "cb_" + Math.random().toString(36).slice(2);
+      window[cb] = data => {
+        delete window[cb];
+        script.remove();
+        resolve(data);
+      };
+      const script = document.createElement("script");
+      script.src = url + "&callback=" + cb;
+      script.onerror = () => reject();
+      document.body.appendChild(script);
     });
-  </script>
+  }
+
+  async function init(){
+    await liff.init({ liffId: LIFF_ID });
+
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
+
+    const profile = await liff.getProfile();
+    LINE_USER_ID = profile.userId;
+    LINE_DISPLAY_NAME = profile.displayName || "";
+
+    const clsRes = await jsonp(
+      `${API_URL}?api=classes&token=${API_TOKEN}`
+    );
+
+    clsRes.classes.forEach(c => {
+      const o = document.createElement("option");
+      o.value = c.id;
+      o.textContent = c.name;
+      $("classSelect").appendChild(o);
+    });
+
+    $("loading").classList.add("hidden");
+    $("form").classList.remove("hidden");
+  }
+
+  async function checkin(){
+    const classId = $("classSelect").value;
+    if (!classId) return alert("クラスを選択してください");
+
+    const phone = $("phoneInput").value.replace(/[^\d]/g,"");
+
+    $("checkinBtn").disabled = true;
+
+    const url =
+      `${API_URL}?api=checkin` +
+      `&token=${API_TOKEN}` +
+      `&userId=${encodeURIComponent(LINE_USER_ID)}` +
+      `&displayName=${encodeURIComponent(LINE_DISPLAY_NAME)}` +
+      `&classId=${encodeURIComponent(classId)}` +
+      `&className=${encodeURIComponent($("classSelect").selectedOptions[0].text)}` +
+      (phone ? `&phone=${phone}` : "");
+
+    const res = await jsonp(url);
+
+    if (res.status === "need_phone") {
+      $("phoneWrap").classList.remove("hidden");
+      $("checkinBtn").disabled = false;
+      return;
+    }
+
+    if (res.status !== "success") {
+      alert(res.message || "エラーが発生しました");
+      $("checkinBtn").disabled = false;
+      return;
+    }
+
+    $("form").classList.add("hidden");
+    $("result").classList.remove("hidden");
+    $("result").innerHTML = `<div class="success">チェックイン完了！<br>ショップカードを開きます…</div>`;
+
+    setTimeout(() => {
+      try {
+        liff.openWindow({ url: SHOP_CARD_URL, external: false });
+      } catch(e) {
+        window.location.href = SHOP_CARD_URL;
+      }
+    }, REDIRECT_DELAY);
+  }
+
+  init().catch(() => {
+    $("loading").textContent = "初期化に失敗しました";
+  });
+</script>
 </body>
 </html>
