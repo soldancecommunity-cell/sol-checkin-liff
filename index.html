@@ -22,7 +22,7 @@
   <pre id="status">起動中…</pre>
 
   <label>受講クラスを選択してください</label><br><br>
-  <select id="classSelect">
+  <select id="classSelect" disabled>
     <option value="">-- 読み込み中 --</option>
   </select>
 
@@ -34,12 +34,13 @@
   <script>
     // ====== ここを自分の値に差し替え ======
     const LIFF_ID = "2008938862-AlepUDEH";
-    const API_URL = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec"; // 例: https://script.google.com/macros/s/XXXX/exec
-    const API_TOKEN = "sol_checkin_2026_xxx";
+    const API_URL = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";
+    const API_TOKEN = "sol_checkin_2026_144025036146";
     // ======================================
 
     let LINE_USER_ID = null;
     let LINE_DISPLAY_NAME = "";
+    let IS_SENDING = false;
 
     function setStatus(msg) { document.getElementById("status").textContent = msg; }
     function appendStatus(msg) { document.getElementById("status").textContent += "\n" + msg; }
@@ -112,7 +113,11 @@
     }
 
     async function checkin() {
+      if (IS_SENDING) return;
+
+      const btn = document.getElementById("btn");
       const sel = document.getElementById("classSelect");
+
       if (!LINE_USER_ID) { alert("LINEユーザー情報が未取得です"); return; }
       if (!sel.value) { alert("クラスを選択してください"); return; }
 
@@ -126,8 +131,23 @@
         `&classId=${encodeURIComponent(sel.value)}` +
         `&className=${encodeURIComponent(className)}`;
 
-      const res = await jsonp(url);
-      document.getElementById("result").textContent = res && res.message ? res.message : JSON.stringify(res);
+      IS_SENDING = true;
+      btn.disabled = true;
+
+      appendStatus("STEP5 checkin request...");
+      try {
+        const res = await jsonp(url);
+        appendStatus("STEP5 response: " + JSON.stringify(res));
+        document.getElementById("result").textContent =
+          res && res.message ? res.message : JSON.stringify(res);
+      } catch (err) {
+        appendStatus("STEP5 ERROR: " + (err && err.message ? err.message : String(err)));
+        document.getElementById("result").textContent =
+          "送信失敗: " + (err && err.message ? err.message : String(err));
+      } finally {
+        IS_SENDING = false;
+        btn.disabled = false;
+      }
     }
 
     init().catch(err => {
