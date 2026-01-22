@@ -10,9 +10,12 @@
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; padding: 16px; }
     .muted { color:#777; font-size:12px; }
-    select, button { padding: 10px; font-size: 16px; }
+    select, button, input { padding: 10px; font-size: 16px; }
     select { min-width: 260px; }
+    input { min-width: 260px; box-sizing: border-box; }
     #status { white-space: pre-wrap; font-size: 12px; color:#666; margin: 12px 0; }
+    .card { padding: 12px; border: 1px solid #ddd; border-radius: 10px; margin: 12px 0; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -20,6 +23,12 @@
   <p class="muted">LINEアプリ内で開いてください</p>
 
   <pre id="status">起動中…</pre>
+
+  <div class="card hidden" id="phoneCard">
+    <div style="font-weight:600;margin-bottom:8px;">初回のみ</div>
+    <div class="muted" style="margin-bottom:8px;">会員登録時の電話番号（ハイフンなし）を入力してください</div>
+    <input id="phone" inputmode="numeric" placeholder="09012345678" />
+  </div>
 
   <label>受講クラスを選択してください</label><br><br>
   <select id="classSelect" disabled>
@@ -34,16 +43,29 @@
   <script>
     // ====== ここを自分の値に差し替え ======
     const LIFF_ID = "2008938862-AlepUDEH";
-    const API_URL = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec"; // .../exec
     const API_TOKEN = "sol_checkin_2026_144025036146";
     // ======================================
 
     let LINE_USER_ID = null;
     let LINE_DISPLAY_NAME = "";
     let IS_SENDING = false;
+    let IS_LINKED = false;
 
     function setStatus(msg) { document.getElementById("status").textContent = msg; }
     function appendStatus(msg) { document.getElementById("status").textContent += "\n" + msg; }
+
+    function showPhoneCard(show) {
+      const el = document.getElementById("phoneCard");
+      if (show) el.classList.remove("hidden");
+      else el.classList.add("hidden");
+    }
+
+    function normalizePhone(s) {
+      s = String(s || "").trim();
+      // 念のため数字以外除去（ハイフンが入ってもOK）
+      return s.replace(/[^\d]/g, "");
+    }
 
     // JSONP helper（CORS回避）
     function jsonp(url) {
@@ -70,9 +92,13 @@
       });
     }
 
+    async function apiCall(params) {
+      const qs = new URLSearchParams({ token: API_TOKEN, ...params }).toString();
+      return jsonp(`${API_URL}?${qs}`);
+    }
+
     async function loadClasses() {
-      const url = `${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`;
-      const res = await jsonp(url);
+      const res = await apiCall({ api: "classes" });
       if (!res || res.status !== "success") throw new Error(res && res.message ? res.message : "classes error");
 
       const sel = document.getElementById("classSelect");
@@ -83,6 +109,13 @@
         opt.textContent = c.name;
         sel.appendChild(opt);
       });
+    }
+
+    async function checkLinked() {
+      const res = await apiCall({ api: "me", userId: LINE_USER_ID });
+      if (!res || res.status !== "success") throw new Error(res && res.message ? res.message : "me error");
+      IS_LINKED = !!res.linked;
+      showPhoneCard(!IS_LINKED);
     }
 
     async function init() {
@@ -104,9 +137,13 @@
       LINE_DISPLAY_NAME = profile.displayName || "";
       appendStatus("STEP3 OK userId取得");
 
-      appendStatus("STEP4 load classes...");
+      appendStatus("STEP4 check linked...");
+      await checkLinked();
+      appendStatus("STEP4 OK linked=" + IS_LINKED);
+
+      appendStatus("STEP5 load classes...");
       await loadClasses();
-      appendStatus("STEP4 OK classes loaded");
+      appendStatus("STEP5 OK classes loaded");
 
       document.getElementById("btn").disabled = false;
       document.getElementById("classSelect").disabled = false;
@@ -114,7 +151,6 @@
 
     async function checkin() {
       if (IS_SENDING) return;
-
       const btn = document.getElementById("btn");
       const sel = document.getElementById("classSelect");
 
@@ -122,28 +158,50 @@
       if (!sel.value) { alert("クラスを選択してください"); return; }
 
       const className = sel.options[sel.selectedIndex].text;
+
+      // 未紐付けなら電話番号必須
+      let phone = "";
+      if (!IS_LINKED) {
+        phone = normalizePhone(document.getElementById("phone").value);
+        if (!phone) {
+          alert("初回のみ、電話番号（ハイフンなし）を入力してください。");
+          return;
+        }
+      }
+
       document.getElementById("result").textContent = "送信中…";
-
-      const url =
-        `${API_URL}?api=checkin&token=${encodeURIComponent(API_TOKEN)}` +
-        `&userId=${encodeURIComponent(LINE_USER_ID)}` +
-        `&displayName=${encodeURIComponent(LINE_DISPLAY_NAME)}` +
-        `&classId=${encodeURIComponent(sel.value)}` +
-        `&className=${encodeURIComponent(className)}`;
-
       IS_SENDING = true;
       btn.disabled = true;
 
-      appendStatus("STEP5 checkin request...");
+      appendStatus("STEP6 checkin request...");
       try {
-        const res = await jsonp(url);
-        appendStatus("STEP5 response: " + JSON.stringify(res));
-        document.getElementById("result").textContent =
-          res && res.message ? res.message : JSON.stringify(res);
+        const res = await apiCall({
+          api: "checkin",
+          userId: LINE_USER_ID,
+          displayName: LINE_DISPLAY_NAME,
+          classId: sel.value,
+          className,
+          phone
+        });
+
+        appendStatus("STEP6 response: " + JSON.stringify(res));
+        document.getElementById("result").textContent = res && res.message ? res.message : JSON.stringify(res);
+
+        // 成功したら「紐付け済み」とみなす（次回以降は電話番号欄を隠す）
+        if (res && res.status === "success") {
+          IS_LINKED = true;
+          showPhoneCard(false);
+        }
+
+        // need_phone が来た場合も対応
+        if (res && res.status === "need_phone") {
+          IS_LINKED = false;
+          showPhoneCard(true);
+        }
+
       } catch (err) {
-        appendStatus("STEP5 ERROR: " + (err && err.message ? err.message : String(err)));
-        document.getElementById("result").textContent =
-          "送信失敗: " + (err && err.message ? err.message : String(err));
+        appendStatus("STEP6 ERROR: " + (err && err.message ? err.message : String(err)));
+        document.getElementById("result").textContent = "送信失敗: " + (err && err.message ? err.message : String(err));
       } finally {
         IS_SENDING = false;
         btn.disabled = false;
