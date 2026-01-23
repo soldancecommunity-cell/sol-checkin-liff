@@ -858,9 +858,9 @@ setTimeout(() => {
   }
 
   init().catch(err => {
-    hideMiniLoading();
-    showBanner("起動に失敗しました。", "danger");
-    console.error(err);
+  hideMiniLoading();
+  showBanner("起動に失敗しました： " + (err && err.message ? err.message : String(err)), "danger");
+  console.error(err);
   });
 </script>
 </body>
