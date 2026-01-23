@@ -743,44 +743,51 @@
 
       const res = await jsonp(url);
 
-      if (res && res.status === "need_phone") {
-        $("phoneWrap").style.display = "block";
-        showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "");
-        setBusy(false);
-        hideMiniLoading();
-        return;
-      }
+if (res && res.status === "need_phone") {
+  $("phoneWrap").style.display = "block";
+  showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "");
+  setBusy(false);
+  hideMiniLoading();
+  return;
+}
 
-      // 追加：GASが「既にチェックイン済み」等を返す可能性があるのでケア
-      if (res && (res.status === "already" || res.status === "already_checked_in")) {
-        markDoneToday_(SELECTED_CLASS.id);
-        showBanner("このクラスは本日すでにチェックイン済みです。", "info");
-        // UI再描画（済表示）
-        const cached = loadClassesCache() || [];
-        const sorted = sortClassesByToday_(cached);
-        renderClasses(sorted, "タップして選択");
-        setBusy(false);
-        hideMiniLoading();
-        return;
-      }
+if (res && res.status === "already") {
+  showBanner(res.message || "本日はすでにチェックイン済みです。", "info");
+  setBusy(false);
+  hideMiniLoading();
+  return; // ★二重スタンプ付与防止
+}
 
-      if (!res || res.status !== "success") {
-        const msg = (res && res.message) ? res.message : "エラーが発生しました。";
-        showBanner(msg, "danger");
-        setBusy(false);
-        hideMiniLoading();
-        return;
-      }
+if (!res || res.status !== "success") {
+  const msg = (res && res.message) ? res.message : "エラーが発生しました。";
+  showBanner(msg, "danger");
+  setBusy(false);
+  hideMiniLoading();
+  return;
+}
 
-      // ===== 成功：本日チェックイン済みとして保存（UIで二重防止） =====
-      markDoneToday_(SELECTED_CLASS.id);
+// ===== 成功：本日チェックイン済みとして保存（UIで二重防止） =====
+markDoneToday_(SELECTED_CLASS.id);
 
-      showSuccess("スタンプを付与します…");
-      startCountdown(REDIRECT_DELAY_MS);
+// 未払い案内（チェックインは成功のまま）
+if (res.unpaid === true) {
+  // バナーで出す場合（フォームはこのあと消えるので短時間）
+  showBanner(res.message || "当月のお支払いが未確認です。", "info");
 
-      setTimeout(() => {
-        openStamp();
-      }, REDIRECT_DELAY_MS);
+  // もしくは成功画面に出すならこちらがオススメ：
+  // showSuccess(res.message || "当月のお支払いが未確認です。受付でお声がけください。");
+  // startCountdown(REDIRECT_DELAY_MS);
+  // setTimeout(openStamp, REDIRECT_DELAY_MS);
+  // return;
+}
+
+showSuccess("スタンプを付与します…");
+startCountdown(REDIRECT_DELAY_MS);
+
+setTimeout(() => {
+  openStamp();
+}, REDIRECT_DELAY_MS);
+
 
     } catch (err) {
       showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
