@@ -97,12 +97,22 @@
       display:flex; align-items:center; justify-content:space-between; gap:10px;
       cursor:pointer; user-select:none;
       transition: transform .08s ease, border-color .15s ease, background .15s ease;
-      position: relative; /* バッジ用 */
-      overflow: hidden;   /* 枠の演出用 */
+      position: relative;
+      overflow: hidden;
     }
     .classCard:active{ transform: translateY(1px); }
     .className{ font-size:15px; font-weight:800; letter-spacing:.1px; line-height:1.2; }
     .classMeta{ font-size:12px; color:rgba(169,180,208,.85); margin-top:2px; }
+
+    /* 右側の「今日ラベル + 選択ドット」横並び */
+    .rightWrap{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex:0 0 auto;
+      min-width: fit-content;
+    }
+
     .dot{
       width:10px; height:10px; border-radius:999px;
       border:1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06);
@@ -123,7 +133,6 @@
       background: linear-gradient(135deg, rgba(45,212,191,.14), rgba(124,92,255,.12));
       box-shadow: 0 14px 36px rgba(45,212,191,.12);
     }
-    /* 外枠っぽく見せるハイライト（疑似グラ枠） */
     .classCard.today::before{
       content:"";
       position:absolute; inset:-1px;
@@ -145,9 +154,9 @@
       background: rgba(45,212,191,.22);
       border-color: rgba(45,212,191,.38);
     }
+
+    /* 「今日」ラベル（右側・横並び用） */
     .todayBadge{
-      position:absolute;
-      top:10px; right:10px;
       font-size:11px;
       font-weight:900;
       padding:5px 8px;
@@ -155,8 +164,9 @@
       color:#0b0d12;
       background: linear-gradient(135deg, var(--accent2), var(--accent));
       box-shadow: 0 10px 24px rgba(124,92,255,.14);
+      line-height: 1;
+      white-space: nowrap;
     }
-    /* ============================== */
 
     .field{
       background: rgba(255,255,255,.03);
@@ -231,7 +241,7 @@
     <div class="card">
       <div class="cardHeader">
         <h2>チェックイン</h2>
-        <p>受講クラスを選んでチェックイン。初回のみ電話番号（ハイフンなし）で会員連携します。</p>
+        <p>受講クラスを選んでチェックイン。<br>初回のみ電話番号（ハイフンなし）で会員連携します。</p>
       </div>
 
       <div class="content">
@@ -286,6 +296,7 @@
   /* ====== 設定（必ず差し替え） ====== */
   const LIFF_ID   = "2008938862-AlepUDEH";
   const API_URL   = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";
+  const API_TOKEN = "sol_checkin_2026_144025036146";
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
@@ -387,16 +398,28 @@
   // 今日の曜日をグローバル保持（描画時に使う）
   let TODAY_WD = "";
 
+  // ★ ここが並び順の固定（今日優先 + 月火水木金土日）
   function sortClassesByToday_(classes){
     const today = TODAY_WD || getJstWeekdayJa_();
-    const rank = (c) => (normalizeWeekdayCell_(c.weekday) === today ? 0 : 1);
+    const wdOrder = { "月":0, "火":1, "水":2, "木":3, "金":4, "土":5, "日":6 };
+
+    const orderKey = (c) => {
+      const wd = normalizeWeekdayCell_(c.weekday);
+      const isToday = (wd && wd === today) ? 0 : 1;                 // 今日を最優先
+      const dayRank = (wd in wdOrder) ? wdOrder[wd] : 999;          // 月→…→日、それ以外は最後
+      return { isToday, dayRank, wd };
+    };
 
     return (classes || [])
       .map((c, i) => ({...c, __i:i}))
       .sort((a, b) => {
-        const ra = rank(a), rb = rank(b);
-        if (ra !== rb) return ra - rb;
+        const ka = orderKey(a);
+        const kb = orderKey(b);
 
+        if (ka.isToday !== kb.isToday) return ka.isToday - kb.isToday;
+        if (ka.dayRank !== kb.dayRank) return ka.dayRank - kb.dayRank;
+
+        // 同曜日内は名前で安定ソート（日本語）
         const an = String(a.name || "");
         const bn = String(b.name || "");
         if (an && bn) {
@@ -443,18 +466,22 @@
       left.appendChild(name);
       left.appendChild(meta);
 
-      const dot = document.createElement("div");
-      dot.className = "dot";
-
-      card.appendChild(left);
-      card.appendChild(dot);
+      const right = document.createElement("div");
+      right.className = "rightWrap";
 
       if (isToday) {
         const badge = document.createElement("div");
         badge.className = "todayBadge";
         badge.textContent = "今日";
-        card.appendChild(badge);
+        right.appendChild(badge);
       }
+
+      const dot = document.createElement("div");
+      dot.className = "dot";
+      right.appendChild(dot);
+
+      card.appendChild(left);
+      card.appendChild(right);
 
       card.addEventListener("click", () => {
         hideBanner();
