@@ -2,217 +2,671 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SoL チェックイン</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>SoL Check-in</title>
 
-  <!-- LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial;
-      background: #f7f7f9;
-      margin: 0;
-      padding: 16px;
+    :root{
+      --bg0:#06070a;
+      --bg1:#0b0d12;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.035);
+      --line: rgba(255,255,255,.10);
+      --text:#eaf0ff;
+      --muted:#a9b4d0;
+      --accent:#7c5cff;
+      --accent2:#2dd4bf;
+      --danger:#ff4d6d;
+      --ok:#22c55e;
+      --radius: 18px;
+      --shadow: 0 24px 80px rgba(0,0,0,.55);
     }
 
-    .card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 20px;
-      max-width: 420px;
-      margin: 0 auto;
-      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      min-height:100vh;
+      color:var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background:
+        radial-gradient(1200px 700px at 10% -10%, rgba(124,92,255,.38), transparent 55%),
+        radial-gradient(900px 600px at 90% 0%, rgba(45,212,191,.20), transparent 55%),
+        radial-gradient(700px 500px at 50% 110%, rgba(124,92,255,.16), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      padding: calc(14px + env(safe-area-inset-top)) 14px calc(22px + env(safe-area-inset-bottom));
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
     }
 
-    h2 {
-      text-align: center;
-      margin: 0 0 12px;
-    }
+    .wrap{ width: min(520px, 100%); }
 
-    .muted {
-      text-align: center;
+    /* top brand */
+    .brand{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      margin: 4px 2px 12px;
+    }
+    .brandLeft{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .logo{
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--line);
+      box-shadow: 0 12px 28px rgba(0,0,0,.25);
+      overflow:hidden;
+      flex: 0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .logo img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .brandText{ min-width: 0; }
+    .brandText .title{
+      margin:0;
+      font-size: 18px;
+      font-weight: 860;
+      letter-spacing:.2px;
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .brandText .subtitle{
+      margin:2px 0 0;
       font-size: 12px;
-      color: #777;
-      margin-bottom: 16px;
+      color: rgba(169,180,208,.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    label {
-      font-size: 14px;
-      display: block;
-      margin-bottom: 6px;
+    .pill{
+      font-size: 12px;
+      color: var(--muted);
+      border:1px solid var(--line);
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.03);
+      flex: 0 0 auto;
     }
 
-    select, input {
-      width: 100%;
-      font-size: 16px;
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
+    /* card */
+    .card{
+      background: linear-gradient(180deg, var(--card), var(--card2));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .cardHeader{
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.02);
+    }
+    .cardHeader h2{
+      margin:0 0 6px;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing:.2px;
+    }
+    .cardHeader p{
+      margin:0;
+      font-size: 12px;
+      color: rgba(169,180,208,.92);
+      line-height: 1.55;
+    }
+    .content{ padding: 16px 18px 18px; }
+
+    /* banners */
+    .banner{
+      display:none;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      padding: 12px 12px;
+      border-radius: 14px;
       margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .banner.show{ display:block; }
+    .banner.danger{
+      border-color: rgba(255,77,109,.38);
+      background: rgba(255,77,109,.10);
+      color: #ffd3dc;
+    }
+    .banner.ok{
+      border-color: rgba(34,197,94,.35);
+      background: rgba(34,197,94,.10);
+      color: #d8ffe7;
     }
 
-    button {
-      width: 100%;
+    /* subtle helper banner for external browser */
+    .hintBanner{
+      display:none;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.04);
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 12px;
+      color: rgba(169,180,208,.95);
+      line-height: 1.5;
+    }
+    .hintBanner.show{ display:block; }
+
+    /* loading */
+    .loading{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding: 14px 14px;
+      border-radius: 14px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      color: rgba(169,180,208,.90);
+      font-size: 13px;
+    }
+    .spinner{
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,.18);
+      border-top-color: rgba(255,255,255,.8);
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+      flex: 0 0 auto;
+    }
+    @keyframes spin{ to{ transform: rotate(360deg); } }
+
+    label{
+      display:block;
+      font-size: 12px;
+      color: rgba(169,180,208,.95);
+      margin: 10px 2px 6px;
+    }
+
+    /* class cards */
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    @media (min-width: 420px){
+      .grid{ grid-template-columns: 1fr 1fr; }
+    }
+    .classCard{
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      border-radius: 16px;
+      padding: 12px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .15s ease, background .15s ease;
+      user-select:none;
+    }
+    .classCard:active{ transform: translateY(1px); }
+    .className{
+      font-size: 15px;
+      font-weight: 780;
+      letter-spacing:.1px;
+      line-height: 1.2;
+    }
+    .classMeta{
+      font-size: 12px;
+      color: rgba(169,180,208,.85);
+      margin-top: 2px;
+    }
+    .dot{
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.22);
+      background: rgba(255,255,255,.06);
+      flex: 0 0 auto;
+    }
+    .classCard.selected{
+      border-color: rgba(124,92,255,.55);
+      background: linear-gradient(135deg, rgba(124,92,255,.22), rgba(45,212,191,.12));
+      box-shadow: 0 12px 30px rgba(124,92,255,.10);
+    }
+    .classCard.selected .dot{
+      border-color: rgba(255,255,255,.22);
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+    }
+
+    /* phone */
+    .field{
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 12px;
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .field input{
+      width:100%;
+      border:0;
+      outline:none;
+      background: transparent;
+      color: var(--text);
       font-size: 16px;
-      padding: 14px;
-      border-radius: 12px;
-      border: none;
-      background: #111;
-      color: #fff;
-      cursor: pointer;
+    }
+    .field input::placeholder{ color: rgba(169,180,208,.65); }
+    .hint{
+      font-size: 12px;
+      color: rgba(169,180,208,.80);
+      margin-top: 6px;
     }
 
-    button:disabled {
-      background: #aaa;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .success {
-      text-align: center;
+    /* button */
+    .btn{
+      width:100%;
+      margin-top: 14px;
+      border:0;
+      border-radius: 16px;
+      padding: 14px 14px;
       font-size: 16px;
-      color: #0a7a2f;
+      font-weight: 880;
+      color: #0b0d12;
+      cursor:pointer;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 14px 40px rgba(124,92,255,.22);
+      transition: transform .08s ease, filter .15s ease, opacity .15s ease;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      filter: grayscale(.15);
     }
 
-    .spinner {
-      text-align: center;
-      padding: 20px;
-      color: #666;
-      font-size: 14px;
+    .metaRow{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      margin-top: 12px;
+    }
+    .mini{
+      font-size: 12px;
+      color: rgba(169,180,208,.78);
+      max-width: 70%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* success */
+    .successView{
+      display:none;
+      text-align:center;
+      padding: 18px 18px 20px;
+    }
+    .successView.show{ display:block; }
+    .check{
+      width: 58px;
+      height: 58px;
+      margin: 4px auto 10px;
+      border-radius: 18px;
+      background: rgba(34,197,94,.14);
+      border: 1px solid rgba(34,197,94,.25);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color: #b9ffd4;
+      font-size: 30px;
+      font-weight: 900;
+    }
+    .successView h3{
+      margin: 6px 0 6px;
+      font-size: 18px;
+      letter-spacing:.2px;
+      font-weight: 900;
+    }
+    .successView p{
+      margin: 0;
+      color: rgba(169,180,208,.92);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .countdown{
+      margin-top: 10px;
+      font-size: 12px;
+      color: rgba(169,180,208,.85);
+    }
+
+    .footer{
+      text-align:center;
+      margin-top: 12px;
+      font-size: 12px;
+      color: rgba(169,180,208,.72);
     }
   </style>
 </head>
 
 <body>
-  <div class="card">
-    <h2>SoL チェックイン</h2>
-    <div class="muted">LINEアプリ内で開いてください</div>
-
-    <div id="loading" class="spinner">読み込み中…</div>
-
-    <div id="form" class="hidden">
-      <label>受講クラス</label>
-      <select id="classSelect">
-        <option value="">-- 選択してください --</option>
-      </select>
-
-      <div id="phoneWrap" class="hidden">
-        <label>電話番号（初回のみ・ハイフンなし）</label>
-        <input id="phoneInput" type="tel" inputmode="numeric" placeholder="090xxxxxxxx" />
+  <div class="wrap">
+    <div class="brand">
+      <div class="brandLeft">
+        <div class="logo">
+          <img src="./logo.png" alt="SoL logo" />
+        </div>
+        <div class="brandText">
+          <p class="title">SoL Check-in</p>
+          <p class="subtitle">SoL Dance Community</p>
+        </div>
       </div>
-
-      <button id="checkinBtn" onclick="checkin()">チェックイン</button>
+      <div class="pill">Check-in</div>
     </div>
 
-    <div id="result" class="hidden"></div>
+    <div class="card">
+      <div class="cardHeader">
+        <h2>チェックイン</h2>
+        <p>受講クラスを選んでチェックイン。初回のみ電話番号（ハイフンなし）で会員連携します。</p>
+      </div>
+
+      <div class="content">
+        <!-- 外部ブラウザのときだけ表示 -->
+        <div id="externalHint" class="hintBanner">
+          外部ブラウザから開かれています。LINEアプリ内で開くとスムーズにチェックインできます。
+        </div>
+
+        <div id="banner" class="banner"></div>
+
+        <div id="loadingBox" class="loading">
+          <div class="spinner"></div>
+          <div>読み込み中…</div>
+        </div>
+
+        <div id="formBox" style="display:none;">
+          <label>受講クラス（タップで選択）</label>
+          <div id="classGrid" class="grid"></div>
+
+          <div id="phoneWrap" style="display:none; margin-top: 14px;">
+            <label>電話番号（初回のみ）</label>
+            <div class="field">
+              <input id="phoneInput" type="tel" inputmode="numeric" placeholder="090xxxxxxxx" />
+            </div>
+            <div class="hint">会員登録時の「緊急連絡先」と一致する必要があります。</div>
+          </div>
+
+          <button id="checkinBtn" class="btn" onclick="checkin()" disabled>チェックイン</button>
+
+          <div class="metaRow">
+            <div class="mini" id="subInfo"></div>
+            <div class="mini" id="netInfo"></div>
+          </div>
+        </div>
+
+        <div id="successView" class="successView">
+          <div class="check">✓</div>
+          <h3>チェックイン完了</h3>
+          <p id="successMsg">スタンプを付与します…</p>
+          <div class="countdown" id="countdown"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">© SoL Dance Community</div>
   </div>
 
 <script>
-  /* ===== 設定 ===== */
-  const LIFF_ID = "2008938862-AlepUDEH";
-  const API_URL = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";
+  /* ====== 設定（必ず差し替え） ====== */
+  const LIFF_ID   = "2008938862-AlepUDEH";
+  const API_URL   = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";     // 例: https://script.google.com/macros/s/XXXX/exec
   const API_TOKEN = "sol_checkin_2026_144025036146";
+  const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0"; // ←あなたが見つけたリンク
+  /* =================================== */
 
-  const SHOP_CARD_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
-  const REDIRECT_DELAY = 2500;
-  /* ================= */
+  const REDIRECT_DELAY_MS = 2500;
+  const JSONP_TIMEOUT_MS  = 20000;
 
   let LINE_USER_ID = "";
   let LINE_DISPLAY_NAME = "";
+  let SELECTED_CLASS = null; // {id, name}
 
-  function $(id){ return document.getElementById(id); }
+  const $ = (id) => document.getElementById(id);
+
+  function showBanner(text, type){
+    const el = $("banner");
+    el.className = "banner show" + (type ? " " + type : "");
+    el.textContent = text;
+  }
+  function hideBanner(){
+    const el = $("banner");
+    el.className = "banner";
+    el.textContent = "";
+  }
 
   async function jsonp(url){
     return new Promise((resolve, reject) => {
       const cb = "cb_" + Math.random().toString(36).slice(2);
-      window[cb] = data => {
-        delete window[cb];
-        script.remove();
-        resolve(data);
-      };
       const script = document.createElement("script");
-      script.src = url + "&callback=" + cb;
-      script.onerror = () => reject();
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error("JSONP timeout"));
+      }, JSONP_TIMEOUT_MS);
+
+      function cleanup(){
+        clearTimeout(timer);
+        try { delete window[cb]; } catch(e) {}
+        if (script && script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      window[cb] = (data) => { cleanup(); resolve(data); };
+
+      const sep = url.includes("?") ? "&" : "?";
+      script.src = url + sep + "callback=" + cb;
+      script.onerror = () => { cleanup(); reject(new Error("JSONP load error")); };
       document.body.appendChild(script);
     });
   }
 
+  function normalizePhone(s){
+    return String(s || "").replace(/[^\d]/g, "");
+  }
+
+  function setBusy(busy){
+    $("checkinBtn").disabled = !!busy;
+    const cards = document.querySelectorAll(".classCard");
+    cards.forEach(c => c.style.pointerEvents = busy ? "none" : "auto");
+  }
+
+  function setSelectedClass(id, name){
+    SELECTED_CLASS = { id, name };
+
+    document.querySelectorAll(".classCard").forEach(el => {
+      el.classList.toggle("selected", el.dataset.classId === id);
+    });
+
+    // クラスが選ばれたらボタン活性化（ただし送信中は除く）
+    $("checkinBtn").disabled = false;
+  }
+
+  function renderClasses(classes){
+    const grid = $("classGrid");
+    grid.innerHTML = "";
+
+    if (!classes || classes.length === 0){
+      showBanner("現在選択できるクラスがありません。", "danger");
+      return;
+    }
+
+    classes.forEach(c => {
+      const card = document.createElement("div");
+      card.className = "classCard";
+      card.dataset.classId = String(c.id);
+
+      const left = document.createElement("div");
+      const name = document.createElement("div");
+      name.className = "className";
+      name.textContent = c.name;
+
+      const meta = document.createElement("div");
+      meta.className = "classMeta";
+      meta.textContent = "タップして選択";
+
+      left.appendChild(name);
+      left.appendChild(meta);
+
+      const dot = document.createElement("div");
+      dot.className = "dot";
+
+      card.appendChild(left);
+      card.appendChild(dot);
+
+      card.addEventListener("click", () => {
+        hideBanner();
+        setSelectedClass(String(c.id), String(c.name));
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  function showSuccess(message){
+    $("formBox").style.display = "none";
+    $("loadingBox").style.display = "none";
+    $("successView").classList.add("show");
+    $("successMsg").textContent = message || "スタンプを付与します…";
+  }
+
+  function openStamp(){
+    try {
+      liff.openWindow({ url: STAMP_URL, external: false });
+    } catch(e) {
+      window.location.href = STAMP_URL;
+    }
+  }
+
+  function startCountdown(ms){
+    const el = $("countdown");
+    if (!el) return;
+
+    const start = Date.now();
+    const tick = () => {
+      const remain = Math.max(0, ms - (Date.now() - start));
+      const sec = Math.ceil(remain / 1000);
+      el.textContent = sec > 0 ? `${sec}秒後にスタンプ付与へ` : "移動します…";
+      if (remain > 0) requestAnimationFrame(tick);
+    };
+    tick();
+  }
+
   async function init(){
+    hideBanner();
+
+    $("netInfo").textContent = navigator.onLine ? "online" : "offline";
+
+    // LIFF init
     await liff.init({ liffId: LIFF_ID });
+
+    // 外部ブラウザ判定：LINEアプリ内でないときだけ表示
+    if (!liff.isInClient()) {
+      $("externalHint").classList.add("show");
+    }
 
     if (!liff.isLoggedIn()) {
       liff.login();
       return;
     }
 
-    const profile = await liff.getProfile();
+    // profile と classes を並列（体感短縮）
+    const profilePromise = liff.getProfile();
+    const classesPromise = jsonp(`${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`);
+
+    const profile = await profilePromise;
     LINE_USER_ID = profile.userId;
     LINE_DISPLAY_NAME = profile.displayName || "";
 
-    const clsRes = await jsonp(
-      `${API_URL}?api=classes&token=${API_TOKEN}`
-    );
+    const clsRes = await classesPromise;
+    if (!clsRes || clsRes.status !== "success") {
+      throw new Error(clsRes && clsRes.message ? clsRes.message : "classes load failed");
+    }
 
-    clsRes.classes.forEach(c => {
-      const o = document.createElement("option");
-      o.value = c.id;
-      o.textContent = c.name;
-      $("classSelect").appendChild(o);
-    });
+    renderClasses(clsRes.classes || []);
 
-    $("loading").classList.add("hidden");
-    $("form").classList.remove("hidden");
+    $("loadingBox").style.display = "none";
+    $("formBox").style.display = "block";
+
+    $("subInfo").textContent = LINE_DISPLAY_NAME ? `@${LINE_DISPLAY_NAME}` : "";
+    $("checkinBtn").disabled = true; // クラス選択するまで無効
   }
 
   async function checkin(){
-    const classId = $("classSelect").value;
-    if (!classId) return alert("クラスを選択してください");
+    hideBanner();
 
-    const phone = $("phoneInput").value.replace(/[^\d]/g,"");
-
-    $("checkinBtn").disabled = true;
-
-    const url =
-      `${API_URL}?api=checkin` +
-      `&token=${API_TOKEN}` +
-      `&userId=${encodeURIComponent(LINE_USER_ID)}` +
-      `&displayName=${encodeURIComponent(LINE_DISPLAY_NAME)}` +
-      `&classId=${encodeURIComponent(classId)}` +
-      `&className=${encodeURIComponent($("classSelect").selectedOptions[0].text)}` +
-      (phone ? `&phone=${phone}` : "");
-
-    const res = await jsonp(url);
-
-    if (res.status === "need_phone") {
-      $("phoneWrap").classList.remove("hidden");
-      $("checkinBtn").disabled = false;
+    if (!SELECTED_CLASS || !SELECTED_CLASS.id) {
+      showBanner("クラスを選択してください。", "danger");
       return;
     }
 
-    if (res.status !== "success") {
-      alert(res.message || "エラーが発生しました");
-      $("checkinBtn").disabled = false;
-      return;
-    }
+    const phone = normalizePhone($("phoneInput").value);
 
-    $("form").classList.add("hidden");
-    $("result").classList.remove("hidden");
-    $("result").innerHTML = `<div class="success">チェックイン完了！<br>ショップカードを開きます…</div>`;
+    setBusy(true);
 
-    setTimeout(() => {
-      try {
-        liff.openWindow({ url: SHOP_CARD_URL, external: false });
-      } catch(e) {
-        window.location.href = SHOP_CARD_URL;
+    try {
+      const url =
+        `${API_URL}?api=checkin` +
+        `&token=${encodeURIComponent(API_TOKEN)}` +
+        `&userId=${encodeURIComponent(LINE_USER_ID)}` +
+        `&displayName=${encodeURIComponent(LINE_DISPLAY_NAME)}` +
+        `&classId=${encodeURIComponent(SELECTED_CLASS.id)}` +
+        `&className=${encodeURIComponent(SELECTED_CLASS.name)}` +
+        (phone ? `&phone=${encodeURIComponent(phone)}` : "");
+
+      const res = await jsonp(url);
+
+      if (res && res.status === "need_phone") {
+        $("phoneWrap").style.display = "block";
+        showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "");
+        setBusy(false);
+        return;
       }
-    }, REDIRECT_DELAY);
+
+      if (!res || res.status !== "success") {
+        const msg = (res && res.message) ? res.message : "エラーが発生しました。";
+        showBanner(msg, "danger");
+        setBusy(false);
+        return;
+      }
+
+      // 成功 → 2.5秒後にスタンプ付与へ（ユーザー操作なしで付与まで行く想定）
+      showSuccess("スタンプを付与します…");
+      startCountdown(REDIRECT_DELAY_MS);
+
+      setTimeout(() => {
+        openStamp();
+      }, REDIRECT_DELAY_MS);
+
+    } catch (err) {
+      showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
+      setBusy(false);
+      console.error(err);
+    }
   }
 
-  init().catch(() => {
-    $("loading").textContent = "初期化に失敗しました";
+  init().catch(err => {
+    $("loadingBox").style.display = "none";
+    $("formBox").style.display = "none";
+    showBanner("起動に失敗しました。", "danger");
+    console.error(err);
   });
 </script>
 </body>
