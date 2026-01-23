@@ -4,31 +4,21 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>SoL 受講手続き</title>
-
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
     :root{
-      --bg0:#06070a;
-      --bg1:#0b0d12;
-      --card: rgba(255,255,255,.06);
-      --card2: rgba(255,255,255,.035);
+      --bg0:#06070a; --bg1:#0b0d12;
+      --card: rgba(255,255,255,.06); --card2: rgba(255,255,255,.035);
       --line: rgba(255,255,255,.10);
-      --text:#eaf0ff;
-      --muted:#a9b4d0;
-      --accent:#7c5cff;
-      --accent2:#2dd4bf;
-      --danger:#ff4d6d;
-      --ok:#22c55e;
-      --radius: 18px;
-      --shadow: 0 24px 80px rgba(0,0,0,.55);
+      --text:#eaf0ff; --muted:#a9b4d0;
+      --accent:#7c5cff; --accent2:#2dd4bf;
+      --danger:#ff4d6d; --ok:#22c55e;
+      --radius: 18px; --shadow: 0 24px 80px rgba(0,0,0,.55);
     }
-
     *{ box-sizing:border-box; }
     body{
-      margin:0;
-      min-height:100vh;
-      color:var(--text);
+      margin:0; min-height:100vh; color:var(--text);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
       background:
         radial-gradient(1200px 700px at 10% -10%, rgba(124,92,255,.38), transparent 55%),
@@ -36,327 +26,130 @@
         radial-gradient(700px 500px at 50% 110%, rgba(124,92,255,.16), transparent 60%),
         linear-gradient(180deg, var(--bg0), var(--bg1));
       padding: calc(14px + env(safe-area-inset-top)) 14px calc(22px + env(safe-area-inset-bottom));
-      display:flex;
-      justify-content:center;
-      align-items:flex-start;
+      display:flex; justify-content:center; align-items:flex-start;
     }
-
     .wrap{ width: min(520px, 100%); }
 
-    /* top brand */
-    .brand{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 12px;
-      margin: 4px 2px 12px;
-    }
-    .brandLeft{
-      display:flex;
-      align-items:center;
-      gap: 10px;
-      min-width: 0;
-    }
+    .brand{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin: 4px 2px 12px; }
+    .brandLeft{ display:flex; align-items:center; gap:10px; min-width:0; }
     .logo{
-      width: 42px;
-      height: 42px;
-      border-radius: 14px;
+      width:42px; height:42px; border-radius:14px; overflow:hidden; flex:0 0 auto;
       background: rgba(255,255,255,.04);
       border: 1px solid var(--line);
       box-shadow: 0 12px 28px rgba(0,0,0,.25);
-      overflow:hidden;
-      flex: 0 0 auto;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      display:flex; align-items:center; justify-content:center;
     }
     .logo img{ width:100%; height:100%; object-fit:cover; display:block; }
-    .brandText{ min-width: 0; }
-    .brandText .title{
-      margin:0;
-      font-size: 18px;
-      font-weight: 860;
-      letter-spacing:.2px;
-      line-height: 1.15;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .brandText .subtitle{
-      margin:2px 0 0;
-      font-size: 12px;
-      color: rgba(169,180,208,.85);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    .brandText{ min-width:0; }
+    .brandText .title{ margin:0; font-size:18px; font-weight:900; letter-spacing:.2px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .brandText .subtitle{ margin:2px 0 0; font-size:12px; color:rgba(169,180,208,.85); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pill{ font-size:12px; color:var(--muted); border:1px solid var(--line); padding:7px 10px; border-radius:999px; background: rgba(255,255,255,.03); }
 
-    .pill{
-      font-size: 12px;
-      color: var(--muted);
-      border:1px solid var(--line);
-      padding: 7px 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.03);
-      flex: 0 0 auto;
-    }
+    .card{ background: linear-gradient(180deg, var(--card), var(--card2)); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .cardHeader{ padding:18px 18px 14px; border-bottom:1px solid var(--line); background: rgba(255,255,255,.02); }
+    .cardHeader h2{ margin:0 0 6px; font-size:20px; font-weight:900; letter-spacing:.2px; }
+    .cardHeader p{ margin:0; font-size:12px; color:rgba(169,180,208,.92); line-height:1.55; }
+    .content{ padding:16px 18px 18px; }
 
-    /* card */
-    .card{
-      background: linear-gradient(180deg, var(--card), var(--card2));
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow:hidden;
-    }
-    .cardHeader{
-      padding: 18px 18px 14px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(255,255,255,.02);
-    }
-    .cardHeader h2{
-      margin:0 0 6px;
-      font-size: 20px;
-      font-weight: 900;
-      letter-spacing:.2px;
-    }
-    .cardHeader p{
-      margin:0;
-      font-size: 12px;
-      color: rgba(169,180,208,.92);
-      line-height: 1.55;
-    }
-    .content{ padding: 16px 18px 18px; }
-
-    /* banners */
     .banner{
-      display:none;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.03);
-      padding: 12px 12px;
-      border-radius: 14px;
-      margin-bottom: 12px;
-      font-size: 13px;
-      line-height: 1.45;
+      display:none; border: 1px solid var(--line); background: rgba(255,255,255,.03);
+      padding: 12px 12px; border-radius: 14px; margin-bottom: 12px;
+      font-size: 13px; line-height: 1.45;
     }
     .banner.show{ display:block; }
-    .banner.danger{
-      border-color: rgba(255,77,109,.38);
-      background: rgba(255,77,109,.10);
-      color: #ffd3dc;
-    }
-    .banner.ok{
-      border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.10);
-      color: #d8ffe7;
-    }
+    .banner.danger{ border-color: rgba(255,77,109,.38); background: rgba(255,77,109,.10); color:#ffd3dc; }
 
-    /* subtle helper banner for external browser */
     .hintBanner{
-      display:none;
-      margin-bottom: 12px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.04);
-      padding: 10px 12px;
-      border-radius: 14px;
-      font-size: 12px;
-      color: rgba(169,180,208,.95);
-      line-height: 1.5;
+      display:none; margin-bottom:12px; border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.04); padding:10px 12px; border-radius:14px;
+      font-size:12px; color:rgba(169,180,208,.95); line-height:1.5;
     }
     .hintBanner.show{ display:block; }
 
-    /* loading */
-    .loading{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding: 14px 14px;
-      border-radius: 14px;
+    label{ display:block; font-size:12px; color:rgba(169,180,208,.95); margin: 10px 2px 6px; }
+
+    .grid{ display:grid; grid-template-columns: 1fr; gap:10px; margin-top:8px; }
+    @media (min-width: 420px){ .grid{ grid-template-columns: 1fr 1fr; } }
+
+    .classCard{
       border:1px solid var(--line);
       background: rgba(255,255,255,.03);
-      color: rgba(169,180,208,.90);
-      font-size: 13px;
-    }
-    .spinner{
-      width: 18px;
-      height: 18px;
-      border: 2px solid rgba(255,255,255,.18);
-      border-top-color: rgba(255,255,255,.8);
-      border-radius: 50%;
-      animation: spin 0.85s linear infinite;
-      flex: 0 0 auto;
-    }
-    @keyframes spin{ to{ transform: rotate(360deg); } }
-
-    label{
-      display:block;
-      font-size: 12px;
-      color: rgba(169,180,208,.95);
-      margin: 10px 2px 6px;
-    }
-
-    /* class cards */
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      margin-top: 8px;
-    }
-    @media (min-width: 420px){
-      .grid{ grid-template-columns: 1fr 1fr; }
-    }
-    .classCard{
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,.03);
-      border-radius: 16px;
-      padding: 12px 12px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-      cursor:pointer;
+      border-radius:16px;
+      padding:12px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      cursor:pointer; user-select:none;
       transition: transform .08s ease, border-color .15s ease, background .15s ease;
-      user-select:none;
     }
     .classCard:active{ transform: translateY(1px); }
-    .className{
-      font-size: 15px;
-      font-weight: 780;
-      letter-spacing:.1px;
-      line-height: 1.2;
-    }
-    .classMeta{
-      font-size: 12px;
-      color: rgba(169,180,208,.85);
-      margin-top: 2px;
-    }
+    .className{ font-size:15px; font-weight:800; letter-spacing:.1px; line-height:1.2; }
+    .classMeta{ font-size:12px; color:rgba(169,180,208,.85); margin-top:2px; }
     .dot{
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.22);
-      background: rgba(255,255,255,.06);
-      flex: 0 0 auto;
+      width:10px; height:10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06);
+      flex:0 0 auto;
     }
     .classCard.selected{
       border-color: rgba(124,92,255,.55);
       background: linear-gradient(135deg, rgba(124,92,255,.22), rgba(45,212,191,.12));
       box-shadow: 0 12px 30px rgba(124,92,255,.10);
     }
-    .classCard.selected .dot{
-      border-color: rgba(255,255,255,.22);
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-    }
+    .classCard.selected .dot{ background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: rgba(255,255,255,.22); }
 
-    /* phone */
     .field{
       background: rgba(255,255,255,.03);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 12px 12px;
-      display:flex;
-      align-items:center;
-      gap: 10px;
-      margin-top: 8px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+      display:flex; align-items:center; gap:10px;
+      margin-top:8px;
     }
     .field input{
-      width:100%;
-      border:0;
-      outline:none;
-      background: transparent;
-      color: var(--text);
-      font-size: 16px;
+      width:100%; border:0; outline:none; background:transparent;
+      color:var(--text); font-size:16px;
     }
     .field input::placeholder{ color: rgba(169,180,208,.65); }
-    .hint{
-      font-size: 12px;
-      color: rgba(169,180,208,.80);
-      margin-top: 6px;
-    }
+    .hint{ font-size:12px; color:rgba(169,180,208,.80); margin-top:6px; }
 
-    /* button */
     .btn{
-      width:100%;
-      margin-top: 14px;
-      border:0;
-      border-radius: 16px;
-      padding: 14px 14px;
-      font-size: 16px;
-      font-weight: 880;
-      color: #0b0d12;
-      cursor:pointer;
+      width:100%; margin-top:14px; border:0; border-radius:16px; padding:14px;
+      font-size:16px; font-weight:900; color:#0b0d12; cursor:pointer;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       box-shadow: 0 14px 40px rgba(124,92,255,.22);
-      transition: transform .08s ease, filter .15s ease, opacity .15s ease;
+      transition: transform .08s ease, opacity .15s ease;
     }
     .btn:active{ transform: translateY(1px); }
-    .btn:disabled{
-      opacity:.55;
-      cursor:not-allowed;
-      filter: grayscale(.15);
-    }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
 
-    .metaRow{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      justify-content:space-between;
-      margin-top: 12px;
-    }
-    .mini{
-      font-size: 12px;
-      color: rgba(169,180,208,.78);
-      max-width: 70%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    .metaRow{ display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:12px; }
+    .mini{ font-size:12px; color:rgba(169,180,208,.78); max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-    /* success */
-    .successView{
-      display:none;
-      text-align:center;
-      padding: 18px 18px 20px;
+    /* mini loader line (体感改善：画面を占有しない) */
+    .miniLoad{
+      display:flex; align-items:center; gap:8px;
+      font-size:12px; color:rgba(169,180,208,.85);
+      margin: 10px 2px 0;
     }
+    .miniSpin{
+      width:14px; height:14px; border-radius:50%;
+      border:2px solid rgba(255,255,255,.18);
+      border-top-color: rgba(255,255,255,.8);
+      animation: spin .85s linear infinite;
+    }
+    @keyframes spin{ to{ transform: rotate(360deg); } }
+
+    .successView{ display:none; text-align:center; padding: 18px 18px 20px; }
     .successView.show{ display:block; }
     .check{
-      width: 58px;
-      height: 58px;
-      margin: 4px auto 10px;
-      border-radius: 18px;
-      background: rgba(34,197,94,.14);
-      border: 1px solid rgba(34,197,94,.25);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      color: #b9ffd4;
-      font-size: 30px;
-      font-weight: 900;
+      width:58px; height:58px; margin:4px auto 10px; border-radius:18px;
+      background: rgba(34,197,94,.14); border:1px solid rgba(34,197,94,.25);
+      display:flex; align-items:center; justify-content:center;
+      color:#b9ffd4; font-size:30px; font-weight:900;
     }
-    .successView h3{
-      margin: 6px 0 6px;
-      font-size: 18px;
-      letter-spacing:.2px;
-      font-weight: 900;
-    }
-    .successView p{
-      margin: 0;
-      color: rgba(169,180,208,.92);
-      font-size: 13px;
-      line-height: 1.55;
-    }
-    .countdown{
-      margin-top: 10px;
-      font-size: 12px;
-      color: rgba(169,180,208,.85);
-    }
+    .successView h3{ margin:6px 0 6px; font-size:18px; letter-spacing:.2px; font-weight:900; }
+    .successView p{ margin:0; color:rgba(169,180,208,.92); font-size:13px; line-height:1.55; }
+    .countdown{ margin-top:10px; font-size:12px; color:rgba(169,180,208,.85); }
 
-    .footer{
-      text-align:center;
-      margin-top: 12px;
-      font-size: 12px;
-      color: rgba(169,180,208,.72);
-    }
+    .footer{ text-align:center; margin-top:12px; font-size:12px; color:rgba(169,180,208,.72); }
   </style>
 </head>
 
@@ -364,9 +157,7 @@
   <div class="wrap">
     <div class="brand">
       <div class="brandLeft">
-        <div class="logo">
-          <img src="./logo.png" alt="SoL logo" />
-        </div>
+        <div class="logo"><img src="./logo.png" alt="SoL logo" /></div>
         <div class="brandText">
           <p class="title">Lesson Check-in</p>
           <p class="subtitle">SoL Dance Community</p>
@@ -382,16 +173,16 @@
       </div>
 
       <div class="content">
-        <!-- 外部ブラウザのときだけ表示 -->
         <div id="externalHint" class="hintBanner">
           外部ブラウザから開かれています。LINEアプリ内で開くとスムーズにチェックインできます。
         </div>
 
         <div id="banner" class="banner"></div>
 
-        <div id="loadingBox" class="loading">
-          <div class="spinner"></div>
-          <div>読み込み中…</div>
+        <!-- 体感改善：画面を占有しないミニローダー -->
+        <div id="miniLoading" class="miniLoad" style="display:none;">
+          <div class="miniSpin"></div>
+          <div id="miniLoadingText">同期中…</div>
         </div>
 
         <div id="formBox" style="display:none;">
@@ -429,17 +220,21 @@
 <script>
   /* ====== 設定（必ず差し替え） ====== */
   const LIFF_ID   = "2008938862-AlepUDEH";
-  const API_URL   = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";     // 例: https://script.google.com/macros/s/XXXX/exec
+  const API_URL   = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";
   const API_TOKEN = "sol_checkin_2026_144025036146";
-  const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0"; // ←あなたが見つけたリンク
+  const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
   const REDIRECT_DELAY_MS = 2500;
-  const JSONP_TIMEOUT_MS  = 20000;
+  const JSONP_TIMEOUT_MS  = 16000; // ここは短めの方が体感が良いことが多い
+
+  // キャッシュ設定
+  const CLASSES_CACHE_KEY = "sol_classes_cache_v1";
+  const CLASSES_CACHE_TTL_MS = 10 * 60 * 1000; // 10分（運用で調整可）
 
   let LINE_USER_ID = "";
   let LINE_DISPLAY_NAME = "";
-  let SELECTED_CLASS = null; // {id, name}
+  let SELECTED_CLASS = null;
 
   const $ = (id) => document.getElementById(id);
 
@@ -454,7 +249,15 @@
     el.textContent = "";
   }
 
-  async function jsonp(url){
+  function showMiniLoading(text){
+    $("miniLoadingText").textContent = text || "同期中…";
+    $("miniLoading").style.display = "flex";
+  }
+  function hideMiniLoading(){
+    $("miniLoading").style.display = "none";
+  }
+
+  function jsonp(url){
     return new Promise((resolve, reject) => {
       const cb = "cb_" + Math.random().toString(36).slice(2);
       const script = document.createElement("script");
@@ -490,16 +293,13 @@
 
   function setSelectedClass(id, name){
     SELECTED_CLASS = { id, name };
-
     document.querySelectorAll(".classCard").forEach(el => {
       el.classList.toggle("selected", el.dataset.classId === id);
     });
-
-    // クラスが選ばれたらボタン活性化（ただし送信中は除く）
     $("checkinBtn").disabled = false;
   }
 
-  function renderClasses(classes){
+  function renderClasses(classes, metaLabel){
     const grid = $("classGrid");
     grid.innerHTML = "";
 
@@ -520,7 +320,7 @@
 
       const meta = document.createElement("div");
       meta.className = "classMeta";
-      meta.textContent = "タップして選択";
+      meta.textContent = metaLabel || "タップして選択";
 
       left.appendChild(name);
       left.appendChild(meta);
@@ -540,9 +340,31 @@
     });
   }
 
+  function saveClassesCache(classes){
+    try{
+      localStorage.setItem(CLASSES_CACHE_KEY, JSON.stringify({
+        ts: Date.now(),
+        classes: classes || []
+      }));
+    }catch(e){}
+  }
+
+  function loadClassesCache(){
+    try{
+      const raw = localStorage.getItem(CLASSES_CACHE_KEY);
+      if(!raw) return null;
+      const obj = JSON.parse(raw);
+      if(!obj || !obj.ts || !Array.isArray(obj.classes)) return null;
+      if(Date.now() - obj.ts > CLASSES_CACHE_TTL_MS) return null;
+      return obj.classes;
+    }catch(e){
+      return null;
+    }
+  }
+
   function showSuccess(message){
     $("formBox").style.display = "none";
-    $("loadingBox").style.display = "none";
+    hideMiniLoading();
     $("successView").classList.add("show");
     $("successMsg").textContent = message || "スタンプを付与します…";
   }
@@ -571,41 +393,50 @@
 
   async function init(){
     hideBanner();
-
     $("netInfo").textContent = navigator.onLine ? "online" : "offline";
 
-    // LIFF init
+    // 1) まずキャッシュがあれば即表示（体感最速）
+    const cached = loadClassesCache();
+    if (cached && cached.length){
+      $("formBox").style.display = "block";
+      renderClasses(cached, "前回の一覧（同期中）");
+      showMiniLoading("最新のクラス一覧を同期中…");
+    }else{
+      // キャッシュがない初回はフォーム枠だけ先に出す（空のままでも見た目は動く）
+      $("formBox").style.display = "block";
+      showMiniLoading("起動中…");
+    }
+
+    // 2) LIFF init（ここから本処理）
     await liff.init({ liffId: LIFF_ID });
 
-    // 外部ブラウザ判定：LINEアプリ内でないときだけ表示
-    if (!liff.isInClient()) {
-      $("externalHint").classList.add("show");
-    }
+    if (!liff.isInClient()) $("externalHint").classList.add("show");
 
     if (!liff.isLoggedIn()) {
       liff.login();
       return;
     }
 
-    // profile と classes を並列（体感短縮）
+    // 3) profile と classes を並列
     const profilePromise = liff.getProfile();
     const classesPromise = jsonp(`${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`);
 
     const profile = await profilePromise;
     LINE_USER_ID = profile.userId;
     LINE_DISPLAY_NAME = profile.displayName || "";
+    $("subInfo").textContent = LINE_DISPLAY_NAME ? `@${LINE_DISPLAY_NAME}` : "";
 
     const clsRes = await classesPromise;
     if (!clsRes || clsRes.status !== "success") {
       throw new Error(clsRes && clsRes.message ? clsRes.message : "classes load failed");
     }
 
-    renderClasses(clsRes.classes || []);
+    // 4) 最新で上書き表示 + キャッシュ保存
+    const classes = clsRes.classes || [];
+    renderClasses(classes, "タップして選択");
+    saveClassesCache(classes);
 
-    $("loadingBox").style.display = "none";
-    $("formBox").style.display = "block";
-
-    $("subInfo").textContent = LINE_DISPLAY_NAME ? `@${LINE_DISPLAY_NAME}` : "";
+    hideMiniLoading();
     $("checkinBtn").disabled = true; // クラス選択するまで無効
   }
 
@@ -620,6 +451,7 @@
     const phone = normalizePhone($("phoneInput").value);
 
     setBusy(true);
+    showMiniLoading("チェックイン送信中…");
 
     try {
       const url =
@@ -637,6 +469,7 @@
         $("phoneWrap").style.display = "block";
         showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "");
         setBusy(false);
+        hideMiniLoading();
         return;
       }
 
@@ -644,10 +477,10 @@
         const msg = (res && res.message) ? res.message : "エラーが発生しました。";
         showBanner(msg, "danger");
         setBusy(false);
+        hideMiniLoading();
         return;
       }
 
-      // 成功 → 2.5秒後にスタンプ付与へ（ユーザー操作なしで付与まで行く想定）
       showSuccess("スタンプを付与します…");
       startCountdown(REDIRECT_DELAY_MS);
 
@@ -658,13 +491,13 @@
     } catch (err) {
       showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
       setBusy(false);
+      hideMiniLoading();
       console.error(err);
     }
   }
 
   init().catch(err => {
-    $("loadingBox").style.display = "none";
-    $("formBox").style.display = "none";
+    hideMiniLoading();
     showBanner("起動に失敗しました。", "danger");
     console.error(err);
   });
