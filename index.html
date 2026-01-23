@@ -58,6 +58,8 @@
     }
     .banner.show{ display:block; }
     .banner.danger{ border-color: rgba(255,77,109,.38); background: rgba(255,77,109,.10); color:#ffd3dc; }
+    /* 追加：info（今日のクラス0件など、エラーではない案内） */
+    .banner.info{ border-color: rgba(169,180,208,.26); background: rgba(169,180,208,.08); color: rgba(234,240,255,.92); }
 
     .hintBanner{
       display:none; margin-bottom:12px; border:1px solid rgba(255,255,255,.14);
@@ -96,7 +98,7 @@
       padding:12px;
       display:flex; align-items:center; justify-content:space-between; gap:10px;
       cursor:pointer; user-select:none;
-      transition: transform .08s ease, border-color .15s ease, background .15s ease;
+      transition: transform .08s ease, border-color .15s ease, background .15s ease, opacity .15s ease;
       position: relative;
       overflow: hidden;
     }
@@ -166,6 +168,34 @@
       box-shadow: 0 10px 24px rgba(124,92,255,.14);
       line-height: 1;
       white-space: nowrap;
+    }
+
+    /* 追加：チェックイン済み「済」ラベル */
+    .doneBadge{
+      font-size:11px;
+      font-weight:900;
+      padding:5px 8px;
+      border-radius:999px;
+      color:#0b0d12;
+      background: rgba(34,197,94,.95);
+      box-shadow: 0 10px 24px rgba(34,197,94,.16);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    /* 追加：チェックイン済みカード（タップ不可） */
+    .classCard.done{
+      opacity: .55;
+      cursor: not-allowed;
+      transform: none !important;
+      border-color: rgba(34,197,94,.30);
+      background: rgba(255,255,255,.02);
+      box-shadow: none;
+    }
+    .classCard.done::before{ display:none; }
+    .classCard.done .dot{
+      background: rgba(34,197,94,.20);
+      border-color: rgba(34,197,94,.30);
     }
 
     .field{
@@ -241,7 +271,7 @@
     <div class="card">
       <div class="cardHeader">
         <h2>チェックイン</h2>
-        <p>受講クラスを選んでチェックイン。<br>初回のみ電話番号（ハイフンなし）で会員連携します。</p>
+        <p>受講クラスを選んでチェックイン。初回のみ電話番号（ハイフンなし）で会員連携します。</p>
       </div>
 
       <div class="content">
@@ -296,7 +326,6 @@
   /* ====== 設定（必ず差し替え） ====== */
   const LIFF_ID   = "2008938862-AlepUDEH";
   const API_URL   = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";
-  const API_TOKEN = "sol_checkin_2026_144025036146";
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
@@ -305,6 +334,10 @@
 
   const CLASSES_CACHE_KEY = "sol_classes_cache_v1";
   const CLASSES_CACHE_TTL_MS = 10 * 60 * 1000;
+
+  /* ===== 追加：本日チェックイン済み（端末側） ===== */
+  const DONE_CACHE_PREFIX = "sol_checkin_done_"; // + YYYYMMDD
+  /* =============================================== */
 
   let LINE_USER_ID = "";
   let LINE_DISPLAY_NAME = "";
@@ -367,9 +400,16 @@
 
   function setSelectedClass(id, name){
     SELECTED_CLASS = { id, name };
+
     document.querySelectorAll(".classCard").forEach(el => {
       el.classList.toggle("selected", el.dataset.classId === id);
     });
+
+    // 追加：チェックイン済みを選ばせない（念のため）
+    if (isDoneToday_(id)) {
+      $("checkinBtn").disabled = true;
+      return;
+    }
     $("checkinBtn").disabled = false;
   }
 
@@ -389,6 +429,11 @@
     const pad = (n) => String(n).padStart(2, "0");
     return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
+  function formatJstYmdCompact_(){
+    const d = getJstNow_();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+  }
   function normalizeWeekdayCell_(w){
     w = String(w || "").trim();
     w = w.replace(/曜日|曜/g, "");
@@ -397,6 +442,36 @@
 
   // 今日の曜日をグローバル保持（描画時に使う）
   let TODAY_WD = "";
+
+  /* ===== 追加：本日チェックイン済み管理（端末側） ===== */
+  function doneKeyToday_(){
+    return DONE_CACHE_PREFIX + formatJstYmdCompact_();
+  }
+  function loadDoneToday_(){
+    try{
+      const raw = localStorage.getItem(doneKeyToday_());
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.map(String) : [];
+    }catch(e){
+      return [];
+    }
+  }
+  function saveDoneToday_(arr){
+    try{
+      const unique = Array.from(new Set((arr || []).map(String)));
+      localStorage.setItem(doneKeyToday_(), JSON.stringify(unique));
+    }catch(e){}
+  }
+  function markDoneToday_(classId){
+    const arr = loadDoneToday_();
+    arr.push(String(classId));
+    saveDoneToday_(arr);
+  }
+  function isDoneToday_(classId){
+    const arr = loadDoneToday_();
+    return arr.includes(String(classId));
+  }
+  /* ===================================================== */
 
   // ★ ここが並び順の固定（今日優先 + 月火水木金土日）
   function sortClassesByToday_(classes){
@@ -433,6 +508,11 @@
       .map(({__i, ...c}) => c);
   }
 
+  function countTodayClasses_(classes){
+    const today = TODAY_WD || getJstWeekdayJa_();
+    return (classes || []).filter(c => normalizeWeekdayCell_(c.weekday) === today).length;
+  }
+
   function renderClasses(classes, metaLabel){
     const grid = $("classGrid");
     grid.innerHTML = "";
@@ -442,12 +522,17 @@
       return;
     }
 
+    const doneSet = new Set(loadDoneToday_());
+
     classes.forEach(c => {
       const wd = normalizeWeekdayCell_(c.weekday);
       const isToday = wd && (wd === TODAY_WD);
+      const isDone = doneSet.has(String(c.id));
 
       const card = document.createElement("div");
-      card.className = "classCard" + (isToday ? " today" : "");
+      card.className = "classCard"
+        + (isToday ? " today" : "")
+        + (isDone ? " done" : "");
       card.dataset.classId = String(c.id);
 
       const left = document.createElement("div");
@@ -458,7 +543,9 @@
       const meta = document.createElement("div");
       meta.className = "classMeta";
       if (wd) {
-        meta.textContent = isToday ? `${wd}｜今日` : `${wd}｜${metaLabel || "タップして選択"}`;
+        if (isDone) meta.textContent = `${wd}｜チェックイン済み`;
+        else if (isToday) meta.textContent = `${wd}｜今日`;
+        else meta.textContent = `${wd}｜${metaLabel || "タップして選択"}`;
       } else {
         meta.textContent = metaLabel || "タップして選択";
       }
@@ -469,7 +556,12 @@
       const right = document.createElement("div");
       right.className = "rightWrap";
 
-      if (isToday) {
+      if (isDone) {
+        const badge = document.createElement("div");
+        badge.className = "doneBadge";
+        badge.textContent = "済";
+        right.appendChild(badge);
+      } else if (isToday) {
         const badge = document.createElement("div");
         badge.className = "todayBadge";
         badge.textContent = "今日";
@@ -483,10 +575,15 @@
       card.appendChild(left);
       card.appendChild(right);
 
-      card.addEventListener("click", () => {
-        hideBanner();
-        setSelectedClass(String(c.id), String(c.name));
-      });
+      // 追加：チェックイン済みはタップ無効（UIで二重防止）
+      if (!isDone) {
+        card.addEventListener("click", () => {
+          hideBanner();
+          setSelectedClass(String(c.id), String(c.name));
+        });
+      } else {
+        card.style.pointerEvents = "none";
+      }
 
       grid.appendChild(card);
     });
@@ -561,6 +658,13 @@
       const sortedCached = sortClassesByToday_(cached);
       renderClasses(sortedCached, "前回の一覧（同期中）");
       showMiniLoading("最新のクラス一覧を同期中…");
+
+      // 追加：今日0件UX（キャッシュ段階でも出しておく）
+      const todayCountCached = countTodayClasses_(cached);
+      if (todayCountCached === 0) {
+        showBanner("本日のクラスはありません。次回のクラスから選択できます。", "info");
+        $("todayLabel").textContent = `受講クラス（本日のクラスはありません）`;
+      }
     }else{
       $("formBox").style.display = "block";
       showMiniLoading("起動中…");
@@ -593,6 +697,16 @@
     renderClasses(sorted, "タップして選択");
     saveClassesCache(classes);
 
+    // 追加：今日0件UX（最新データで確定）
+    const todayCount = countTodayClasses_(classes);
+    if (todayCount === 0) {
+      showBanner("本日のクラスはありません。次回のクラスから選択できます。", "info");
+      $("todayLabel").textContent = `受講クラス（本日のクラスはありません）`;
+    } else {
+      // エラーでなければ、案内バナーは消す（dangerは残したいので init時に hideBanner 済み）
+      // ここでは info のみ出しているので、0件でなければ非表示のままでOK
+    }
+
     hideMiniLoading();
     $("checkinBtn").disabled = true;
   }
@@ -602,6 +716,13 @@
 
     if (!SELECTED_CLASS || !SELECTED_CLASS.id) {
       showBanner("クラスを選択してください。", "danger");
+      return;
+    }
+
+    // 追加：フロント側でも二重チェック防止
+    if (isDoneToday_(SELECTED_CLASS.id)) {
+      showBanner("このクラスは本日すでにチェックイン済みです。", "info");
+      $("checkinBtn").disabled = true;
       return;
     }
 
@@ -630,6 +751,19 @@
         return;
       }
 
+      // 追加：GASが「既にチェックイン済み」等を返す可能性があるのでケア
+      if (res && (res.status === "already" || res.status === "already_checked_in")) {
+        markDoneToday_(SELECTED_CLASS.id);
+        showBanner("このクラスは本日すでにチェックイン済みです。", "info");
+        // UI再描画（済表示）
+        const cached = loadClassesCache() || [];
+        const sorted = sortClassesByToday_(cached);
+        renderClasses(sorted, "タップして選択");
+        setBusy(false);
+        hideMiniLoading();
+        return;
+      }
+
       if (!res || res.status !== "success") {
         const msg = (res && res.message) ? res.message : "エラーが発生しました。";
         showBanner(msg, "danger");
@@ -637,6 +771,9 @@
         hideMiniLoading();
         return;
       }
+
+      // ===== 成功：本日チェックイン済みとして保存（UIで二重防止） =====
+      markDoneToday_(SELECTED_CLASS.id);
 
       showSuccess("スタンプを付与します…");
       startCountdown(REDIRECT_DELAY_MS);
