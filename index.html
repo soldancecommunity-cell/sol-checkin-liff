@@ -1,637 +1,601 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>SoL 受講手続き</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>SoL Check-in</title>
+
+  <!-- LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
     :root{
-      --bg0:#06070a; --bg1:#0b0d12;
-      --card: rgba(255,255,255,.06); --card2: rgba(255,255,255,.035);
-      --line: rgba(255,255,255,.10);
-      --text:#eaf0ff; --muted:#a9b4d0;
-      --accent:#7c5cff; --accent2:#2dd4bf;
-      --danger:#ff4d6d; --ok:#22c55e;
-      --radius: 18px; --shadow: 0 24px 80px rgba(0,0,0,.55);
+      --bg: #0b0f17;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.085);
+      --stroke: rgba(255,255,255,.10);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.60);
+      --accent: #7dd3fc;   /* today */
+      --ok: #34d399;       /* selected */
+      --danger: #fb7185;
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --radius: 18px;
     }
-    *{ box-sizing:border-box; }
+
+    html, body { height:100%; }
     body{
-      margin:0; min-height:100vh; color:var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background:
-        radial-gradient(1200px 700px at 10% -10%, rgba(124,92,255,.38), transparent 55%),
-        radial-gradient(900px 600px at 90% 0%, rgba(45,212,191,.20), transparent 55%),
-        radial-gradient(700px 500px at 50% 110%, rgba(124,92,255,.16), transparent 60%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
-      padding: calc(14px + env(safe-area-inset-top)) 14px calc(22px + env(safe-area-inset-bottom));
-      display:flex; justify-content:center; align-items:flex-start;
+      margin:0;
+      background: radial-gradient(1200px 900px at 20% 10%, rgba(125,211,252,.10), transparent 55%),
+                  radial-gradient(1000px 800px at 80% 30%, rgba(52,211,153,.08), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Segoe UI", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
-    .wrap{ width: min(520px, 100%); }
 
-    .brand{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin: 4px 2px 12px; }
-    .brandLeft{ display:flex; align-items:center; gap:10px; min-width:0; }
-    .logo{
-      width:42px; height:42px; border-radius:14px; overflow:hidden; flex:0 0 auto;
-      background: rgba(255,255,255,.04);
-      border: 1px solid var(--line);
-      box-shadow: 0 12px 28px rgba(0,0,0,.25);
-      display:flex; align-items:center; justify-content:center;
+    /* 画面に一切出さない（内部処理は継続） */
+    .visually-hidden,
+    #hidden-loading,
+    #hidden-loading *{
+      display:none !important;
+      visibility:hidden !important;
+      width:0 !important;
+      height:0 !important;
+      opacity:0 !important;
+      pointer-events:none !important;
     }
-    .logo img{ width:100%; height:100%; object-fit:cover; display:block; }
-    .brandText{ min-width:0; }
-    .brandText .title{ margin:0; font-size:18px; font-weight:900; letter-spacing:.2px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .brandText .subtitle{ margin:2px 0 0; font-size:12px; color:rgba(169,180,208,.85); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .pill{ font-size:12px; color:var(--muted); border:1px solid var(--line); padding:7px 10px; border-radius:999px; background: rgba(255,255,255,.03); }
 
-    .card{ background: linear-gradient(180deg, var(--card), var(--card2)); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
-    .cardHeader{ padding:18px 18px 14px; border-bottom:1px solid var(--line); background: rgba(255,255,255,.02); }
-    .cardHeader h2{ margin:0 0 6px; font-size:20px; font-weight:900; letter-spacing:.2px; }
-    .cardHeader p{ margin:0; font-size:12px; color:rgba(169,180,208,.92); line-height:1.55; }
-    .content{ padding:16px 18px 18px; }
-
-    .banner{
-      display:none; border: 1px solid var(--line); background: rgba(255,255,255,.03);
-      padding: 12px 12px; border-radius: 14px; margin-bottom: 12px;
-      font-size: 13px; line-height: 1.45;
+    .wrap{
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 22px 16px 28px;
     }
-    .banner.show{ display:block; }
-    .banner.danger{ border-color: rgba(255,77,109,.38); background: rgba(255,77,109,.10); color:#ffd3dc; }
 
-    .hintBanner{
-      display:none; margin-bottom:12px; border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.04); padding:10px 12px; border-radius:14px;
-      font-size:12px; color:rgba(169,180,208,.95); line-height:1.5;
-    }
-    .hintBanner.show{ display:block; }
-
-    label{ display:block; font-size:12px; color:rgba(169,180,208,.95); margin: 10px 2px 6px; }
-
-    .grid{ display:grid; grid-template-columns: 1fr; gap:10px; margin-top:8px; }
-    @media (min-width: 420px){ .grid{ grid-template-columns: 1fr 1fr; } }
-
-    .sectionTag{
-      margin-top: 12px;
-      padding-top: 8px;
-      border-top: 1px solid rgba(255,255,255,.08);
+    .header{
       display:flex;
-      align-items:center;
+      gap:10px;
+      align-items:flex-start;
       justify-content:space-between;
+      margin-bottom: 14px;
+    }
+
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+
+    .title{
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .subtitle{
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .pill{
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.04);
+      padding: 6px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .notice{
+      margin-top: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.045);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .notice .big{
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 4px 0;
+    }
+    .notice .small{
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .grid{
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr;
       gap: 10px;
     }
-    .sectionTag .left{
-      font-size: 12px;
-      color: rgba(169,180,208,.92);
+
+    .card{
+      position: relative;
+      border: 1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.035));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 14px 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+      overflow: hidden;
     }
-    .sectionTag .right{
-      font-size: 12px;
-      color: rgba(169,180,208,.72);
+    .card:active{ transform: scale(.995); }
+    .card:hover{ border-color: rgba(255,255,255,.16); }
+
+    /* 今日のカード強調 */
+    .card.today{
+      border-color: rgba(125,211,252,.35);
+      background: linear-gradient(180deg, rgba(125,211,252,.10), rgba(255,255,255,.035));
     }
 
-    .classCard{
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.03);
-      border-radius:16px;
-      padding:12px;
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      cursor:pointer; user-select:none;
-      transition: transform .08s ease, border-color .15s ease, background .15s ease;
-      position: relative; /* バッジ用 */
-      overflow: hidden;   /* 枠の演出用 */
-    }
-    .classCard:active{ transform: translateY(1px); }
-    .className{ font-size:15px; font-weight:800; letter-spacing:.1px; line-height:1.2; }
-    .classMeta{ font-size:12px; color:rgba(169,180,208,.85); margin-top:2px; }
-    .dot{
-      width:10px; height:10px; border-radius:999px;
-      border:1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06);
-      flex:0 0 auto;
-    }
-
-    /* 選択状態（既存） */
-    .classCard.selected{
-      border-color: rgba(124,92,255,.55);
-      background: linear-gradient(135deg, rgba(124,92,255,.22), rgba(45,212,191,.12));
-      box-shadow: 0 12px 30px rgba(124,92,255,.10);
-    }
-    .classCard.selected .dot{ background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: rgba(255,255,255,.22); }
-
-    /* ===== 今日の曜日のカード強調 ===== */
-    .classCard.today{
-      border-color: rgba(45,212,191,.55);
-      background: linear-gradient(135deg, rgba(45,212,191,.14), rgba(124,92,255,.12));
-      box-shadow: 0 14px 36px rgba(45,212,191,.12);
-    }
-    /* 外枠っぽく見せるハイライト（疑似グラ枠） */
-    .classCard.today::before{
-      content:"";
-      position:absolute; inset:-1px;
-      background: linear-gradient(135deg, rgba(45,212,191,.55), rgba(124,92,255,.55));
-      opacity:.22;
-      pointer-events:none;
-      border-radius:16px;
-      mask:
-        linear-gradient(#000 0 0) content-box,
-        linear-gradient(#000 0 0);
-      -webkit-mask:
-        linear-gradient(#000 0 0) content-box,
-        linear-gradient(#000 0 0);
-      padding:1px;
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-    }
-    .classCard.today .dot{
-      background: rgba(45,212,191,.22);
-      border-color: rgba(45,212,191,.38);
-    }
-    .todayBadge{
+    /* 今日バッジ：左上（選択ドットと干渉しない） */
+    .badge-today{
       position:absolute;
-      top:10px; right:10px;
-      font-size:11px;
-      font-weight:900;
-      padding:5px 8px;
-      border-radius:999px;
-      color:#0b0d12;
-      background: linear-gradient(135deg, var(--accent2), var(--accent));
-      box-shadow: 0 10px 24px rgba(124,92,255,.14);
+      top: 10px;
+      left: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      color: rgba(0,0,0,.85);
+      background: var(--accent);
+      padding: 5px 8px;
+      border-radius: 999px;
+      box-shadow: 0 8px 18px rgba(0,0,0,.25);
     }
-    /* ============================== */
 
-    .field{
-      background: rgba(255,255,255,.03);
-      border:1px solid var(--line);
-      border-radius:14px;
-      padding:12px;
-      display:flex; align-items:center; gap:10px;
-      margin-top:8px;
+    /* 選択ドット：右上（常に確保） */
+    .dot{
+      position:absolute;
+      top: 12px;
+      right: 12px;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.35);
+      background: rgba(255,255,255,.10);
+      box-shadow: 0 8px 18px rgba(0,0,0,.25);
     }
-    .field input{
-      width:100%; border:0; outline:none; background:transparent;
-      color:var(--text); font-size:16px;
+    .card.selected .dot{
+      border-color: rgba(52,211,153,.6);
+      background: var(--ok);
     }
-    .field input::placeholder{ color: rgba(169,180,208,.65); }
-    .hint{ font-size:12px; color:rgba(169,180,208,.80); margin-top:6px; }
+
+    .row1{
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+      padding-top: 10px; /* 左上の今日バッジと行間を確保 */
+    }
+
+    .name{
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: .01em;
+      line-height: 1.3;
+      padding-right: 24px; /* 右上ドット分 */
+    }
+
+    .meta{
+      display:flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .chip{
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.04);
+      padding: 5px 8px;
+      border-radius: 999px;
+      color: rgba(255,255,255,.75);
+    }
+
+    .footer{
+      margin-top: 14px;
+      font-size: 11px;
+      color: rgba(255,255,255,.45);
+      line-height: 1.5;
+    }
+
+    .err{
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(251,113,133,.35);
+      background: rgba(251,113,133,.10);
+      color: rgba(255,255,255,.92);
+      display:none;
+    }
+
+    .ok{
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(52,211,153,.35);
+      background: rgba(52,211,153,.10);
+      color: rgba(255,255,255,.92);
+      display:none;
+    }
+
+    .center{
+      text-align:center;
+    }
 
     .btn{
-      width:100%; margin-top:14px; border:0; border-radius:16px; padding:14px;
-      font-size:16px; font-weight:900; color:#0b0d12; cursor:pointer;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      box-shadow: 0 14px 40px rgba(124,92,255,.22);
-      transition: transform .08s ease, opacity .15s ease;
+      margin-top: 10px;
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.15);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.90);
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
     }
-    .btn:active{ transform: translateY(1px); }
-    .btn:disabled{ opacity:.55; cursor:not-allowed; }
-
-    .metaRow{ display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:12px; }
-    .mini{ font-size:12px; color:rgba(169,180,208,.78); max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-    .miniLoad{
-      display:flex; align-items:center; gap:8px;
-      font-size:12px; color:rgba(169,180,208,.85);
-      margin: 10px 2px 0;
+    .btn:active{ transform: scale(.995); }
+    .btn[disabled]{
+      opacity: .45;
+      cursor: not-allowed;
     }
-    .miniSpin{
-      width:14px; height:14px; border-radius:50%;
-      border:2px solid rgba(255,255,255,.18);
-      border-top-color: rgba(255,255,255,.8);
-      animation: spin .85s linear infinite;
-    }
-    @keyframes spin{ to{ transform: rotate(360deg); } }
-
-    .successView{ display:none; text-align:center; padding: 18px 18px 20px; }
-    .successView.show{ display:block; }
-    .check{
-      width:58px; height:58px; margin:4px auto 10px; border-radius:18px;
-      background: rgba(34,197,94,.14); border:1px solid rgba(34,197,94,.25);
-      display:flex; align-items:center; justify-content:center;
-      color:#b9ffd4; font-size:30px; font-weight:900;
-    }
-    .successView h3{ margin:6px 0 6px; font-size:18px; letter-spacing:.2px; font-weight:900; }
-    .successView p{ margin:0; color:rgba(169,180,208,.92); font-size:13px; line-height:1.55; }
-    .countdown{ margin-top:10px; font-size:12px; color:rgba(169,180,208,.85); }
-
-    .footer{ text-align:center; margin-top:12px; font-size:12px; color:rgba(169,180,208,.72); }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <div class="brand">
-      <div class="brandLeft">
-        <div class="logo"><img src="./logo.png" alt="SoL logo" /></div>
-        <div class="brandText">
-          <p class="title">Lesson Check-in</p>
-          <p class="subtitle">SoL Dance Community</p>
-        </div>
+    <div class="header">
+      <div class="brand">
+        <div class="title">SoL 出席チェックイン</div>
+        <div class="subtitle">クラスを選択すると、出席が記録されます。</div>
       </div>
-      <div class="pill">Check-in</div>
+      <div class="pill" id="today-pill">—</div>
     </div>
 
-    <div class="card">
-      <div class="cardHeader">
-        <h2>チェックイン</h2>
-        <p>受講クラスを選んでチェックイン。初回のみ電話番号（ハイフンなし）で会員連携します。</p>
-      </div>
-
-      <div class="content">
-        <div id="externalHint" class="hintBanner">
-          外部ブラウザから開かれています。LINEアプリ内で開くとスムーズにチェックインできます。
-        </div>
-
-        <div id="banner" class="banner"></div>
-
-        <div id="miniLoading" class="miniLoad" style="display:none;">
-          <div class="miniSpin"></div>
-          <div id="miniLoadingText">同期中…</div>
-        </div>
-
-        <div id="formBox" style="display:none;">
-          <div class="sectionTag">
-            <div class="left" id="todayLabel">受講クラス（タップで選択）</div>
-            <div class="right" id="todayJst"></div>
-          </div>
-
-          <div id="classGrid" class="grid"></div>
-
-          <div id="phoneWrap" style="display:none; margin-top: 14px;">
-            <label>電話番号（初回のみ）</label>
-            <div class="field">
-              <input id="phoneInput" type="tel" inputmode="numeric" placeholder="090xxxxxxxx" />
-            </div>
-            <div class="hint">会員登録時の「緊急連絡先」と一致する必要があります。</div>
-          </div>
-
-          <button id="checkinBtn" class="btn" onclick="checkin()" disabled>チェックイン</button>
-
-          <div class="metaRow">
-            <div class="mini" id="subInfo"></div>
-            <div class="mini" id="netInfo"></div>
-          </div>
-        </div>
-
-        <div id="successView" class="successView">
-          <div class="check">✓</div>
-          <h3>チェックイン完了</h3>
-          <p id="successMsg">スタンプを付与します…</p>
-          <div class="countdown" id="countdown"></div>
-        </div>
-      </div>
+    <div class="notice">
+      <p class="big">本日のクラス</p>
+      <p class="small">上から順に「今日の曜日 → 月→火→水→木→金→土→日」で固定表示します。</p>
     </div>
 
-    <div class="footer">© SoL Dance Community</div>
+    <div id="error" class="err"></div>
+    <div id="success" class="ok"></div>
+
+    <div id="grid" class="grid"></div>
+
+    <button id="reload" class="btn" type="button">再読み込み</button>
+
+    <div class="footer center">
+      ※ チェックイン完了後、自動でショップカードへ遷移します（約2.5秒）
+    </div>
   </div>
 
-<script>
-  /* ====== 設定（必ず差し替え） ====== */
-  const LIFF_ID   = "2008938862-AlepUDEH";
-  const API_URL   = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";
-  const API_TOKEN = "sol_checkin_2026_144025036146";
-  const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
-  /* =================================== */
+  <!-- 画面に一切出さないロード要素（内部処理は継続） -->
+  <div id="hidden-loading" class="visually-hidden" aria-hidden="true">
+    <div id="status">起動中…</div>
+    <div id="spinner">⏳</div>
+  </div>
 
-  const REDIRECT_DELAY_MS = 2500;
-  const JSONP_TIMEOUT_MS  = 16000;
+  <script>
+    /******************************************************************
+     * 設定：あなたの環境に合わせてここだけ確認
+     ******************************************************************/
+    const LIFF_ID = "2008938862-AlepUDEH"; // ← 既存のLIFF IDに置き換え
+    const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec"; // ← https://script.google.com/macros/s/.../exec
+    const SHOP_CARD_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0"; // ← スタンプ付与URL（チェックイン後に遷移）
 
-  const CLASSES_CACHE_KEY = "sol_classes_cache_v1";
-  const CLASSES_CACHE_TTL_MS = 10 * 60 * 1000;
+    // JSONP callback 名（GAS側の仕様に合わせる）
+    const JSONP_CALLBACK_CLASSES = "cb_classes";
+    const JSONP_CALLBACK_CHECKIN = "cb_checkin";
 
-  let LINE_USER_ID = "";
-  let LINE_DISPLAY_NAME = "";
-  let SELECTED_CLASS = null;
+    /******************************************************************
+     * 内部状態
+     ******************************************************************/
+    const WEEKDAY_ORDER = ["月","火","水","木","金","土","日"];
+    let lineUserId = "";
+    let classes = [];
+    let selectedClassId = "";
 
-  const $ = (id) => document.getElementById(id);
+    const elGrid = document.getElementById("grid");
+    const elErr = document.getElementById("error");
+    const elOk = document.getElementById("success");
+    const elTodayPill = document.getElementById("today-pill");
+    const elReload = document.getElementById("reload");
 
-  function showBanner(text, type){
-    const el = $("banner");
-    el.className = "banner show" + (type ? " " + type : "");
-    el.textContent = text;
-  }
-  function hideBanner(){
-    const el = $("banner");
-    el.className = "banner";
-    el.textContent = "";
-  }
+    // 表示はしないが、内部処理では使う（要求仕様）
+    function setStatus_(_text){ /* no-op (UI非表示) */ }
 
-  function showMiniLoading(text){
-    $("miniLoadingText").textContent = text || "同期中…";
-    $("miniLoading").style.display = "flex";
-  }
-  function hideMiniLoading(){
-    $("miniLoading").style.display = "none";
-  }
-
-  function jsonp(url){
-    return new Promise((resolve, reject) => {
-      const cb = "cb_" + Math.random().toString(36).slice(2);
-      const script = document.createElement("script");
-      const timer = setTimeout(() => {
-        cleanup();
-        reject(new Error("JSONP timeout"));
-      }, JSONP_TIMEOUT_MS);
-
-      function cleanup(){
-        clearTimeout(timer);
-        try { delete window[cb]; } catch(e) {}
-        if (script && script.parentNode) script.parentNode.removeChild(script);
-      }
-
-      window[cb] = (data) => { cleanup(); resolve(data); };
-
-      const sep = url.includes("?") ? "&" : "?";
-      script.src = url + sep + "callback=" + cb;
-      script.onerror = () => { cleanup(); reject(new Error("JSONP load error")); };
-      document.body.appendChild(script);
-    });
-  }
-
-  function normalizePhone(s){
-    return String(s || "").replace(/[^\d]/g, "");
-  }
-
-  function setBusy(busy){
-    $("checkinBtn").disabled = !!busy;
-    const cards = document.querySelectorAll(".classCard");
-    cards.forEach(c => c.style.pointerEvents = busy ? "none" : "auto");
-  }
-
-  function setSelectedClass(id, name){
-    SELECTED_CLASS = { id, name };
-    document.querySelectorAll(".classCard").forEach(el => {
-      el.classList.toggle("selected", el.dataset.classId === id);
-    });
-    $("checkinBtn").disabled = false;
-  }
-
-  // ===== 曜日判定（JST） =====
-  function getJstNow_(){
-    const now = new Date();
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    return new Date(utc + 9 * 60 * 60000);
-  }
-  function getJstWeekdayJa_(){
-    const d = getJstNow_();
-    const map = ["日","月","火","水","木","金","土"];
-    return map[d.getDay()];
-  }
-  function formatJstYmdHm_(){
-    const d = getJstNow_();
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-  function normalizeWeekdayCell_(w){
-    w = String(w || "").trim();
-    w = w.replace(/曜日|曜/g, "");
-    return w;
-  }
-
-  // 今日の曜日をグローバル保持（描画時に使う）
-  let TODAY_WD = "";
-
-  function sortClassesByToday_(classes){
-    const today = TODAY_WD || getJstWeekdayJa_();
-    const rank = (c) => (normalizeWeekdayCell_(c.weekday) === today ? 0 : 1);
-
-    return (classes || [])
-      .map((c, i) => ({...c, __i:i}))
-      .sort((a, b) => {
-        const ra = rank(a), rb = rank(b);
-        if (ra !== rb) return ra - rb;
-
-        const an = String(a.name || "");
-        const bn = String(b.name || "");
-        if (an && bn) {
-          const cmp = an.localeCompare(bn, "ja");
-          if (cmp !== 0) return cmp;
-        } else if (an && !bn) return -1;
-        else if (!an && bn) return 1;
-
-        return a.__i - b.__i;
-      })
-      .map(({__i, ...c}) => c);
-  }
-
-  function renderClasses(classes, metaLabel){
-    const grid = $("classGrid");
-    grid.innerHTML = "";
-
-    if (!classes || classes.length === 0){
-      showBanner("現在選択できるクラスがありません。", "danger");
-      return;
+    function showError_(msg){
+      elOk.style.display = "none";
+      elErr.textContent = msg || "エラーが発生しました。";
+      elErr.style.display = "block";
+    }
+    function showSuccess_(msg){
+      elErr.style.display = "none";
+      elOk.textContent = msg || "チェックイン完了";
+      elOk.style.display = "block";
+    }
+    function clearMessages_(){
+      elErr.style.display = "none";
+      elOk.style.display = "none";
+      elErr.textContent = "";
+      elOk.textContent = "";
     }
 
-    classes.forEach(c => {
-      const wd = normalizeWeekdayCell_(c.weekday);
-      const isToday = wd && (wd === TODAY_WD);
+    /******************************************************************
+     * 1) クラス並び順：
+     *   - 今日の曜日を最優先
+     *   - その他は 月→火→水→木→金→土→日 の固定
+     ******************************************************************/
+    function getTodayJp_(){
+      // JS: 0=日,1=月,...6=土 → 日本語に変換
+      const d = new Date();
+      const map = ["日","月","火","水","木","金","土"];
+      return map[d.getDay()];
+    }
 
-      const card = document.createElement("div");
-      card.className = "classCard" + (isToday ? " today" : "");
-      card.dataset.classId = String(c.id);
+    function sortClasses_(arr){
+      const today = getTodayJp_();
+      const idx = (w) => {
+        const i = WEEKDAY_ORDER.indexOf(String(w || "").trim());
+        return (i === -1) ? 99 : i;
+      };
 
-      const left = document.createElement("div");
-      const name = document.createElement("div");
-      name.className = "className";
-      name.textContent = c.name;
+      return [...arr].sort((a,b) => {
+        const aToday = String(a.weekday) === today ? 0 : 1; // 0が先
+        const bToday = String(b.weekday) === today ? 0 : 1;
+        if (aToday !== bToday) return aToday - bToday;
 
-      const meta = document.createElement("div");
-      meta.className = "classMeta";
-      if (wd) {
-        meta.textContent = isToday ? `${wd}｜今日` : `${wd}｜${metaLabel || "タップして選択"}`;
-      } else {
-        meta.textContent = metaLabel || "タップして選択";
+        const ai = idx(a.weekday);
+        const bi = idx(b.weekday);
+        if (ai !== bi) return ai - bi;
+
+        // 同曜日内の安定並び（任意）：class_name → instructor → class_id
+        const an = String(a.class_name || "");
+        const bn = String(b.class_name || "");
+        if (an !== bn) return an.localeCompare(bn, "ja");
+
+        const ains = String(a.instructor || "");
+        const bins = String(b.instructor || "");
+        if (ains !== bins) return ains.localeCompare(bins, "ja");
+
+        return String(a.class_id || "").localeCompare(String(b.class_id || ""), "ja");
+      });
+    }
+
+    /******************************************************************
+     * 2) UI描画（今日バッジ：左上、選択ドット：右上）
+     ******************************************************************/
+    function renderClasses_(){
+      elGrid.innerHTML = "";
+      clearMessages_();
+
+      const today = getTodayJp_();
+      elTodayPill.textContent = "今日：" + today;
+
+      if (!classes || !classes.length){
+        showError_("本日の表示対象クラスがありません（active=TRUE を確認してください）。");
+        return;
       }
 
-      left.appendChild(name);
-      left.appendChild(meta);
+      const frag = document.createDocumentFragment();
 
-      const dot = document.createElement("div");
-      dot.className = "dot";
+      classes.forEach(c => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.dataset.classId = c.class_id;
 
-      card.appendChild(left);
-      card.appendChild(dot);
+        const isToday = String(c.weekday) === today;
+        if (isToday) card.classList.add("today");
+        if (String(c.class_id) === String(selectedClassId)) card.classList.add("selected");
 
-      if (isToday) {
-        const badge = document.createElement("div");
-        badge.className = "todayBadge";
-        badge.textContent = "今日";
-        card.appendChild(badge);
-      }
+        // 左上：今日バッジ
+        if (isToday){
+          const badge = document.createElement("div");
+          badge.className = "badge-today";
+          badge.textContent = "今日";
+          card.appendChild(badge);
+        }
 
-      card.addEventListener("click", () => {
-        hideBanner();
-        setSelectedClass(String(c.id), String(c.name));
+        // 右上：選択ドット
+        const dot = document.createElement("div");
+        dot.className = "dot";
+        card.appendChild(dot);
+
+        const row1 = document.createElement("div");
+        row1.className = "row1";
+
+        const name = document.createElement("div");
+        name.className = "name";
+        name.textContent = c.class_name || "(no name)";
+        row1.appendChild(name);
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+
+        const chipDay = document.createElement("span");
+        chipDay.className = "chip";
+        chipDay.textContent = "曜日：" + (c.weekday || "-");
+        meta.appendChild(chipDay);
+
+        if (c.location){
+          const chipLoc = document.createElement("span");
+          chipLoc.className = "chip";
+          chipLoc.textContent = "場所：" + c.location;
+          meta.appendChild(chipLoc);
+        }
+
+        if (c.instructor){
+          const chipIns = document.createElement("span");
+          chipIns.className = "chip";
+          chipIns.textContent = "担当：" + c.instructor;
+          meta.appendChild(chipIns);
+        }
+
+        row1.appendChild(meta);
+        card.appendChild(row1);
+
+        card.addEventListener("click", () => onSelectClass_(c.class_id));
+        frag.appendChild(card);
       });
 
-      grid.appendChild(card);
-    });
-  }
-
-  function saveClassesCache(classes){
-    try{
-      localStorage.setItem(CLASSES_CACHE_KEY, JSON.stringify({
-        ts: Date.now(),
-        classes: classes || []
-      }));
-    }catch(e){}
-  }
-
-  function loadClassesCache(){
-    try{
-      const raw = localStorage.getItem(CLASSES_CACHE_KEY);
-      if(!raw) return null;
-      const obj = JSON.parse(raw);
-      if(!obj || !obj.ts || !Array.isArray(obj.classes)) return null;
-      if(Date.now() - obj.ts > CLASSES_CACHE_TTL_MS) return null;
-      return obj.classes;
-    }catch(e){
-      return null;
-    }
-  }
-
-  function showSuccess(message){
-    $("formBox").style.display = "none";
-    hideMiniLoading();
-    $("successView").classList.add("show");
-    $("successMsg").textContent = message || "スタンプを付与します…";
-  }
-
-  function openStamp(){
-    try {
-      liff.openWindow({ url: STAMP_URL, external: false });
-    } catch(e) {
-      window.location.href = STAMP_URL;
-    }
-  }
-
-  function startCountdown(ms){
-    const el = $("countdown");
-    if (!el) return;
-
-    const start = Date.now();
-    const tick = () => {
-      const remain = Math.max(0, ms - (Date.now() - start));
-      const sec = Math.ceil(remain / 1000);
-      el.textContent = sec > 0 ? `${sec}秒後にスタンプ付与へ` : "移動します…";
-      if (remain > 0) requestAnimationFrame(tick);
-    };
-    tick();
-  }
-
-  function applyTodayHeader_(){
-    TODAY_WD = getJstWeekdayJa_();
-    $("todayLabel").textContent = `受講クラス（${TODAY_WD}曜日 優先表示）`;
-    $("todayJst").textContent = formatJstYmdHm_();
-  }
-
-  async function init(){
-    hideBanner();
-    applyTodayHeader_();
-
-    $("netInfo").textContent = navigator.onLine ? "online" : "offline";
-
-    const cached = loadClassesCache();
-    if (cached && cached.length){
-      $("formBox").style.display = "block";
-      const sortedCached = sortClassesByToday_(cached);
-      renderClasses(sortedCached, "前回の一覧（同期中）");
-      showMiniLoading("最新のクラス一覧を同期中…");
-    }else{
-      $("formBox").style.display = "block";
-      showMiniLoading("起動中…");
+      elGrid.appendChild(frag);
     }
 
-    await liff.init({ liffId: LIFF_ID });
+    /******************************************************************
+     * 3) JSONPユーティリティ（表示は出さない）
+     ******************************************************************/
+    function jsonp_(url, callbackName, timeoutMs = 15000){
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        const timer = setTimeout(() => {
+          cleanup_();
+          reject(new Error("JSONP timeout"));
+        }, timeoutMs);
 
-    if (!liff.isInClient()) $("externalHint").classList.add("show");
+        function cleanup_(){
+          clearTimeout(timer);
+          script.remove();
+          try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
+        }
 
-    if (!liff.isLoggedIn()) {
-      liff.login();
-      return;
+        window[callbackName] = (data) => {
+          cleanup_();
+          resolve(data);
+        };
+
+        script.src = url;
+        script.onerror = () => {
+          cleanup_();
+          reject(new Error("JSONP load error"));
+        };
+
+        document.body.appendChild(script);
+      });
     }
 
-    const profilePromise = liff.getProfile();
-    const classesPromise = jsonp(`${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`);
+    /******************************************************************
+     * 4) GAS呼び出し（classes取得 / checkin）
+     * ※ 既存のGASパラメータ仕様に合わせて、必要ならURLのクエリ名だけ調整してください
+     ******************************************************************/
+    async function fetchActiveClasses_(){
+      setStatus_("同期中…");
+      // 想定：GAS doGet で p.mode === 'classes' など
+      // 例: /exec?mode=classes&callback=cb_classes
+      const url = GAS_ENDPOINT
+        + "?mode=classes"
+        + "&callback=" + encodeURIComponent(JSONP_CALLBACK_CLASSES);
 
-    const profile = await profilePromise;
-    LINE_USER_ID = profile.userId;
-    LINE_DISPLAY_NAME = profile.displayName || "";
-    $("subInfo").textContent = LINE_DISPLAY_NAME ? `@${LINE_DISPLAY_NAME}` : "";
+      const res = await jsonp_(url, JSONP_CALLBACK_CLASSES);
 
-    const clsRes = await classesPromise;
-    if (!clsRes || clsRes.status !== "success") {
-      throw new Error(clsRes && clsRes.message ? clsRes.message : "classes load failed");
+      // 想定レスポンス：{ ok:true, classes:[...] } or 直接配列
+      const list = Array.isArray(res) ? res : (res && res.classes ? res.classes : []);
+      if (!list.length) return [];
+
+      // active=TRUE のみ（念のためフロントでもフィルタ）
+      return list.filter(x => String(x.active).toUpperCase() === "TRUE");
     }
 
-    const classes = clsRes.classes || [];
-    const sorted = sortClassesByToday_(classes);
-    renderClasses(sorted, "タップして選択");
-    saveClassesCache(classes);
+    async function postCheckin_(classId){
+      setStatus_("チェックイン中…");
 
-    hideMiniLoading();
-    $("checkinBtn").disabled = true;
-  }
+      // 想定：/exec?mode=checkin&class_id=...&line_user_id=...&callback=cb_checkin
+      // ※初回の電話番号紐付け等はGAS側で処理済み、ここは userId でチェックインのみ
+      const url = GAS_ENDPOINT
+        + "?mode=checkin"
+        + "&class_id=" + encodeURIComponent(classId)
+        + "&line_user_id=" + encodeURIComponent(lineUserId)
+        + "&callback=" + encodeURIComponent(JSONP_CALLBACK_CHECKIN);
 
-  async function checkin(){
-    hideBanner();
+      const res = await jsonp_(url, JSONP_CALLBACK_CHECKIN);
 
-    if (!SELECTED_CLASS || !SELECTED_CLASS.id) {
-      showBanner("クラスを選択してください。", "danger");
-      return;
+      // 想定レスポンス：{ ok:true, message:"...", redirect_url:"..." } 等
+      if (res && (res.ok === true || res.status === "ok")) return res;
+
+      const msg = (res && (res.message || res.error)) ? (res.message || res.error) : "チェックインに失敗しました。";
+      throw new Error(msg);
     }
 
-    const phone = normalizePhone($("phoneInput").value);
+    /******************************************************************
+     * UIイベント
+     ******************************************************************/
+    async function onSelectClass_(classId){
+      try{
+        clearMessages_();
+        selectedClassId = String(classId);
+        // 選択状態描画更新
+        document.querySelectorAll(".card").forEach(el => {
+          el.classList.toggle("selected", el.dataset.classId === selectedClassId);
+        });
 
-    setBusy(true);
-    showMiniLoading("チェックイン送信中…");
+        // チェックイン実行
+        elReload.disabled = true;
+        const res = await postCheckin_(selectedClassId);
 
-    try {
-      const url =
-        `${API_URL}?api=checkin` +
-        `&token=${encodeURIComponent(API_TOKEN)}` +
-        `&userId=${encodeURIComponent(LINE_USER_ID)}` +
-        `&displayName=${encodeURIComponent(LINE_DISPLAY_NAME)}` +
-        `&classId=${encodeURIComponent(SELECTED_CLASS.id)}` +
-        `&className=${encodeURIComponent(SELECTED_CLASS.name)}` +
-        (phone ? `&phone=${encodeURIComponent(phone)}` : "");
+        showSuccess_(res && res.message ? res.message : "チェックイン完了しました。");
 
-      const res = await jsonp(url);
+        // 2.5秒後にショップカードへ（GASがredirect_urlを返すならそれ優先）
+        const to = (res && res.redirect_url) ? res.redirect_url : SHOP_CARD_URL;
+        setTimeout(() => {
+          if (to && typeof to === "string") location.href = to;
+        }, 2500);
 
-      if (res && res.status === "need_phone") {
-        $("phoneWrap").style.display = "block";
-        showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "");
-        setBusy(false);
-        hideMiniLoading();
-        return;
+      }catch(err){
+        showError_(err && err.message ? err.message : "チェックインに失敗しました。");
+      }finally{
+        elReload.disabled = false;
       }
-
-      if (!res || res.status !== "success") {
-        const msg = (res && res.message) ? res.message : "エラーが発生しました。";
-        showBanner(msg, "danger");
-        setBusy(false);
-        hideMiniLoading();
-        return;
-      }
-
-      showSuccess("スタンプを付与します…");
-      startCountdown(REDIRECT_DELAY_MS);
-
-      setTimeout(() => {
-        openStamp();
-      }, REDIRECT_DELAY_MS);
-
-    } catch (err) {
-      showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
-      setBusy(false);
-      hideMiniLoading();
-      console.error(err);
     }
-  }
 
-  init().catch(err => {
-    hideMiniLoading();
-    showBanner("起動に失敗しました。", "danger");
-    console.error(err);
-  });
-</script>
+    elReload.addEventListener("click", () => initFlow_());
+
+    /******************************************************************
+     * LIFF初期化 → classes取得 → 並べ替え → 描画
+     ******************************************************************/
+    async function initFlow_(){
+      try{
+        clearMessages_();
+        elReload.disabled = true;
+
+        setStatus_("起動中…");
+
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()){
+          // ログイン画面へ（UIには何も出さない）
+          liff.login();
+          return;
+        }
+
+        const prof = await liff.getProfile();
+        lineUserId = prof && prof.userId ? prof.userId : "";
+        if (!lineUserId){
+          throw new Error("LINE userId が取得できませんでした。");
+        }
+
+        const fetched = await fetchActiveClasses_();
+        classes = sortClasses_(fetched);     // ★要件1：固定順ソート
+        renderClasses_();
+
+      }catch(err){
+        showError_(err && err.message ? err.message : "初期化に失敗しました。");
+      }finally{
+        elReload.disabled = false;
+      }
+    }
+
+    // 起動
+    initFlow_();
+  </script>
 </body>
 </html>
