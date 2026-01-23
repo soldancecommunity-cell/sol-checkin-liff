@@ -841,8 +841,6 @@
         (phone ? `&phone=${encodeURIComponent(phone)}` : "");
 
       const res = await jsonp(url);
-      console.log("checkin res:", res);
-showBanner("DEBUG: " + JSON.stringify(res), "info");
 
 
 if (res && res.status === "need_phone") {
