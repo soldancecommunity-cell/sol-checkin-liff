@@ -286,11 +286,11 @@
 
 /* 追加：選択されたカードに“入り” */
 .classCard.selected{
-  animation: selectPop .16s ease-out;
+  animation: selectFade .16s ease-out;
 }
-@keyframes selectPop{
-  from{ transform: translateY(2px) scale(.992); }
-  to{ transform: translateY(0) scale(1); }
+@keyframes selectFade{
+  from{ opacity:.86; }
+  to{ opacity:1; }
 }
 
 /* バナーの出現を滑らかに */
