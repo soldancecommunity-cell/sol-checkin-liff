@@ -822,6 +822,8 @@ function wireDevReset_(){
   async function init(){
     hideBanner();
     applyTodayHeader_();
+    wireDevReset_();
+
 
     $("netInfo").textContent = navigator.onLine ? "online" : "offline";
 
