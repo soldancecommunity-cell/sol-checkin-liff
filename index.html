@@ -460,6 +460,57 @@
   /* ===== 追加：本日チェックイン済み（端末側） ===== */
   const DONE_CACHE_PREFIX = "sol_checkin_done_"; // + YYYYMMDD
   /* =============================================== */
+  /* ===== Dev Reset: 長押しで表示 → 今日の済を削除 ===== */
+function clearDoneToday_(){
+  try{
+    localStorage.removeItem(doneKeyToday_());
+  }catch(e){}
+}
+
+function wireDevReset_(){
+  const btn = $("devResetBtn");
+  if (!btn) return;
+
+  let pressTimer = null;
+
+  const showBtn = () => { btn.style.display = "block"; };
+
+  const startPress = () => {
+    if (pressTimer) clearTimeout(pressTimer);
+    pressTimer = setTimeout(showBtn, 700);
+  };
+  const endPress = () => {
+    if (pressTimer) clearTimeout(pressTimer);
+    pressTimer = null;
+  };
+
+  const footer = document.querySelector(".footer");
+  if (footer){
+    footer.addEventListener("touchstart", startPress, { passive:true });
+    footer.addEventListener("touchend", endPress);
+    footer.addEventListener("touchcancel", endPress);
+
+    footer.addEventListener("mousedown", startPress);
+    footer.addEventListener("mouseup", endPress);
+    footer.addEventListener("mouseleave", endPress);
+  }
+
+  btn.addEventListener("click", () => {
+    if (!confirm("今日の「済」をリセットします。よろしいですか？")) return;
+
+    clearDoneToday_();
+    SELECTED_CLASS = null;
+    $("checkinBtn").disabled = true;
+
+    const cached = loadClassesCache() || [];
+    const sorted = sortClassesByToday_(cached);
+    renderClasses(sorted, "タップして選択");
+
+    showBanner("今日の「済」をリセットしました（開発用）。", "info");
+  });
+}
+/* ================================================ */
+
 
   let LINE_USER_ID = "";
   let LINE_DISPLAY_NAME = "";
