@@ -953,6 +953,9 @@ function wireDevReset_(){
     $("checkinBtn").disabled = true;
   }
 
+  <script>
+  // （上のコードはそのまま）
+
   async function checkin(){
     hideBanner();
 
@@ -961,7 +964,7 @@ function wireDevReset_(){
       return;
     }
 
-    // 追加：フロント側でも二重チェック防止
+    // フロント側でも二重チェック防止
     if (isDoneToday_(SELECTED_CLASS.id)) {
       showBanner("このクラスは本日すでにチェックイン済みです。", "info");
       $("checkinBtn").disabled = true;
@@ -984,98 +987,83 @@ function wireDevReset_(){
         (phone ? `&phone=${encodeURIComponent(phone)}` : "");
 
       const res = await jsonp(url);
-      showBanner("DEBUG: " + JSON.stringify(res), "info");
 
+      // ===== DEBUG表示は削除（これが原因） =====
+      // showBanner("DEBUG: " + JSON.stringify(res), "info");
 
-if (res && res.status === "need_phone") {
-  $("phoneWrap").style.display = "block";
-  showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "");
-  setBusy(false);
-  hideMiniLoading();
-  return;
-}
+      // 1) 初回電話番号が必要
+      if (res && res.status === "need_phone") {
+        $("phoneWrap").style.display = "block";
+        showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "info");
+        setBusy(false);
+        hideMiniLoading();
+        return;
+      }
 
-if (res && res.status === "already") {
-  showBanner(res.message || "本日はすでにチェックイン済みです。", "info");
-  setBusy(false);
-  hideMiniLoading();
-  return; // ★二重スタンプ付与防止
-}
+      // 2) すでにチェックイン済み（サーバー側判定）
+      if (res && res.status === "already") {
+        showBanner(res.message || "本日はすでにチェックイン済みです。", "info");
+        // 端末側にも反映して二重防止を強化
+        markDoneToday_(SELECTED_CLASS.id);
+        setBusy(false);
+        hideMiniLoading();
+        return;
+      }
 
-if (!res || res.status !== "success") {
-  const msg = (res && res.message) ? res.message : "エラーが発生しました。";
-  showBanner(msg, "danger");
-  setBusy(false);
-  hideMiniLoading();
-  return;
-}
+      // 3) 失敗
+      if (!res || res.status !== "success") {
+        const msg = (res && res.message) ? res.message : "エラーが発生しました。";
+        showBanner(msg, "danger");
+        setBusy(false);
+        hideMiniLoading();
+        return;
+      }
 
-// ===== 成功：本日チェックイン済みとして保存（UIで二重防止） =====
-markDoneToday_(SELECTED_CLASS.id);
+      // 4) 成功：本日チェックイン済みとして保存（UIで二重防止）
+      markDoneToday_(SELECTED_CLASS.id);
 
-// 支払い系メッセージ
-const unpaidMsg  = (res && res.unpaid === true) ? (res.unpaid_message || "当月のお支払いが未確認です。受付でお声がけください。") : "";
-const pendingMsg = (res && res.pending === true) ? (res.pending_message || "本日は現地精算です。受付でお手続きください。") : "";
+      // 支払い系メッセージ
+      const unpaidMsg  = (res.unpaid === true)
+        ? (res.unpaid_message || "当月のお支払いが未確認です。受付でお声がけください。")
+        : "";
 
-// 遷移処理を関数化
-const goStamp = () => {
-  showSuccess("スタンプを付与します…");
-  startCountdown(REDIRECT_DELAY_MS);
-  setTimeout(openStamp, REDIRECT_DELAY_MS);
-};
+      const pendingMsg = (res.pending === true)
+        ? (res.pending_message || "本日は現地精算です。受付でお手続きください。")
+        : "";
 
-// 未払いの場合：OKを押すまで進めない
-if (unpaidMsg) {
-  showPayModal(
-    "当月のお支払いが未確認です",
-    unpaidMsg + "\n\n※チェックインは完了しています。受付でお声がけください。",
-    () => goStamp()
-  );
-  setBusy(false);
-  hideMiniLoading();
-  return;
-}
+      // スタンプ遷移を一箇所に集約（重複実行を防ぐ）
+      const goStamp = () => {
+        showSuccess("スタンプを付与します…");
+        startCountdown(REDIRECT_DELAY_MS);
+        setTimeout(openStamp, REDIRECT_DELAY_MS);
+      };
 
-// 現地精算の場合：必要なら同じくOK制御（任意）
-if (pendingMsg) {
-  showPayModal(
-    "本日は現地精算です",
-    pendingMsg + "\n\n※チェックインは完了しています。受付でお手続きください。",
-    () => goStamp()
-  );
-  setBusy(false);
-  hideMiniLoading();
-  return;
-}
+      // 5) 未払い：OKを押すまで進めない
+      if (unpaidMsg) {
+        showPayModal(
+          "当月のお支払いが未確認です",
+          unpaidMsg + "\n\n※チェックインは完了しています。受付でお声がけください。",
+          () => goStamp()
+        );
+        setBusy(false);
+        hideMiniLoading();
+        return;
+      }
 
-// 支払い問題なし：通常フロー
-goStamp();
+      // 6) 現地精算：OKを押すまで進める（必要なら）
+      if (pendingMsg) {
+        showPayModal(
+          "本日は現地精算です",
+          pendingMsg + "\n\n※チェックインは完了しています。受付でお手続きください。",
+          () => goStamp()
+        );
+        setBusy(false);
+        hideMiniLoading();
+        return;
+      }
 
-
-// 成功画面の文言（優先度：未払い > 現地精算 > 通常）
-let successText = "スタンプを付与します…";
-if (unpaidMsg) {
-  successText = unpaidMsg;
-} else if (pendingMsg) {
-  successText = pendingMsg;
-}
-
-showSuccess(successText);
-startCountdown(REDIRECT_DELAY_MS);
-
-setTimeout(() => {
-  openStamp();
-}, REDIRECT_DELAY_MS);
-
-
-
-showSuccess("スタンプを付与します…");
-startCountdown(REDIRECT_DELAY_MS);
-
-setTimeout(() => {
-  openStamp();
-}, REDIRECT_DELAY_MS);
-
+      // 7) 通常：そのままスタンプへ
+      goStamp();
 
     } catch (err) {
       showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
@@ -1084,6 +1072,7 @@ setTimeout(() => {
       console.error(err);
     }
   }
+
 
   init().catch(err => {
   hideMiniLoading();
