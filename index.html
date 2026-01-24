@@ -365,6 +365,52 @@
   cursor: pointer;
 }
 .devReset:active{ transform: translateY(1px); }
+    /* ===== modal (lightweight) ===== */
+.modal{
+  position: fixed;
+  inset: 0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding: 18px;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(6px);
+  z-index: 9999;
+}
+.modal.show{ display:flex; }
+
+.modalCard{
+  width: min(520px, 100%);
+  border-radius: 18px;
+  border:1px solid rgba(255,255,255,.12);
+  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+  box-shadow: 0 24px 80px rgba(0,0,0,.55);
+  padding: 16px;
+}
+.modalTitle{
+  font-size: 16px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+.modalText{
+  font-size: 13px;
+  color: rgba(234,240,255,.92);
+  line-height: 1.6;
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+}
+.modalBtn{
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 900;
+  color: #0b0d12;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+}
+
 
   </style>
 </head>
@@ -423,6 +469,15 @@
             <div class="mini" id="netInfo"></div>
           </div>
         </div>
+        <!-- Unpaid / Pending modal -->
+        <div id="payModal" class="modal">
+          <div class="modalCard">
+            <div class="modalTitle" id="payModalTitle">お支払いの確認</div>
+            <div class="modalText" id="payModalText"></div>
+            <button class="modalBtn" id="payModalOk">OK</button>
+          </div>
+        </div>
+
 
         <div id="successView" class="successView">
           <div class="check">✓</div>
@@ -517,6 +572,18 @@ function wireDevReset_(){
   let SELECTED_CLASS = null;
 
   const $ = (id) => document.getElementById(id);
+  function showPayModal(title, text, onOk){
+  $("payModalTitle").textContent = title || "お支払いの確認";
+  $("payModalText").textContent = text || "";
+  $("payModal").classList.add("show");
+
+  const btn = $("payModalOk");
+  btn.onclick = () => {
+    $("payModal").classList.remove("show");
+    if (typeof onOk === "function") onOk();
+  };
+}
+
 
   function showBanner(text, type){
     const el = $("banner");
@@ -946,9 +1013,44 @@ if (!res || res.status !== "success") {
 // ===== 成功：本日チェックイン済みとして保存（UIで二重防止） =====
 markDoneToday_(SELECTED_CLASS.id);
 
-// ===== 未払い/現地精算の表示は「成功画面」に統合する（見落とし防止） =====
+// 支払い系メッセージ
 const unpaidMsg  = (res && res.unpaid === true) ? (res.unpaid_message || "当月のお支払いが未確認です。受付でお声がけください。") : "";
 const pendingMsg = (res && res.pending === true) ? (res.pending_message || "本日は現地精算です。受付でお手続きください。") : "";
+
+// 遷移処理を関数化
+const goStamp = () => {
+  showSuccess("スタンプを付与します…");
+  startCountdown(REDIRECT_DELAY_MS);
+  setTimeout(openStamp, REDIRECT_DELAY_MS);
+};
+
+// 未払いの場合：OKを押すまで進めない
+if (unpaidMsg) {
+  showPayModal(
+    "当月のお支払いが未確認です",
+    unpaidMsg + "\n\n※チェックインは完了しています。受付でお声がけください。",
+    () => goStamp()
+  );
+  setBusy(false);
+  hideMiniLoading();
+  return;
+}
+
+// 現地精算の場合：必要なら同じくOK制御（任意）
+if (pendingMsg) {
+  showPayModal(
+    "本日は現地精算です",
+    pendingMsg + "\n\n※チェックインは完了しています。受付でお手続きください。",
+    () => goStamp()
+  );
+  setBusy(false);
+  hideMiniLoading();
+  return;
+}
+
+// 支払い問題なし：通常フロー
+goStamp();
+
 
 // 成功画面の文言（優先度：未払い > 現地精算 > 通常）
 let successText = "スタンプを付与します…";
