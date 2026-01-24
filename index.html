@@ -945,17 +945,15 @@ if (!res || res.status !== "success") {
 // ===== 成功：本日チェックイン済みとして保存（UIで二重防止） =====
 markDoneToday_(SELECTED_CLASS.id);
 
-// 未払い案内（チェックインは成功のまま）
-if (res.unpaid === true) {
-  // バナーで出す場合（フォームはこのあと消えるので短時間）
-  showBanner(res.message || "当月のお支払いが未確認です。", "info");
-
-  // もしくは成功画面に出すならこちらがオススメ：
-  // showSuccess(res.message || "当月のお支払いが未確認です。受付でお声がけください。");
-  // startCountdown(REDIRECT_DELAY_MS);
-  // setTimeout(openStamp, REDIRECT_DELAY_MS);
-  // return;
+// 未払い/現地精算の案内（チェックイン成功でも表示）
+if (res && res.payment_message) {
+  // 成功画面に出すのが一番自然（バナーはフォームが消えるので一瞬）
+  showSuccess(res.payment_message);
+  startCountdown(REDIRECT_DELAY_MS);
+  setTimeout(openStamp, REDIRECT_DELAY_MS);
+  return;
 }
+
 
 showSuccess("スタンプを付与します…");
 startCountdown(REDIRECT_DELAY_MS);
