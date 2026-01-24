@@ -917,6 +917,7 @@ function wireDevReset_(){
         (phone ? `&phone=${encodeURIComponent(phone)}` : "");
 
       const res = await jsonp(url);
+      showBanner("DEBUG: " + JSON.stringify(res), "info");
 
 
 if (res && res.status === "need_phone") {
