@@ -946,14 +946,25 @@ if (!res || res.status !== "success") {
 // ===== 成功：本日チェックイン済みとして保存（UIで二重防止） =====
 markDoneToday_(SELECTED_CLASS.id);
 
-// 未払い/現地精算の案内（チェックイン成功でも表示）
-if (res && res.payment_message) {
-  // 成功画面に出すのが一番自然（バナーはフォームが消えるので一瞬）
-  showSuccess(res.payment_message);
-  startCountdown(REDIRECT_DELAY_MS);
-  setTimeout(openStamp, REDIRECT_DELAY_MS);
-  return;
+// ===== 未払い/現地精算の表示は「成功画面」に統合する（見落とし防止） =====
+const unpaidMsg  = (res && res.unpaid === true) ? (res.unpaid_message || "当月のお支払いが未確認です。受付でお声がけください。") : "";
+const pendingMsg = (res && res.pending === true) ? (res.pending_message || "本日は現地精算です。受付でお手続きください。") : "";
+
+// 成功画面の文言（優先度：未払い > 現地精算 > 通常）
+let successText = "スタンプを付与します…";
+if (unpaidMsg) {
+  successText = unpaidMsg;
+} else if (pendingMsg) {
+  successText = pendingMsg;
 }
+
+showSuccess(successText);
+startCountdown(REDIRECT_DELAY_MS);
+
+setTimeout(() => {
+  openStamp();
+}, REDIRECT_DELAY_MS);
+
 
 
 showSuccess("スタンプを付与します…");
