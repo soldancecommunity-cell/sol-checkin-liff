@@ -512,78 +512,27 @@
   const CLASSES_CACHE_KEY = "sol_classes_cache_v1";
   const CLASSES_CACHE_TTL_MS = 10 * 60 * 1000;
 
-  /* ===== 追加：本日チェックイン済み（端末側） ===== */
+  /* ===== 本日チェックイン済み（端末側） ===== */
   const DONE_CACHE_PREFIX = "sol_checkin_done_"; // + YYYYMMDD
-  /* =============================================== */
-  /* ===== Dev Reset: 長押しで表示 → 今日の済を削除 ===== */
-function clearDoneToday_(){
-  try{
-    localStorage.removeItem(doneKeyToday_());
-  }catch(e){}
-}
-
-function wireDevReset_(){
-  const btn = $("devResetBtn");
-  if (!btn) return;
-
-  let pressTimer = null;
-
-  const showBtn = () => { btn.style.display = "block"; };
-
-  const startPress = () => {
-    if (pressTimer) clearTimeout(pressTimer);
-    pressTimer = setTimeout(showBtn, 700);
-  };
-  const endPress = () => {
-    if (pressTimer) clearTimeout(pressTimer);
-    pressTimer = null;
-  };
-
-  const footer = document.querySelector(".footer");
-  if (footer){
-    footer.addEventListener("touchstart", startPress, { passive:true });
-    footer.addEventListener("touchend", endPress);
-    footer.addEventListener("touchcancel", endPress);
-
-    footer.addEventListener("mousedown", startPress);
-    footer.addEventListener("mouseup", endPress);
-    footer.addEventListener("mouseleave", endPress);
-  }
-
-  btn.addEventListener("click", () => {
-    if (!confirm("今日の「済」をリセットします。よろしいですか？")) return;
-
-    clearDoneToday_();
-    SELECTED_CLASS = null;
-    $("checkinBtn").disabled = true;
-
-    const cached = loadClassesCache() || [];
-    const sorted = sortClassesByToday_(cached);
-    renderClasses(sorted, "タップして選択");
-
-    showBanner("今日の「済」をリセットしました（開発用）。", "info");
-  });
-}
-/* ================================================ */
-
 
   let LINE_USER_ID = "";
   let LINE_DISPLAY_NAME = "";
   let SELECTED_CLASS = null;
+  let TODAY_WD = "";
 
   const $ = (id) => document.getElementById(id);
+
   function showPayModal(title, text, onOk){
-  $("payModalTitle").textContent = title || "お支払いの確認";
-  $("payModalText").textContent = text || "";
-  $("payModal").classList.add("show");
+    $("payModalTitle").textContent = title || "お支払いの確認";
+    $("payModalText").textContent = text || "";
+    $("payModal").classList.add("show");
 
-  const btn = $("payModalOk");
-  btn.onclick = () => {
-    $("payModal").classList.remove("show");
-    if (typeof onOk === "function") onOk();
-  };
-}
-
+    const btn = $("payModalOk");
+    btn.onclick = () => {
+      $("payModal").classList.remove("show");
+      if (typeof onOk === "function") onOk();
+    };
+  }
 
   function showBanner(text, type){
     const el = $("banner");
@@ -645,7 +594,6 @@ function wireDevReset_(){
       el.classList.toggle("selected", el.dataset.classId === id);
     });
 
-    // 追加：チェックイン済みを選ばせない（念のため）
     if (isDoneToday_(id)) {
       $("checkinBtn").disabled = true;
       return;
@@ -653,7 +601,7 @@ function wireDevReset_(){
     $("checkinBtn").disabled = false;
   }
 
-  // ===== 曜日判定（JST） =====
+  // ===== JST helpers =====
   function getJstNow_(){
     const now = new Date();
     const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -680,10 +628,7 @@ function wireDevReset_(){
     return w;
   }
 
-  // 今日の曜日をグローバル保持（描画時に使う）
-  let TODAY_WD = "";
-
-  /* ===== 追加：本日チェックイン済み管理（端末側） ===== */
+  // ===== done cache =====
   function doneKeyToday_(){
     return DONE_CACHE_PREFIX + formatJstYmdCompact_();
   }
@@ -711,17 +656,83 @@ function wireDevReset_(){
     const arr = loadDoneToday_();
     return arr.includes(String(classId));
   }
-  /* ===================================================== */
 
-  // ★ ここが並び順の固定（今日優先 + 月火水木金土日）
+  // ===== Dev Reset =====
+  function clearDoneToday_(){
+    try{ localStorage.removeItem(doneKeyToday_()); }catch(e){}
+  }
+  function wireDevReset_(){
+    const btn = $("devResetBtn");
+    if (!btn) return;
+
+    let pressTimer = null;
+    const showBtn = () => { btn.style.display = "block"; };
+
+    const startPress = () => {
+      if (pressTimer) clearTimeout(pressTimer);
+      pressTimer = setTimeout(showBtn, 700);
+    };
+    const endPress = () => {
+      if (pressTimer) clearTimeout(pressTimer);
+      pressTimer = null;
+    };
+
+    const footer = document.querySelector(".footer");
+    if (footer){
+      footer.addEventListener("touchstart", startPress, { passive:true });
+      footer.addEventListener("touchend", endPress);
+      footer.addEventListener("touchcancel", endPress);
+
+      footer.addEventListener("mousedown", startPress);
+      footer.addEventListener("mouseup", endPress);
+      footer.addEventListener("mouseleave", endPress);
+    }
+
+    btn.addEventListener("click", () => {
+      if (!confirm("今日の「済」をリセットします。よろしいですか？")) return;
+
+      clearDoneToday_();
+      SELECTED_CLASS = null;
+      $("checkinBtn").disabled = true;
+
+      const cached = loadClassesCache() || [];
+      const sorted = sortClassesByToday_(cached);
+      renderClasses(sorted, "タップして選択");
+
+      showBanner("今日の「済」をリセットしました（開発用）。", "info");
+    });
+  }
+
+  // ===== class list cache =====
+  function saveClassesCache(classes){
+    try{
+      localStorage.setItem(CLASSES_CACHE_KEY, JSON.stringify({
+        ts: Date.now(),
+        classes: classes || []
+      }));
+    }catch(e){}
+  }
+  function loadClassesCache(){
+    try{
+      const raw = localStorage.getItem(CLASSES_CACHE_KEY);
+      if(!raw) return null;
+      const obj = JSON.parse(raw);
+      if(!obj || !obj.ts || !Array.isArray(obj.classes)) return null;
+      if(Date.now() - obj.ts > CLASSES_CACHE_TTL_MS) return null;
+      return obj.classes;
+    }catch(e){
+      return null;
+    }
+  }
+
   function sortClassesByToday_(classes){
     const today = TODAY_WD || getJstWeekdayJa_();
     const wdOrder = { "月":0, "火":1, "水":2, "木":3, "金":4, "土":5, "日":6 };
 
     const orderKey = (c) => {
       const wd = normalizeWeekdayCell_(c.weekday);
-      const isToday = (wd && wd === today) ? 0 : 1;                 // 今日を最優先
-      const dayRank = (wd in wdOrder) ? wdOrder[wd] : 999;          // 月→…→日、それ以外は最後
+      const isToday = (wd && wd === today) ? 0 : 1;
+      const dayRank = (wd in wdOrder) ? wdOrder[wd] : 999;
       return { isToday, dayRank, wd };
     };
 
@@ -734,7 +745,6 @@ function wireDevReset_(){
         if (ka.isToday !== kb.isToday) return ka.isToday - kb.isToday;
         if (ka.dayRank !== kb.dayRank) return ka.dayRank - kb.dayRank;
 
-        // 同曜日内は名前で安定ソート（日本語）
         const an = String(a.name || "");
         const bn = String(b.name || "");
         if (an && bn) {
@@ -815,7 +825,6 @@ function wireDevReset_(){
       card.appendChild(left);
       card.appendChild(right);
 
-      // 追加：チェックイン済みはタップ無効（UIで二重防止）
       if (!isDone) {
         card.addEventListener("click", () => {
           hideBanner();
@@ -827,28 +836,6 @@ function wireDevReset_(){
 
       grid.appendChild(card);
     });
-  }
-
-  function saveClassesCache(classes){
-    try{
-      localStorage.setItem(CLASSES_CACHE_KEY, JSON.stringify({
-        ts: Date.now(),
-        classes: classes || []
-      }));
-    }catch(e){}
-  }
-
-  function loadClassesCache(){
-    try{
-      const raw = localStorage.getItem(CLASSES_CACHE_KEY);
-      if(!raw) return null;
-      const obj = JSON.parse(raw);
-      if(!obj || !obj.ts || !Array.isArray(obj.classes)) return null;
-      if(Date.now() - obj.ts > CLASSES_CACHE_TTL_MS) return null;
-      return obj.classes;
-    }catch(e){
-      return null;
-    }
   }
 
   function showSuccess(message){
@@ -891,7 +878,6 @@ function wireDevReset_(){
     applyTodayHeader_();
     wireDevReset_();
 
-
     $("netInfo").textContent = navigator.onLine ? "online" : "offline";
 
     const cached = loadClassesCache();
@@ -901,7 +887,6 @@ function wireDevReset_(){
       renderClasses(sortedCached, "前回の一覧（同期中）");
       showMiniLoading("最新のクラス一覧を同期中…");
 
-      // 追加：今日0件UX（キャッシュ段階でも出しておく）
       const todayCountCached = countTodayClasses_(cached);
       if (todayCountCached === 0) {
         showBanner("本日のクラスはありません。次回のクラスから選択できます。", "info");
@@ -939,23 +924,17 @@ function wireDevReset_(){
     renderClasses(sorted, "タップして選択");
     saveClassesCache(classes);
 
-    // 追加：今日0件UX（最新データで確定）
     const todayCount = countTodayClasses_(classes);
     if (todayCount === 0) {
       showBanner("本日のクラスはありません。次回のクラスから選択できます。", "info");
       $("todayLabel").textContent = `受講クラス（本日のクラスはありません）`;
-    } else {
-      // エラーでなければ、案内バナーは消す（dangerは残したいので init時に hideBanner 済み）
-      // ここでは info のみ出しているので、0件でなければ非表示のままでOK
     }
 
     hideMiniLoading();
     $("checkinBtn").disabled = true;
   }
 
-  <script>
-  // （上のコードはそのまま）
-
+  // ===== checkin (DEBUGなし／重複遷移なし) =====
   async function checkin(){
     hideBanner();
 
@@ -964,7 +943,6 @@ function wireDevReset_(){
       return;
     }
 
-    // フロント側でも二重チェック防止
     if (isDoneToday_(SELECTED_CLASS.id)) {
       showBanner("このクラスは本日すでにチェックイン済みです。", "info");
       $("checkinBtn").disabled = true;
@@ -988,10 +966,6 @@ function wireDevReset_(){
 
       const res = await jsonp(url);
 
-      // ===== DEBUG表示は削除（これが原因） =====
-      // showBanner("DEBUG: " + JSON.stringify(res), "info");
-
-      // 1) 初回電話番号が必要
       if (res && res.status === "need_phone") {
         $("phoneWrap").style.display = "block";
         showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "info");
@@ -1000,17 +974,14 @@ function wireDevReset_(){
         return;
       }
 
-      // 2) すでにチェックイン済み（サーバー側判定）
       if (res && res.status === "already") {
         showBanner(res.message || "本日はすでにチェックイン済みです。", "info");
-        // 端末側にも反映して二重防止を強化
         markDoneToday_(SELECTED_CLASS.id);
         setBusy(false);
         hideMiniLoading();
         return;
       }
 
-      // 3) 失敗
       if (!res || res.status !== "success") {
         const msg = (res && res.message) ? res.message : "エラーが発生しました。";
         showBanner(msg, "danger");
@@ -1019,10 +990,8 @@ function wireDevReset_(){
         return;
       }
 
-      // 4) 成功：本日チェックイン済みとして保存（UIで二重防止）
       markDoneToday_(SELECTED_CLASS.id);
 
-      // 支払い系メッセージ
       const unpaidMsg  = (res.unpaid === true)
         ? (res.unpaid_message || "当月のお支払いが未確認です。受付でお声がけください。")
         : "";
@@ -1031,14 +1000,12 @@ function wireDevReset_(){
         ? (res.pending_message || "本日は現地精算です。受付でお手続きください。")
         : "";
 
-      // スタンプ遷移を一箇所に集約（重複実行を防ぐ）
       const goStamp = () => {
         showSuccess("スタンプを付与します…");
         startCountdown(REDIRECT_DELAY_MS);
         setTimeout(openStamp, REDIRECT_DELAY_MS);
       };
 
-      // 5) 未払い：OKを押すまで進めない
       if (unpaidMsg) {
         showPayModal(
           "当月のお支払いが未確認です",
@@ -1050,7 +1017,6 @@ function wireDevReset_(){
         return;
       }
 
-      // 6) 現地精算：OKを押すまで進める（必要なら）
       if (pendingMsg) {
         showPayModal(
           "本日は現地精算です",
@@ -1062,7 +1028,6 @@ function wireDevReset_(){
         return;
       }
 
-      // 7) 通常：そのままスタンプへ
       goStamp();
 
     } catch (err) {
@@ -1073,12 +1038,12 @@ function wireDevReset_(){
     }
   }
 
-
   init().catch(err => {
-  hideMiniLoading();
-  showBanner("起動に失敗しました： " + (err && err.message ? err.message : String(err)), "danger");
-  console.error(err);
+    hideMiniLoading();
+    showBanner("起動に失敗しました： " + (err && err.message ? err.message : String(err)), "danger");
+    console.error(err);
   });
 </script>
+
 </body>
 </html>
