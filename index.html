@@ -499,6 +499,34 @@
   </div>
 
 <script>
+  (function () {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reset') === '1') {
+      console.warn('[DEBUG] reset=1 detected. Clearing storage...');
+
+      // local / session を完全クリア
+      try { localStorage.clear(); } catch (e) {}
+      try { sessionStorage.clear(); } catch (e) {}
+
+      // reset=1 をURLから消してリロード（無限ループ防止）
+      params.delete('reset');
+      const cleanUrl =
+        window.location.pathname +
+        (params.toString() ? '?' + params.toString() : '') +
+        window.location.hash;
+
+      // 少し待ってからリロード（LINE内ブラウザ安定用）
+      setTimeout(() => {
+        window.location.replace(cleanUrl);
+      }, 100);
+
+      return;
+    }
+  } catch (e) {
+    console.error('[DEBUG RESET ERROR]', e);
+  }
+})();
   /* ====== 設定（必ず差し替え） ====== */
   const LIFF_ID   = "2008938862-AlepUDEH";
   const API_URL   = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";
