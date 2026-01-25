@@ -58,7 +58,6 @@
     }
     .banner.show{ display:block; }
     .banner.danger{ border-color: rgba(255,77,109,.38); background: rgba(255,77,109,.10); color:#ffd3dc; }
-    /* 追加：info（今日のクラス0件など、エラーではない案内） */
     .banner.info{ border-color: rgba(169,180,208,.26); background: rgba(169,180,208,.08); color: rgba(234,240,255,.92); }
 
     .hintBanner{
@@ -106,7 +105,6 @@
     .className{ font-size:15px; font-weight:800; letter-spacing:.1px; line-height:1.2; }
     .classMeta{ font-size:12px; color:rgba(169,180,208,.85); margin-top:2px; }
 
-    /* 右側の「今日ラベル + 選択ドット」横並び */
     .rightWrap{
       display:flex;
       align-items:center;
@@ -121,7 +119,6 @@
       flex:0 0 auto;
     }
 
-    /* 選択状態（既存） */
     .classCard.selected{
       border-color: rgba(124,92,255,.55);
       background: linear-gradient(135deg, rgba(124,92,255,.22), rgba(45,212,191,.12));
@@ -129,7 +126,6 @@
     }
     .classCard.selected .dot{ background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: rgba(255,255,255,.22); }
 
-    /* ===== 今日の曜日のカード強調 ===== */
     .classCard.today{
       border-color: rgba(45,212,191,.55);
       background: linear-gradient(135deg, rgba(45,212,191,.14), rgba(124,92,255,.12));
@@ -157,7 +153,6 @@
       border-color: rgba(45,212,191,.38);
     }
 
-    /* 「今日」ラベル（右側・横並び用） */
     .todayBadge{
       font-size:11px;
       font-weight:900;
@@ -170,7 +165,6 @@
       white-space: nowrap;
     }
 
-    /* 追加：チェックイン済み「済」ラベル */
     .doneBadge{
       font-size:11px;
       font-weight:900;
@@ -183,7 +177,6 @@
       white-space: nowrap;
     }
 
-    /* 追加：チェックイン済みカード（タップ不可） */
     .classCard.done{
       opacity: .55;
       cursor: not-allowed;
@@ -252,12 +245,11 @@
     .countdown{ margin-top:10px; font-size:12px; color:rgba(169,180,208,.85); }
 
     .footer{ text-align:center; margin-top:12px; font-size:12px; color:rgba(169,180,208,.72); }
-    /* ===== micro animations (lightweight) ===== */
+
 @media (prefers-reduced-motion: reduce){
   *{ animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
-/* ページ初期フェード */
 .wrap{
   animation: pageIn .28s ease-out both;
 }
@@ -266,7 +258,6 @@
   to{ opacity:1; transform: translateY(0); }
 }
 
-/* カード：ホバー/タップの質感（transformのみで軽量） */
 .classCard{
   will-change: transform;
 }
@@ -274,7 +265,6 @@
   transform: translateY(1px) scale(.995);
 }
 
-/* 追加：今日バッジに軽い鼓動（視線誘導） */
 .classCard.today .todayBadge{
   animation: pulseSoft 1.8s ease-in-out infinite;
   transform-origin: 30% 50%;
@@ -284,7 +274,6 @@
   50%{ transform: translateZ(0) scale(1.04); filter: saturate(1.15); }
 }
 
-/* 追加：選択されたカードに“入り” */
 .classCard.selected{
   animation: selectFade .16s ease-out;
 }
@@ -293,7 +282,6 @@
   to{ opacity:1; }
 }
 
-/* バナーの出現を滑らかに */
 .banner.show{
   animation: bannerIn .18s ease-out both;
 }
@@ -302,7 +290,6 @@
   to{ opacity:1; transform: translateY(0); }
 }
 
-/* 成功画面のチェックマークを少しだけ演出 */
 .successView.show .check{
   animation: checkIn .22s ease-out both;
 }
@@ -310,16 +297,13 @@
   from{ opacity:0; transform: scale(.92); }
   to{ opacity:1; transform: scale(1); }
 }
-/* ===== selected を最優先で見せる（todayより勝たせる） ===== */
 
-/* 1) selectedのカードを少しだけ“浮かせる” */
+/* ===== selected を最優先で見せる（todayより勝たせる） ===== */
 .classCard.selected{
   border-color: rgba(124,92,255,.78);
   box-shadow: 0 16px 44px rgba(124,92,255,.18);
-  transform: translateY(-1px)scale(1.01); /* ほんの少しだけ。重くならない */
+  transform: translateY(-1px)scale(1.01);
 }
-
-/* 2) ドットは selected が必ず勝つ（todayでも色が変わる） */
 .classCard.selected .dot{
   background: linear-gradient(135deg, var(--accent), var(--accent2)) !important;
   border-color: rgba(255,255,255,.35) !important;
@@ -327,8 +311,6 @@
     0 0 0 4px rgba(124,92,255,.18),
     0 10px 26px rgba(124,92,255,.22);
 }
-
-/* 3) today + selected のときはさらに分かりやすく（最強状態） */
 .classCard.today.selected{
   border-color: rgba(45,212,191,.78);
   box-shadow: 0 18px 50px rgba(45,212,191,.14);
@@ -338,8 +320,6 @@
     0 0 0 4px rgba(45,212,191,.16),
     0 10px 26px rgba(45,212,191,.20);
 }
-
-/* 4) “済”カードは selected 表示を無効化（誤タップ対策） */
 .classCard.done.selected{
   transform: none;
   box-shadow: none;
@@ -349,6 +329,7 @@
   border-color: rgba(34,197,94,.30) !important;
   box-shadow: none;
 }
+
 /* ===== Dev Reset (開発用) ===== */
 .devReset{
   margin: 10px auto 0;
@@ -365,7 +346,8 @@
   cursor: pointer;
 }
 .devReset:active{ transform: translateY(1px); }
-    /* ===== modal (lightweight) ===== */
+
+/* ===== modal (lightweight) ===== */
 .modal{
   position: fixed;
   inset: 0;
@@ -410,8 +392,6 @@
   cursor: pointer;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
 }
-
-
   </style>
 </head>
 
@@ -457,7 +437,8 @@
           <div id="phoneWrap" style="display:none; margin-top: 14px;">
             <label>電話番号（初回のみ）</label>
             <div class="field">
-              <input id="phoneInput" type="tel" inputmode="numeric" placeholder="090xxxxxxxx" />
+              <input id="phoneInput" type="tel" inputmode="numeric" placeholder="090xxxxxxxx"
+                     autocomplete="off" autocorrect="off" autocapitalize="off" />
             </div>
             <div class="hint">会員登録時の「緊急連絡先」と一致する必要があります。</div>
           </div>
@@ -469,6 +450,7 @@
             <div class="mini" id="netInfo"></div>
           </div>
         </div>
+
         <!-- Unpaid / Pending modal -->
         <div id="payModal" class="modal">
           <div class="modalCard">
@@ -477,7 +459,6 @@
             <button class="modalBtn" id="payModalOk">OK</button>
           </div>
         </div>
-
 
         <div id="successView" class="successView">
           <div class="check">✓</div>
@@ -489,50 +470,58 @@
     </div>
 
     <div class="footer">
-  © SoL Dance Community
-  <!-- 開発用：長押しで表示 -->
-  <button id="devResetBtn" class="devReset" style="display:none;" type="button">
-    今日の「済」をリセット（開発用）
-  </button>
-</div>
+      © SoL Dance Community
+      <!-- 開発用：長押しで表示 -->
+      <button id="devResetBtn" class="devReset" style="display:none;" type="button">
+        今日の「済」をリセット（開発用）
+      </button>
+    </div>
 
   </div>
 
 <script>
-  (function () {
+/**
+ * =====================================================
+ * DEBUG RESET SWITCH
+ * - ?reset=1  : storage全消し → force_phone=1 を付与してリロード
+ * - ?force_phone=1 : 電話番号入力UIを強制表示し、未入力送信を禁止
+ * =====================================================
+ */
+(function () {
   try {
     const params = new URLSearchParams(window.location.search);
     if (params.get('reset') === '1') {
-      console.warn('[DEBUG] reset=1 detected. Clearing storage...');
+      console.warn('[DEBUG] reset=1 detected. Clearing storage and enabling force_phone...');
 
-      // local / session を完全クリア
       try { localStorage.clear(); } catch (e) {}
       try { sessionStorage.clear(); } catch (e) {}
 
-      // reset=1 をURLから消してリロード（無限ループ防止）
       params.delete('reset');
+      params.set('force_phone', '1');
+
       const cleanUrl =
         window.location.pathname +
         (params.toString() ? '?' + params.toString() : '') +
         window.location.hash;
 
-      // 少し待ってからリロード（LINE内ブラウザ安定用）
-      setTimeout(() => {
-        window.location.replace(cleanUrl);
-      }, 100);
-
+      setTimeout(() => window.location.replace(cleanUrl), 100);
       return;
     }
   } catch (e) {
     console.error('[DEBUG RESET ERROR]', e);
   }
 })();
+
   /* ====== 設定（必ず差し替え） ====== */
   const LIFF_ID   = "2008938862-AlepUDEH";
   const API_URL   = "https://script.google.com/macros/s/AKfycbzSfWcEmD_YQERkH5BlP4l91aSomP0HotcymETyItiWhnAk22fc2nxE9QdV0oL2i4Lp/exec";
   const API_TOKEN = "sol_checkin_2026_144025036146";
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
+
+  // ★ 追加：force_phone 判定
+  const QS = new URLSearchParams(window.location.search);
+  const FORCE_PHONE = (QS.get('force_phone') === '1');
 
   const REDIRECT_DELAY_MS = 2500;
   const JSONP_TIMEOUT_MS  = 16000;
@@ -958,6 +947,13 @@
       $("todayLabel").textContent = `受講クラス（本日のクラスはありません）`;
     }
 
+    // ★ 追加：force_phone の時は phone入力UIを強制表示
+    if (FORCE_PHONE) {
+      $("phoneWrap").style.display = "block";
+      $("phoneInput").value = "";
+      showBanner("開発モード：電話番号入力を強制しています（force_phone=1）。会員登録時の電話番号を入力してください。", "info");
+    }
+
     hideMiniLoading();
     $("checkinBtn").disabled = true;
   }
@@ -975,6 +971,16 @@
       showBanner("このクラスは本日すでにチェックイン済みです。", "info");
       $("checkinBtn").disabled = true;
       return;
+    }
+
+    // ★ 追加：force_phone の時は電話番号未入力を禁止（必ず初回を再現）
+    if (FORCE_PHONE) {
+      $("phoneWrap").style.display = "block";
+      const p = normalizePhone($("phoneInput").value);
+      if (!p) {
+        showBanner("開発モード：電話番号が未入力です。初回連携のため入力してください。", "info");
+        return;
+      }
     }
 
     const phone = normalizePhone($("phoneInput").value);
