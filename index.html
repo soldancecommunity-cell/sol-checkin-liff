@@ -963,9 +963,9 @@
   // ===== checkin (DEBUGなし／重複遷移なし) =====
   // ===== checkin (OKボタン付き表示：未払い/現地精算/回数) =====
 async function checkin(){
-
   hideBanner();
 
+  // 1) 必須チェック
   if (!SELECTED_CLASS || !SELECTED_CLASS.id) {
     showBanner("クラスを選択してください。", "danger");
     return;
@@ -977,12 +977,12 @@ async function checkin(){
     return;
   }
 
-  // force_phone=1 のときは電話番号必須
+  // force_phone のときは電話番号必須
   if (FORCE_PHONE) {
     $("phoneWrap").style.display = "block";
     const p = normalizePhone($("phoneInput").value);
     if (!p) {
-      showBanner("開発モード：電話番号が未入力です。初回連携のため入力してください。", "info");
+      showBanner("開発モード：電話番号が未入力です。入力してください。", "info");
       return;
     }
   }
@@ -1004,7 +1004,7 @@ async function checkin(){
 
     const res = await jsonp(url);
 
-
+    // 2) 初回電話要求
     if (res && res.status === "need_phone") {
       $("phoneWrap").style.display = "block";
       showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "info");
@@ -1013,6 +1013,7 @@ async function checkin(){
       return;
     }
 
+    // 3) すでにチェックイン済み（サーバー判定）
     if (res && res.status === "already") {
       showBanner(res.message || "本日はすでにチェックイン済みです。", "info");
       markDoneToday_(SELECTED_CLASS.id);
@@ -1021,15 +1022,15 @@ async function checkin(){
       return;
     }
 
+    // 4) 失敗
     if (!res || res.status !== "success") {
-      const msg = (res && res.message) ? res.message : "エラーが発生しました。";
-      showBanner(msg, "danger");
+      showBanner((res && res.message) ? res.message : "エラーが発生しました。", "danger");
       setBusy(false);
       hideMiniLoading();
       return;
     }
 
-    // 成功したので「今日の済」保存
+    // 5) 成功（ここで初めて “済” を付ける）
     markDoneToday_(SELECTED_CLASS.id);
 
     const goStamp = () => {
@@ -1038,7 +1039,7 @@ async function checkin(){
       setTimeout(openStamp, REDIRECT_DELAY_MS);
     };
 
-    // ===== 1) 未払い/現地精算：最優先でモーダルOK必須 =====
+    // 6) 表示メッセージを作る（優先順位：未払い→現地精算→超過→回数）
     const unpaidMsg  = (res.unpaid === true)
       ? (res.unpaid_message || "当月のお支払いが未確認です。受付でお声がけください。")
       : "";
@@ -1047,6 +1048,15 @@ async function checkin(){
       ? (res.pending_message || "本日は現地精算です。受付でお手続きください。")
       : "";
 
+    const overMsg = (res.over_limit === true)
+      ? (res.over_message || "")
+      : "";
+
+    const monthMsg = (!overMsg && res.month_count)
+      ? (res.over_message || `今月の受講は ${res.month_count} 回目です。`)
+      : "";
+
+    // 7) 未払い / 現地精算 は必ずOK必須で止める
     if (unpaidMsg) {
       showPayModal(
         "当月のお支払いが未確認です",
@@ -1069,25 +1079,12 @@ async function checkin(){
       return;
     }
 
-    // ===== 2) 回数/超過：次にモーダルOK必須 =====
-    // res.month_count, res.over_limit, res.over_message はGAS側が返している前提
-    const overMsg = (res.over_limit === true)
-      ? (res.over_message || "追加受講の可能性があります。受付でご確認ください。")
-      : "";
-
-    const monthMsg = (!overMsg && res.month_count)
-      ? `今月の受講は ${res.month_count} 回目です。`
-      : "";
-
-
-    const infoMsg = overMsg
-      ? (overMsg + "\n\nOKを押すとスタンプ付与へ移動します。")
-      : monthMsg;
-
+    // 8) 回数/超過もOK必須にしたいならここで止める
+    const infoMsg = overMsg || monthMsg;
     if (infoMsg) {
       showPayModal(
         overMsg ? "追加受講の可能性" : "今月の受講回数",
-        infoMsg,
+        infoMsg + "\n\nOKを押すとスタンプ付与へ移動します。",
         () => goStamp()
       );
       setBusy(false);
@@ -1095,7 +1092,9 @@ async function checkin(){
       return;
     }
 
-    // ===== 3) 何も表示が無ければそのまま遷移 =====
+    // 9) 何もなければ即スタンプ
+    setBusy(false);
+    hideMiniLoading();
     goStamp();
 
   } catch (err) {
@@ -1105,6 +1104,7 @@ async function checkin(){
     console.error(err);
   }
 }
+
 
 
   init().catch(err => {
