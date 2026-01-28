@@ -1034,11 +1034,18 @@
         ? (res.pending_message || "本日は現地精算です。受付でお手続きください。")
         : "";
 
-      const goStamp = () => {
-        showSuccess("スタンプを付与します…");
-        startCountdown(REDIRECT_DELAY_MS);
-        setTimeout(openStamp, REDIRECT_DELAY_MS);
+      const countMsg =
+        (res && res.over_message) ? String(res.over_message) :
+        (res && res.month_count) ? `今月の受講は ${res.month_count} 回目です。` :
+        "";
+      
+        const goStamp = () => {
+          // カウントがあれば成功画面に表示（なければ従来通り）
+          showSuccess(countMsg ? `${countMsg}\n\nスタンプを付与します…` : "スタンプを付与します…");
+          startCountdown(REDIRECT_DELAY_MS);
+          setTimeout(openStamp, REDIRECT_DELAY_MS);
       };
+
 
       if (unpaidMsg) {
         showPayModal(
