@@ -1008,8 +1008,6 @@ async function checkin(){
     if (res && res.status === "need_phone") {
       $("phoneWrap").style.display = "block";
       showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "info");
-      setBusy(false);
-      hideMiniLoading();
       return;
     }
 
@@ -1017,16 +1015,12 @@ async function checkin(){
     if (res && res.status === "already") {
       showBanner(res.message || "本日はすでにチェックイン済みです。", "info");
       markDoneToday_(SELECTED_CLASS.id);
-      setBusy(false);
-      hideMiniLoading();
       return;
     }
 
     // 4) 失敗
     if (!res || res.status !== "success") {
       showBanner((res && res.message) ? res.message : "エラーが発生しました。", "danger");
-      setBusy(false);
-      hideMiniLoading();
       return;
     }
 
@@ -1039,7 +1033,7 @@ async function checkin(){
       setTimeout(openStamp, REDIRECT_DELAY_MS);
     };
 
-    // 6) 表示メッセージを作る（優先順位：未払い→現地精算→超過→回数）
+    // 6) 表示メッセージ（優先順位：未払い→現地精算→超過→回数）
     const unpaidMsg  = (res.unpaid === true)
       ? (res.unpaid_message || "当月のお支払いが未確認です。受付でお声がけください。")
       : "";
@@ -1052,15 +1046,14 @@ async function checkin(){
       ? (res.over_message || "")
       : "";
 
+    // ★ここは res.over_message を使わない方が安全（回数表示が変になる）
     const monthMsg = (!overMsg && res.month_count)
-      ? (res.over_message || `今月の受講は ${res.month_count} 回目です。`)
+      ? `今月の受講は ${res.month_count} 回目です。`
       : "";
 
-    // 7) モーダルを連鎖させる関数（最後に goStamp）
+    // 7) 回数/超過モーダル → OKでスタンプ
     const showInfoThenStamp = () => {
-      // 支払い系が無い前提で呼ばれる想定
       const infoMsg = overMsg || monthMsg;
-    
       if (infoMsg) {
         showPayModal(
           overMsg ? "追加受講の可能性" : "今月の受講回数",
@@ -1071,44 +1064,38 @@ async function checkin(){
         goStamp();
       }
     };
-    
-    // 8) 未払い / 現地精算 は必ず最優先で止める
+
+    // 8) 未払い/現地精算 → OK → 回数/超過 → OK → スタンプ
     if (unpaidMsg) {
       showPayModal(
         "当月のお支払いが未確認です",
         unpaidMsg + "\n\n※チェックインは完了しています。受付でお声がけください。",
-        () => {
-          // ★未払いOKの後に、回数/超過を出してからスタンプへ
-          showInfoThenStamp();
-        }
+        () => showInfoThenStamp()
       );
-      setBusy(false);
-      hideMiniLoading();
       return;
     }
-    
+
     if (pendingMsg) {
       showPayModal(
         "本日は現地精算です",
         pendingMsg + "\n\n※チェックインは完了しています。受付でお手続きください。",
-        () => {
-          // ★現地精算OKの後に、回数/超過を出してからスタンプへ
-          showInfoThenStamp();
-        }
+        () => showInfoThenStamp()
       );
-      setBusy(false);
-      hideMiniLoading();
       return;
     }
-    
-    // 9) 支払い系が無いときは、回数/超過だけ出してスタンプへ
+
+    // 9) 支払い系が無い → 回数/超過だけ（あれば）→ スタンプ
     showInfoThenStamp();
+
+  } catch (err) {
+    console.error(err);
+    showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
+  } finally {
     setBusy(false);
     hideMiniLoading();
-    return;
-
   }
 }
+
 
 
 
