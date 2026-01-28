@@ -962,70 +962,15 @@
   async function checkin(){
     hideBanner();
 
-    if (!SELECTED_CLASS || !SELECTED_CLASS.id) {
-      showBanner("クラスを選択してください。", "danger");
-      return;
-    }
+          markDoneToday_(SELECTED_CLASS.id);
 
-    if (isDoneToday_(SELECTED_CLASS.id)) {
-      showBanner("このクラスは本日すでにチェックイン済みです。", "info");
-      $("checkinBtn").disabled = true;
-      return;
-    }
+      const goStamp = () => {
+        showSuccess("スタンプを付与します…");
+        startCountdown(REDIRECT_DELAY_MS);
+        setTimeout(openStamp, REDIRECT_DELAY_MS);
+      };
 
-    // ★ 追加：force_phone の時は電話番号未入力を禁止（必ず初回を再現）
-    if (FORCE_PHONE) {
-      $("phoneWrap").style.display = "block";
-      const p = normalizePhone($("phoneInput").value);
-      if (!p) {
-        showBanner("開発モード：電話番号が未入力です。初回連携のため入力してください。", "info");
-        return;
-      }
-    }
-
-    const phone = normalizePhone($("phoneInput").value);
-
-    setBusy(true);
-    showMiniLoading("チェックイン送信中…");
-
-    try {
-      const url =
-        `${API_URL}?api=checkin` +
-        `&token=${encodeURIComponent(API_TOKEN)}` +
-        `&userId=${encodeURIComponent(LINE_USER_ID)}` +
-        `&displayName=${encodeURIComponent(LINE_DISPLAY_NAME)}` +
-        `&classId=${encodeURIComponent(SELECTED_CLASS.id)}` +
-        `&className=${encodeURIComponent(SELECTED_CLASS.name)}` +
-        (phone ? `&phone=${encodeURIComponent(phone)}` : "");
-
-      const res = await jsonp(url);
-
-      if (res && res.status === "need_phone") {
-        $("phoneWrap").style.display = "block";
-        showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "info");
-        setBusy(false);
-        hideMiniLoading();
-        return;
-      }
-
-      if (res && res.status === "already") {
-        showBanner(res.message || "本日はすでにチェックイン済みです。", "info");
-        markDoneToday_(SELECTED_CLASS.id);
-        setBusy(false);
-        hideMiniLoading();
-        return;
-      }
-
-      if (!res || res.status !== "success") {
-        const msg = (res && res.message) ? res.message : "エラーが発生しました。";
-        showBanner(msg, "danger");
-        setBusy(false);
-        hideMiniLoading();
-        return;
-      }
-
-      markDoneToday_(SELECTED_CLASS.id);
-
+      // ===== 1) 支払い系（最優先：必ずOK要求）=====
       const unpaidMsg  = (res.unpaid === true)
         ? (res.unpaid_message || "当月のお支払いが未確認です。受付でお声がけください。")
         : "";
@@ -1033,19 +978,6 @@
       const pendingMsg = (res.pending === true)
         ? (res.pending_message || "本日は現地精算です。受付でお手続きください。")
         : "";
-
-      const countMsg =
-        (res && res.over_message) ? String(res.over_message) :
-        (res && res.month_count) ? `今月の受講は ${res.month_count} 回目です。` :
-        "";
-      
-        const goStamp = () => {
-          // カウントがあれば成功画面に表示（なければ従来通り）
-          showSuccess(countMsg ? `${countMsg}\n\nスタンプを付与します…` : "スタンプを付与します…");
-          startCountdown(REDIRECT_DELAY_MS);
-          setTimeout(openStamp, REDIRECT_DELAY_MS);
-      };
-
 
       if (unpaidMsg) {
         showPayModal(
@@ -1069,7 +1001,32 @@
         return;
       }
 
+      // ===== 2) 回数/超過（支払いがOKなら次に表示：OK要求）=====
+      const overMsg = (res.over_limit === true)
+        ? (res.over_message || "")
+        : "";
+
+      // 今月回数の通常表示（over_limit がない時だけ）
+      const monthMsg = (!overMsg && res.month_count)
+        ? (res.over_message || `今月の受講は ${res.month_count} 回目です。`)
+        : "";
+
+      const infoMsg = overMsg || monthMsg;
+
+      if (infoMsg) {
+        showPayModal(
+          overMsg ? "追加受講の可能性" : "今月の受講回数",
+          infoMsg + "\n\nOKを押すとスタンプ付与へ移動します。",
+          () => goStamp()
+        );
+        setBusy(false);
+        hideMiniLoading();
+        return;
+      }
+
+      // ===== 3) 表示するものが何もなければ従来通り =====
       goStamp();
+
 
     } catch (err) {
       showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
