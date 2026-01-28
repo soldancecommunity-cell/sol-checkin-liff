@@ -480,6 +480,35 @@
   </div>
 
 <script>
+  // ====== DEBUG: 画面にエラーを出す ======必要なくなったら消す↓
+window.addEventListener("error", (e) => {
+  try {
+    const msg = (e && e.message) ? e.message : String(e);
+    const src = (e && e.filename) ? `${e.filename}:${e.lineno || ""}` : "";
+    const el = document.getElementById("banner");
+    if (el) {
+      el.className = "banner show danger";
+      el.textContent = "JSエラー: " + msg + (src ? "\n" + src : "");
+    } else {
+      alert("JSエラー: " + msg);
+    }
+  } catch(_) {}
+});
+
+window.addEventListener("unhandledrejection", (e) => {
+  try {
+    const msg = (e && e.reason && e.reason.message) ? e.reason.message : String(e.reason || e);
+    const el = document.getElementById("banner");
+    if (el) {
+      el.className = "banner show danger";
+      el.textContent = "Promiseエラー: " + msg;
+    } else {
+      alert("Promiseエラー: " + msg);
+    }
+  } catch(_) {}
+});
+// =======================================必要なくなったら消す↑
+
 /**
  * =====================================================
  * DEBUG RESET SWITCH
