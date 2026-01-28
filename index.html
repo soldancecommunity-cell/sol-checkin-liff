@@ -1056,52 +1056,57 @@ async function checkin(){
       ? (res.over_message || `今月の受講は ${res.month_count} 回目です。`)
       : "";
 
-    // 7) 未払い / 現地精算 は必ずOK必須で止める
+    // 7) モーダルを連鎖させる関数（最後に goStamp）
+    const showInfoThenStamp = () => {
+      // 支払い系が無い前提で呼ばれる想定
+      const infoMsg = overMsg || monthMsg;
+    
+      if (infoMsg) {
+        showPayModal(
+          overMsg ? "追加受講の可能性" : "今月の受講回数",
+          infoMsg + "\n\nOKを押すとスタンプ付与へ移動します。",
+          () => goStamp()
+        );
+      } else {
+        goStamp();
+      }
+    };
+    
+    // 8) 未払い / 現地精算 は必ず最優先で止める
     if (unpaidMsg) {
       showPayModal(
         "当月のお支払いが未確認です",
         unpaidMsg + "\n\n※チェックインは完了しています。受付でお声がけください。",
-        () => goStamp()
+        () => {
+          // ★未払いOKの後に、回数/超過を出してからスタンプへ
+          showInfoThenStamp();
+        }
       );
       setBusy(false);
       hideMiniLoading();
       return;
     }
-
+    
     if (pendingMsg) {
       showPayModal(
         "本日は現地精算です",
         pendingMsg + "\n\n※チェックインは完了しています。受付でお手続きください。",
-        () => goStamp()
+        () => {
+          // ★現地精算OKの後に、回数/超過を出してからスタンプへ
+          showInfoThenStamp();
+        }
       );
       setBusy(false);
       hideMiniLoading();
       return;
     }
-
-    // 8) 回数/超過もOK必須にしたいならここで止める
-    const infoMsg = overMsg || monthMsg;
-    if (infoMsg) {
-      showPayModal(
-        overMsg ? "追加受講の可能性" : "今月の受講回数",
-        infoMsg + "\n\nOKを押すとスタンプ付与へ移動します。",
-        () => goStamp()
-      );
-      setBusy(false);
-      hideMiniLoading();
-      return;
-    }
-
-    // 9) 何もなければ即スタンプ
+    
+    // 9) 支払い系が無いときは、回数/超過だけ出してスタンプへ
+    showInfoThenStamp();
     setBusy(false);
     hideMiniLoading();
-    goStamp();
+    return;
 
-  } catch (err) {
-    showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
-    setBusy(false);
-    hideMiniLoading();
-    console.error(err);
   }
 }
 
