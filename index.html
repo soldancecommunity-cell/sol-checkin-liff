@@ -1003,10 +1003,6 @@ async function checkin(){
       (phone ? `&phone=${encodeURIComponent(phone)}` : "");
 
     const res = await jsonp(url);
-    showPayModal("DEBUG res", JSON.stringify(res, null, 2), () => {});
-    setBusy(false);
-    hideMiniLoading();
-    return;
 
 
     if (res && res.status === "need_phone") {
