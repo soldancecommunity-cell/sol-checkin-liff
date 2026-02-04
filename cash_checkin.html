@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>現地払いチェックイン</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    :root{
+      --bg0:#06070a; --bg1:#0b0d12;
+      --card1: rgba(255,255,255,.075);
+      --card2: rgba(255,255,255,.04);
+      --line: rgba(255,255,255,.12);
+      --text:#eaf0ff; --muted:rgba(234,240,255,.72);
+      --accent:#7c5cff; --accent2:#2dd4bf;
+      --ok:#22c55e; --ng:#ff4d6d; --warn:#fbbf24;
+      --radius:18px;
+      --shadow: 0 20px 70px rgba(0,0,0,.55);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 800px at 20% 0%, rgba(124,92,255,.24), transparent 60%),
+        radial-gradient(900px 700px at 90% 20%, rgba(45,212,191,.18), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      min-height:100vh;
+      padding: calc(14px + env(safe-area-inset-top)) 14px calc(22px + env(safe-area-inset-bottom));
+      display:flex; justify-content:center;
+    }
+    .wrap{ width:min(560px, 100%); }
+    .card{
+      background: linear-gradient(180deg, var(--card1), var(--card2));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      backdrop-filter: blur(10px);
+    }
+    .head{
+      padding:16px 16px 12px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.02);
+    }
+    h1{
+      margin:0 0 6px;
+      font-size:18px;
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+    .sub{ margin:0; color:var(--muted); font-size:12px; line-height:1.55; }
+    .content{ padding:14px 16px 0; }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    @media (max-width:420px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+    .item{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      border-radius:14px;
+      padding:12px;
+    }
+    .label{ color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .value{ font-weight:900; letter-spacing:.2px; }
+    .fee{ font-size:24px; font-weight:1000; letter-spacing:.3px; }
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      font-weight:1000;
+      font-size:12px;
+      border:1px solid;
+      white-space:nowrap;
+      width: fit-content;
+    }
+    .dot{ width:9px; height:9px; border-radius:50%; }
+    .ok{ border-color: rgba(34,197,94,.45); background: rgba(34,197,94,.18); }
+    .ok .dot{ background: var(--ok); }
+    .ng{ border-color: rgba(255,77,109,.40); background: rgba(255,77,109,.14); }
+    .ng .dot{ background: var(--ng); }
+    .warn{ border-color: rgba(251,191,36,.38); background: rgba(251,191,36,.12); }
+    .warn .dot{ background: var(--warn); }
+
+    .sep{ height:1px; background:rgba(255,255,255,.10); margin:14px 0; }
+
+    select, input{
+      width:100%;
+      padding:14px 14px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      outline:none;
+      font-size:16px;
+    }
+    select:focus, input:focus{
+      border-color: rgba(124,92,255,.60);
+      box-shadow: 0 0 0 3px rgba(124,92,255,.18);
+    }
+    .hint{ color:var(--muted); font-size:12px; line-height:1.6; margin-top:8px; }
+
+    pre{
+      margin:12px 0 0;
+      white-space:pre-wrap;
+      background:rgba(255,255,255,.035);
+      border:1px solid rgba(255,255,255,.10);
+      padding:12px;
+      border-radius:14px;
+      color:rgba(234,240,255,.88);
+      font-size:12px;
+      line-height:1.55;
+    }
+
+    /* Sticky action bar (押しやすい) */
+    .actionBar{
+      position: sticky;
+      bottom: 0;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, rgba(11,13,18,0), rgba(11,13,18,.75) 22%, rgba(11,13,18,.95));
+      border-top: 1px solid rgba(255,255,255,.08);
+      backdrop-filter: blur(10px);
+    }
+    .btn{
+      width:100%;
+      border:none;
+      border-radius:16px;
+      padding:16px 14px;
+      font-size:16px;
+      font-weight:1000;
+      letter-spacing:.2px;
+      color:#0b0d12;
+      background: linear-gradient(135deg, rgba(124,92,255,.98), rgba(45,212,191,.92));
+      box-shadow: 0 14px 40px rgba(124,92,255,.18);
+      cursor:pointer;
+      transition: transform .06s ease, opacity .15s ease;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn[disabled]{ opacity:.55; cursor:not-allowed; box-shadow:none; }
+
+    .statusLine{
+      margin-top:10px;
+      color: rgba(234,240,255,.78);
+      font-size:12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .pill{
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.03);
+      color: rgba(234,240,255,.78);
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .hide{ display:none; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <h1>現地払いチェックイン</h1>
+        <p class="sub">このQRは<strong>現地精算（PENDING）専用</strong>です。月謝契約の有無と単発料金を表示します。</p>
+      </div>
+
+      <div class="content">
+        <div class="grid">
+          <div class="item">
+            <div class="label">会員</div>
+            <div id="memberName" class="value">読み込み中…</div>
+          </div>
+          <div class="item">
+            <div class="label">区分</div>
+            <div id="contractBadge" class="badge warn"><span class="dot"></span>判定中</div>
+          </div>
+          <div class="item">
+            <div class="label">単発料金</div>
+            <div id="fee" class="fee">—</div>
+          </div>
+          <div class="item">
+            <div class="label">今月</div>
+            <div id="yyyymm" class="value">—</div>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="label">クラス</div>
+        <select id="classSel"></select>
+
+        <div id="phoneBox" class="hide" style="margin-top:12px;">
+          <div class="label">初回のみ：電話番号（ハイフンなし）</div>
+          <input id="phoneInput" inputmode="numeric" placeholder="例：08012345678" />
+          <div class="hint">未連携の場合のみ表示されます。</div>
+        </div>
+
+        <div class="label" style="margin-top:12px;">結果</div>
+        <pre id="out">—</pre>
+        <div style="height:10px"></div>
+      </div>
+
+      <div class="actionBar">
+        <button class="btn" id="btnCheckin" disabled>読み込み中…</button>
+        <div class="statusLine">
+          <div id="statusText">起動中…</div>
+          <div class="pill">PENDING 記録</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  /* ====== 設定（必ず差し替え） ====== */
+  const LIFF_ID   = "2008938862-M5N6CXP3"; // あなたのLIFF
+  const API_URL   = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
+  const API_TOKEN = "sol_checkin_2026_144025036146";
+  const STAMP_URL = "（必要ならここに）";
+  /* =================================== */
+
+  const JSONP_TIMEOUT_MS = 16000;
+
+  let gUserId = "";
+  let gDisplayName = "";
+
+  const $ = (id)=>document.getElementById(id);
+
+  function setOut(obj){
+    $("out").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
+  }
+  function setStatus(t){ $("statusText").textContent = t || ""; }
+
+  function withTimeout(p, ms, label){
+    let t;
+    const timeout = new Promise((_, rej)=> t=setTimeout(()=>rej(new Error(label+" timeout")), ms));
+    return Promise.race([p, timeout]).finally(()=>clearTimeout(t));
+  }
+
+  function jsonp(url){
+    return new Promise((resolve, reject)=>{
+      const cb = "cb_" + Math.random().toString(36).slice(2);
+      const script = document.createElement("script");
+      const timer = setTimeout(()=>{
+        cleanup();
+        reject(new Error("JSONP timeout"));
+      }, JSONP_TIMEOUT_MS);
+
+      function cleanup(){
+        clearTimeout(timer);
+        try { delete window[cb]; } catch(_){}
+        script.remove();
+      }
+      window[cb] = (data)=>{ cleanup(); resolve(data); };
+
+      script.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cb;
+      script.onerror = ()=>{ cleanup(); reject(new Error("jsonp load error")); };
+      document.body.appendChild(script);
+    });
+  }
+
+  function yyyymmNowJst(){
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const jst = new Date(utc + 9 * 60 * 60000);
+    const y = jst.getFullYear();
+    const m = String(jst.getMonth()+1).padStart(2,"0");
+    return `${y}${m}`;
+  }
+
+  async function main(){
+    setOut("LIFF init...");
+    setStatus("LIFF初期化中…");
+
+    await withTimeout(liff.init({ liffId: LIFF_ID }), 12000, "liff.init");
+
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+
+    const prof = await withTimeout(liff.getProfile(), 8000, "liff.getProfile");
+    gUserId = prof.userId;
+    gDisplayName = prof.displayName || "";
+
+    $("yyyymm").textContent = yyyymmNowJst();
+
+    // 1) me_cash
+    setOut("me_cash 呼び出し中...");
+    setStatus("会員情報を取得中…");
+
+    const meUrl = `${API_URL}?api=me_cash&token=${encodeURIComponent(API_TOKEN)}&userId=${encodeURIComponent(gUserId)}`;
+    const me = await jsonp(meUrl);
+    if (!me || me.status !== "success") { setOut({ where:"me_cash", meUrl, me }); setStatus("失敗"); return; }
+
+    $("memberName").textContent = me.member_name || "(不明)";
+    const badge = $("contractBadge");
+    badge.innerHTML = '<span class="dot"></span>' + (me.is_contract ? "月謝会員" : "通常会員");
+    badge.className = "badge " + (me.is_contract ? "ok" : "ng");
+    $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
+
+    // 2) classes
+    setOut("classes 読み込み中...");
+    setStatus("クラス一覧を取得中…");
+
+    const clsUrl = `${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`;
+    const cls = await jsonp(clsUrl);
+    if (!cls || cls.status !== "success") { setOut({ where:"classes", clsUrl, cls }); setStatus("失敗"); return; }
+
+    const sel = $("classSel");
+    sel.innerHTML = "";
+    (cls.classes || []).forEach(c=>{
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.name;
+      sel.appendChild(opt);
+    });
+
+    // 3) ready
+    $("btnCheckin").disabled = false;
+    $("btnCheckin").textContent = "現地精算でチェックイン（PENDING）";
+    setOut("準備OK。");
+    setStatus("チェックイン可能");
+
+    $("btnCheckin").onclick = async ()=>{
+      $("btnCheckin").disabled = true;
+      setStatus("チェックイン送信中…");
+      try{
+        const classId = sel.value;
+        const className = sel.options[sel.selectedIndex]?.textContent || "";
+
+        const phone = $("phoneBox").classList.contains("hide") ? "" : ($("phoneInput").value || "");
+
+        const url =
+          `${API_URL}?api=checkin`
+          + `&token=${encodeURIComponent(API_TOKEN)}`
+          + `&cash=1`
+          + `&userId=${encodeURIComponent(gUserId)}`
+          + `&displayName=${encodeURIComponent(gDisplayName)}`
+          + `&classId=${encodeURIComponent(classId)}`
+          + `&className=${encodeURIComponent(className)}`
+          + (phone ? `&phone=${encodeURIComponent(phone)}` : "");
+
+        const res = await jsonp(url);
+        setOut(res);
+
+        if (res && res.status === "need_phone") {
+          $("phoneBox").classList.remove("hide");
+          setStatus("電話番号入力が必要");
+          return;
+        }
+
+        if (res && res.status === "success") {
+          setStatus("完了");
+          // ここで必要ならスタンプへ
+          liff.openWindow({ url: STAMP_URL, external: false });
+          return;
+        }
+
+        setStatus("エラー");
+      } catch(e){
+        setOut(String(e && e.message ? e.message : e));
+        setStatus("通信失敗");
+      } finally {
+        $("btnCheckin").disabled = false;
+      }
+    };
+  }
+
+  main().catch(e=>{
+    setOut("FATAL: " + String(e && e.message ? e.message : e));
+    setStatus("起動失敗");
+  });
+</script>
+</body>
+</html>
