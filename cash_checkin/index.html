@@ -183,7 +183,7 @@
 </head>
 
 <body>
-  <!-- BUILD: 2026-02-08_cash_checkin_member_gate_v3_no_me_by_member_id -->
+  <!-- BUILD: 2026-02-08_cash_checkin_member_gate_v3_fixed_main -->
   <div class="wrap">
 
     <!-- ====== SCREEN 1: 会員確認（ページ） ====== -->
@@ -228,7 +228,7 @@
     </div>
 
     <!-- ====== SCREEN 2: チェックイン ====== -->
-    <div id="screenCheckin" class="card hide">
+    <div id="screenCheckin" class="card hide" style="margin-top:14px;">
       <div class="head">
         <h1>現地払いチェックイン</h1>
         <p class="sub">このQRは<strong>現地精算（PENDING）専用</strong>です。月謝契約の有無と単発料金を表示します。</p>
@@ -284,7 +284,7 @@
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
-  document.title = "cash_checkin BUILD 2026-02-08_cash_checkin_member_gate_v3_no_me_by_member_id";
+  document.title = "cash_checkin BUILD 2026-02-08_cash_checkin_member_gate_v3_fixed_main";
 
   const JSONP_TIMEOUT_MS = 16000;
   const $ = (id)=>document.getElementById(id);
@@ -294,14 +294,10 @@
   let RUNNING = false;
 
   let gVerifiedPhone = "";   // ★会員確認で入力された電話番号を保持
+  let gSelectedRowIndex = 0; // resolve_member候補のrowIndex
+  let gMemberId = "";        // me_cash から取得した member_id
 
-  // resolve_member で候補選択が必要なときの rowIndex
-  let gSelectedRowIndex = 0;
-
-  // 会員確認が済んだら、me_cash の member_id をここに入れて checkin に使う
-  let gMemberId = "";
-
-  // ---------- error hooks（必ずoutに出す） ----------
+  // ---------- error hooks ----------
   window.onerror = function(msg, src, line, col, err){
     try{
       const o = { where:"window.onerror", msg:String(msg), src:String(src), line, col, err:String(err && err.stack ? err.stack : err) };
@@ -320,12 +316,8 @@
     }catch(_){}
   };
 
-  function setOut(obj){
-    $("out").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
-  }
-  function setOutVerify(obj){
-    $("outVerify").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
-  }
+  function setOut(obj){ $("out").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2); }
+  function setOutVerify(obj){ $("outVerify").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2); }
   function setStatus(t){ $("statusText").textContent = t || ""; }
   function setVerifyStatus(t){ $("verifyStatus").textContent = t || ""; }
 
@@ -382,7 +374,6 @@
     return s;
   }
 
-  // ★候補が出ている時は、必ずDOMからrowIndexを取る（gSelectedRowIndex依存を減らす）
   function getSelectedRowIndexFromUI_(){
     const box = $("verifySelectBox");
     const sel = $("verifyMemberSel");
@@ -407,7 +398,6 @@
     $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
   }
 
-  // 既に紐づいてる人はこれでスキップ可能（userIdベース）
   async function fetchMeCashByUserId_(){
     const meUrl = `${API_URL}?api=me_cash&token=${encodeURIComponent(API_TOKEN)}&userId=${encodeURIComponent(gUserId)}`;
     return await jsonp(meUrl);
@@ -425,7 +415,6 @@
       sel.appendChild(opt);
     });
 
-    // 初期選択を確定
     gSelectedRowIndex = Number(sel.value || 0);
     sel.onchange = ()=> gSelectedRowIndex = Number(sel.value || 0);
 
@@ -438,7 +427,6 @@
     gSelectedRowIndex = 0;
   }
 
-  // 会員情報を確定（me_cashのみ。me_by_member_idは使わない）
   async function ensureMemberInfoByMeCash_(){
     setStatus("会員情報を取得中…");
     try{
@@ -489,7 +477,6 @@
     $("yyyymm").textContent = yyyymmNowJst();
     setMemberUiLocked_();
 
-    // ★会員情報は me_cash で確定させる（resolve_member成功後なら success になる）
     const meOk = await ensureMemberInfoByMeCash_();
     const clsOk = await loadClasses_();
 
@@ -567,25 +554,24 @@
     };
   }
 
-  // 会員確認（電話番号 → resolve_member）
   async function doResolveMember_(){
     try{
-      if ($("btnVerifyOk")) $("btnVerifyOk").disabled = true;
-      if ($("btnVerifyCancel")) $("btnVerifyCancel").disabled = true;
+      $("btnVerifyOk").disabled = true;
+      $("btnVerifyCancel").disabled = true;
 
-      if ($("verifyErr")) $("verifyErr").textContent = "";
+      $("verifyErr").textContent = "";
       setOutVerify("照会中…");
       setVerifyStatus("照会中…");
 
-      const phone = normPhone_($("verifyPhone") ? $("verifyPhone").value : "");
+      const phone = normPhone_($("verifyPhone").value);
       gVerifiedPhone = phone;
+
       if (!phone){
-        if ($("verifyErr")) $("verifyErr").textContent = "電話番号を入力してください（ハイフンなし）";
+        $("verifyErr").textContent = "電話番号を入力してください（ハイフンなし）";
         setVerifyStatus("入力待ち");
         return;
       }
 
-      // ★候補が出ているなら必ずDOMからrowIndexを拾う
       const rowIndex = getSelectedRowIndexFromUI_();
 
       const url =
@@ -599,47 +585,39 @@
 
       if (r && r.status === "need_member_select"){
         setVerifyCandidates_(r.candidates || []);
-        if ($("verifyErr")) $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
+        $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
         setOutVerify({ where:"resolve_member_need_select", url, r });
         setVerifyStatus("候補選択");
-        return; // ★ここで絶対にチェックインへ行かない
+        return;
       }
 
       if (r && r.status === "success"){
         clearVerifyCandidates_();
-
-        // resolve_member成功＝userId紐付け完了。次に me_cash を取り直して確定させる
         setOutVerify({ where:"resolve_member_success", url, r });
         setVerifyStatus("完了");
-
         await goToCheckin_();
         return;
       }
 
-      if ($("verifyErr")){
-        $("verifyErr").textContent =
-          "照会に失敗しました。\n" +
-          "status=" + String(r && r.status) + "\n" +
-          "message=" + String(r && r.message ? r.message : "(no message)");
-      }
+      $("verifyErr").textContent =
+        "照会に失敗しました。\n" +
+        "status=" + String(r && r.status) + "\n" +
+        "message=" + String(r && r.message ? r.message : "(no message)");
       setOutVerify({ where:"resolve_member_error", url, r });
       setVerifyStatus("失敗");
 
     } catch(err){
-      if ($("verifyErr")) $("verifyErr").textContent = "通信失敗: " + String(err?.message || err);
+      $("verifyErr").textContent = "通信失敗: " + String(err?.message || err);
       setOutVerify({ where:"resolve_member_exception", error:String(err?.message || err) });
       setVerifyStatus("失敗");
     } finally {
-      if ($("btnVerifyOk")) $("btnVerifyOk").disabled = false;
-      if ($("btnVerifyCancel")) $("btnVerifyCancel").disabled = false;
+      $("btnVerifyOk").disabled = false;
+      $("btnVerifyCancel").disabled = false;
     }
   }
 
-  // キャンセル：LIFFなら closeWindow、それ以外は入力クリア（history.back依存なし）
   function bindVerifyCancel_(){
     const btn = $("btnVerifyCancel");
-    if (!btn) return;
-
     btn.type = "button";
     btn.addEventListener("click", (e)=>{
       e.preventDefault();
@@ -653,10 +631,10 @@
       }catch(_){}
 
       try{
-        if ($("verifyPhone")) $("verifyPhone").value = "";
-        if ($("verifyErr")) $("verifyErr").textContent = "";
-        if ($("verifyStatus")) $("verifyStatus").textContent = "入力待ち";
-        if ($("outVerify")) $("outVerify").textContent = "—";
+        $("verifyPhone").value = "";
+        $("verifyErr").textContent = "";
+        $("verifyStatus").textContent = "入力待ち";
+        $("outVerify").textContent = "—";
         clearVerifyCandidates_();
       }catch(_){}
     }, true);
@@ -670,11 +648,7 @@
     const st = $("verifyStatus");
 
     if (!okBtn || !cancelBtn || !phone || !out || !st){
-      throw new Error("Missing verify elements: "
-        + JSON.stringify({
-          ok: !!okBtn, cancel: !!cancelBtn, phone: !!phone, out: !!out, status: !!st
-        })
-      );
+      throw new Error("Missing verify elements");
     }
 
     okBtn.type = "button";
@@ -692,9 +666,10 @@
 
   async function main(){
     showVerifyScreen_();
+
+    // ★起動確認（ここが出ればJSは動いてる）
     setOutVerify({ where:"boot_ok", at:new Date().toISOString() });
     setVerifyStatus("LIFF初期化中…");
-    setOutVerify("LIFF init...");
 
     await withTimeout(liff.init({ liffId: LIFF_ID }), 20000, "liff.init");
     if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -703,15 +678,10 @@
     gUserId = prof.userId;
     gDisplayName = prof.displayName || "";
 
-    // UI bind（ここが死ぬとボタン無反応になる）
     bindVerifyUI_();
-    
-    try{
-      catch(e){
-      setOutVerify({ where:"me_cash_exception", error:String(e?.message||e) });
-      setVerifyStatus("電話番号入力が必要");
-      showVerifyScreen_();
-    }
+
+    // 方針：毎回verifyを出す（自動スキップなし）
+    setVerifyStatus("電話番号入力が必要");
   }
 
   main().catch(e=>{
