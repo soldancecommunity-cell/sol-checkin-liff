@@ -159,7 +159,7 @@
 </head>
 
 <body>
-  <!-- BUILD: 2026-02-08_member_resolve_modal_v1 -->
+  <!-- BUILD: 2026-02-08_member_resolve_modal_v2_FIX -->
   <div class="wrap">
     <div class="card">
       <div class="head">
@@ -192,7 +192,7 @@
         <div class="label">クラス</div>
         <select id="classSel"></select>
 
-        <!-- 互換用：以前の phoneBox（今回は基本モーダルで取るが残してOK） -->
+        <!-- 互換用：以前の phoneBox（モーダルに統一するが残してOK） -->
         <div id="phoneBox" class="hide" style="margin-top:12px;">
           <div class="label">初回のみ：電話番号（ハイフンなし）</div>
           <input id="phoneInput" inputmode="numeric" placeholder="例：08012345678" />
@@ -217,8 +217,9 @@
   <!-- phone modal -->
   <div id="phoneModal" class="hide" style="
     position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    padding:18px; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); z-index:9999;">
-    <div style="
+    padding:18px; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); z-index:9999;
+    pointer-events:auto;">
+    <div id="phoneModalPanel" style="
       width:min(560px,100%);
       border-radius:18px;
       border:1px solid rgba(255,255,255,.12);
@@ -283,7 +284,7 @@
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
-  document.title = "cash_checkin BUILD 2026-02-08_member_resolve_modal_v1";
+  document.title = "cash_checkin BUILD 2026-02-08_member_resolve_modal_v2_FIX";
 
   const JSONP_TIMEOUT_MS = 16000;
 
@@ -294,6 +295,10 @@
 
   // member_id を保持（URL or resolveで確定したらここに入る）
   let gMemberId = "";
+
+  // ★重要：ユーザーがキャンセルしたら「自動再表示」を止めるフラグ
+  // （ユーザーがボタンを押した時だけ再表示は許可）
+  let USER_DISMISSED_MODAL = false;
 
   const $ = (id)=>document.getElementById(id);
 
@@ -329,17 +334,6 @@
       document.body.appendChild(script);
     });
   }
-  function showServerDump_(title, url, obj){
-    const lines = [];
-    lines.push(`【${title}】`);
-    lines.push(`url: ${url}`);
-    try{
-      lines.push(`res: ${JSON.stringify(obj, null, 2)}`);
-    }catch(e){
-      lines.push(`res(raw): ${String(obj)}`);
-    }
-    setOut(lines.join("\n\n"));
-  }
 
   function yyyymmNowJst(){
     const now = new Date();
@@ -350,7 +344,7 @@
     return `${y}${m}`;
   }
 
-  // 電話番号正規化：数字のみ / 10〜11桁想定（雑でOK）
+  // 電話番号正規化：数字のみ / 10〜11桁想定
   function normPhone_(s){
     s = String(s || '').trim().replace(/[^\d]/g,'');
     if (s.length < 10) return "";
@@ -383,75 +377,55 @@
     $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
   }
 
-  // ===== modal control (確実に閉じる + 再表示抑止) =====
+  // ===== modal control (確実に閉じる + 多重表示防止) =====
   let MODAL_SUPPRESS_UNTIL = 0;
-  
+  let MODAL_OPEN = false;
+
   function suppressModalFor_(ms){
     MODAL_SUPPRESS_UNTIL = Date.now() + (ms || 0);
   }
-  
   function canOpenModal_(){
-    return Date.now() > MODAL_SUPPRESS_UNTIL;
+    return Date.now() > MODAL_SUPPRESS_UNTIL && !MODAL_OPEN;
   }
-  
+
   function forceClosePhoneModal_(){
-    try{
-      const modal = $("phoneModal");
-      if (modal) modal.classList.add("hide");
-      // blur解除（iOSでタップ無反応になる事故対策）
-      const active = document.activeElement;
-      if (active && typeof active.blur === "function") active.blur();
-    }catch(_){}
+    const modal = $("phoneModal");
+    if (modal) modal.classList.add("hide");
+    MODAL_OPEN = false;
+
+    // iOSで“押せない”事故防止：フォーカス解除
+    const active = document.activeElement;
+    if (active && typeof active.blur === "function") active.blur();
   }
 
+  function openPhoneModal_(msg, {force=false} = {}){
+    // force=true はユーザー操作（ボタン押下等）で必ず開きたい時
+    if (!force){
+      if (USER_DISMISSED_MODAL) return;  // 自動再表示は禁止
+      if (!canOpenModal_()) return;
+    }
 
-  // ---------- phone modal ----------
-  function openPhoneModal_(msg){
-    // ★キャンセル直後の“即復活”を止める
-    if (!canOpenModal_()) return;
-  
     $("phoneModalErr").textContent = "";
     $("phoneModalSelectBox").classList.add("hide");
     $("phoneModalMsg").textContent = msg || "電話番号（入会フォームの「緊急連絡先」）を入力してください。";
-  
+
     $("phoneModalOk").disabled = false;
     $("phoneModalCancel").disabled = false;
-  
-    // 互換：既存入力を引き継ぐ
+
     const cur = $("phoneInput") ? String($("phoneInput").value || "") : "";
     $("phoneModalInput").value = cur;
-  
+
     $("phoneModal").classList.remove("hide");
+    MODAL_OPEN = true;
+
     setTimeout(()=>{ try{ $("phoneModalInput").focus(); }catch(_){ } }, 50);
   }
-  
+
   function closePhoneModal_(){
-    // ★閉じた直後に再表示されないように抑止（まずは3秒）
-    suppressModalFor_(3000);
+    // 閉じた直後の即復活防止（短時間抑止）
+    suppressModalFor_(1500);
     forceClosePhoneModal_();
   }
-
-  (function bindPhoneModalCancel_(){
-    const cancel = $("phoneModalCancel");
-    const modal  = $("phoneModal");
-    if (!cancel || !modal) return;
-  
-    cancel.type = "button";
-  
-    // iOSで取りこぼしが出る時があるので capture で取る
-    cancel.addEventListener("click", (e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      closePhoneModal_();
-    }, true);
-  
-    // 背景タップでも閉じる（UI的にも事故防止）
-    modal.addEventListener("click", (e)=>{
-      if (e.target === modal) closePhoneModal_();
-    }, true);
-  })();
-
-
 
   function setPhoneModalCandidates_(cands){
     const box = $("phoneModalSelectBox");
@@ -479,7 +453,8 @@
   }
 
   // 会員情報を確定させる（優先：member_id、fallback：me_cash）
-  async function ensureMemberInfoReady_(){
+  // allowAutoModal=true の時だけ need_phone を自動でモーダル表示してよい
+  async function ensureMemberInfoReady_({allowAutoModal=true} = {}){
     setStatus("会員情報を取得中…");
 
     // A) member_id があるならそれで確定
@@ -511,11 +486,14 @@
       return false;
     }
 
-    // need_phone の場合はモーダル強制
     if (me && me.status === "need_phone"){
       setMemberUiLocked_();
       setStatus("電話番号入力が必要");
-      openPhoneModal_("会員確認が必要です。電話番号を入力してください。");
+
+      // ★ここが肝：自動表示は allowAutoModal=true の時だけ
+      if (allowAutoModal){
+        openPhoneModal_("会員確認が必要です。電話番号を入力してください。");
+      }
       setOut({ where:"me_cash_need_phone", meUrl, me });
       return false;
     }
@@ -526,7 +504,6 @@
       return false;
     }
 
-    // me_cashがmember_idを返せるなら保持
     if (me.member_id) gMemberId = String(me.member_id).trim();
 
     applyMeToUi_(me);
@@ -534,8 +511,60 @@
     return true;
   }
 
+  // ====== modal bindings（1回だけ・確実に効く） ======
+  (function bindPhoneModalUI_(){
+    const modal = $("phoneModal");
+    const panel = $("phoneModalPanel");
+    const cancel = $("phoneModalCancel");
+    const ok = $("phoneModalOk");
 
-  $("phoneModalOk").onclick = async ()=>{
+    if (!modal || !panel || !cancel || !ok) return;
+
+    cancel.type = "button";
+    ok.type = "button";
+
+    // キャンセル：確実に閉じる + 自動再表示を止める
+    cancel.addEventListener("click", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      USER_DISMISSED_MODAL = true;
+      closePhoneModal_();
+      setStatus("会員確認をキャンセル");
+      // チェックインボタンは“会員確認が必要”のまま
+      $("btnCheckin").disabled = false;
+      $("btnCheckin").textContent = "会員確認が必要";
+    }, true);
+
+    // 背景タップ：閉じる（パネル内クリックは無視）
+    modal.addEventListener("click", (e)=>{
+      if (e.target === modal){
+        e.preventDefault();
+        e.stopPropagation();
+        USER_DISMISSED_MODAL = true;
+        closePhoneModal_();
+        setStatus("会員確認をキャンセル");
+        $("btnCheckin").disabled = false;
+        $("btnCheckin").textContent = "会員確認が必要";
+      }
+    }, true);
+
+    // パネル内クリックは伝播しない
+    panel.addEventListener("click", (e)=> e.stopPropagation(), true);
+
+    // ESCでも閉じる（PC向け）
+    document.addEventListener("keydown", (e)=>{
+      if (e.key === "Escape" && MODAL_OPEN){
+        USER_DISMISSED_MODAL = true;
+        closePhoneModal_();
+      }
+    }, true);
+  })();
+
+  // ====== modal OK（会員照会） ======
+  $("phoneModalOk").addEventListener("click", async (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+
     const phone = normPhone_($("phoneModalInput").value);
     if (!phone){
       $("phoneModalErr").textContent = "電話番号を入力してください（ハイフンなし）";
@@ -544,6 +573,7 @@
 
     $("phoneModalErr").textContent = "";
     $("phoneModalOk").disabled = true;
+    $("phoneModalCancel").disabled = true;
 
     const url =
       `${API_URL}?api=resolve_member`
@@ -565,11 +595,15 @@
       if (r && r.status === "success"){
         if (r.member_id) gMemberId = String(r.member_id || "").trim();
 
-        // 互換：画面内inputにも保持（任意）
+        // 互換：画面内inputにも保持
         if ($("phoneInput")) $("phoneInput").value = phone;
 
-        // 会員情報を取り直してUI確定
-        const ok = await ensureMemberInfoReady_();
+        // 成功したので「自動表示抑止」は解除（次回必要なら自動で出てOK）
+        USER_DISMISSED_MODAL = false;
+
+        // 会員情報を取り直してUI確定（ここでは自動モーダル許可）
+        const ok = await ensureMemberInfoReady_({allowAutoModal:true});
+
         if (ok){
           closePhoneModal_();
           $("btnCheckin").disabled = false;
@@ -587,19 +621,20 @@
         "message=" + String(r && r.message ? r.message : "(no message)");
       setOut({ where:"resolve_member_error", url, r });
 
-    } catch(e){
-      $("phoneModalErr").textContent = "通信失敗: " + String(e?.message || e);
-      setOut({ where:"resolve_member_exception", url, error:String(e?.message || e) });
+    } catch(err){
+      $("phoneModalErr").textContent = "通信失敗: " + String(err?.message || err);
+      setOut({ where:"resolve_member_exception", url, error:String(err?.message || err) });
     } finally {
       $("phoneModalOk").disabled = false;
+      $("phoneModalCancel").disabled = false;
     }
-  };
+  }, true);
 
   async function main(){
     setOut("LIFF init...");
     setStatus("LIFF初期化中…");
 
-    // URLからmember_idを拾う（resolve済みから遷移する設計でも使える）
+    // URLからmember_idを拾う（resolve済み遷移でも使える）
     gMemberId = getQueryParam_("member_id");
 
     await withTimeout(liff.init({ liffId: LIFF_ID }), 20000, "liff.init");
@@ -611,8 +646,9 @@
 
     $("yyyymm").textContent = yyyymmNowJst();
 
-    // 1) me（member_id優先 → fallback me_cash）/ need_phoneならモーダル
-    const meOk = await ensureMemberInfoReady_();
+    // 1) 会員情報（member_id優先 → fallback me_cash）
+    // ★初回は“自動モーダルOK”でよい（ただしキャンセルしたら以後は抑止）
+    const meOk = await ensureMemberInfoReady_({allowAutoModal:true});
 
     // 2) classes
     setOut("classes 読み込み中...");
@@ -631,10 +667,9 @@
       sel.appendChild(opt);
     });
 
-    // 3) ready（member未確定ならチェックイン不可のまま）
-    $("btnCheckin").disabled = !meOk;
+    // 3) ready
+    $("btnCheckin").disabled = false;
     $("btnCheckin").textContent = meOk ? "現地精算でチェックイン（PENDING）" : "会員確認が必要";
-
     setOut(meOk ? "準備OK。" : "会員未確定（電話番号入力が必要）");
     setStatus(meOk ? "チェックイン可能" : "会員確認が必要");
 
@@ -643,7 +678,10 @@
       if (!gMemberId){
         setMemberUiLocked_();
         setStatus("会員確認が必要（電話番号入力）");
-        openPhoneModal_("料金を正確に表示するため、会員確認が必要です。電話番号を入力してください。");
+
+        // ★ここはユーザー操作なので force=true（キャンセル抑止を無視して開ける）
+        USER_DISMISSED_MODAL = false; // ボタン押した＝もう一回開きたい意図
+        openPhoneModal_("料金を正確に表示するため、会員確認が必要です。電話番号を入力してください。", {force:true});
         return;
       }
 
@@ -657,7 +695,6 @@
         const classId = sel.value;
         const className = sel.options[sel.selectedIndex]?.textContent || "";
 
-        // （互換）画面内inputを使う場合のために残しておく
         const phone = $("phoneInput") ? normPhone_($("phoneInput").value) : "";
 
         const url =
@@ -675,22 +712,15 @@
         const res = await jsonp(url);
         setOut(res);
 
-        if (res && res.status === "need_phone") {
-          setStatus("電話番号入力が必要");
-          openPhoneModal_("会員確認が必要です。電話番号を入力してください。");
-          return;
-        }
-
-        if (res && res.status === "need_member_select") {
-          // 旧仕様互換（サーバがcheckinで候補返す場合）
-          setStatus("候補選択が必要");
-          setPhoneModalCandidates_(res.candidates || []);
-          openPhoneModal_("同じ電話番号の候補が複数あります。候補を選択してください。");
+        if (res && (res.status === "need_phone" || res.status === "need_member_select")){
+          // サーバ起因で電話が必要ならモーダルへ（ユーザー操作の延長なのでforceでOK）
+          setStatus("会員確認が必要");
+          if (res.status === "need_member_select") setPhoneModalCandidates_(res.candidates || []);
+          openPhoneModal_("会員確認が必要です。電話番号を入力してください。", {force:true});
           return;
         }
 
         if (res && res.status === "success") {
-          // サーバがmember_idを返すなら保持
           if (res.member_id) gMemberId = String(res.member_id).trim();
 
           const lines = [];
@@ -717,35 +747,14 @@
         }
 
         setStatus("エラー");
-      } catch(e){
-        setOut(String(e && e.message ? e.message : e));
+      } catch(err){
+        setOut(String(err && err.message ? err.message : err));
         setStatus("通信失敗");
       } finally {
         RUNNING = false;
         $("btnCheckin").disabled = false;
       }
     };
-
-    function openPhoneModal_(msg){
-      $("phoneModalErr").textContent = "";
-      $("phoneModalSelectBox").classList.add("hide");
-      $("phoneModalMsg").textContent = msg || "電話番号（入会フォームの「緊急連絡先」）を入力してください。";
-    
-      $("phoneModalOk").disabled = false;
-      $("phoneModalCancel").disabled = false;
-    
-      const cur = $("phoneInput") ? String($("phoneInput").value || "") : "";
-      $("phoneModalInput").value = cur;
-    
-      $("phoneModal").classList.remove("hide");
-      setTimeout(()=>{ try{ $("phoneModalInput").focus(); }catch(_){ } }, 50);
-    }
-    function closePhoneModal_(){
-      const modal = $("phoneModal");
-      if (!modal) return;
-      modal.classList.add("hide");
-    }
-
   }
 
   main().catch(e=>{
