@@ -302,6 +302,25 @@
 
   const $ = (id)=>document.getElementById(id);
 
+  window.onerror = function(msg, src, line, col, err){
+    try{
+      const o = { where:"window.onerror", msg:String(msg), src:String(src), line, col, err:String(err && err.stack ? err.stack : err) };
+      document.getElementById("out").textContent = JSON.stringify(o, null, 2);
+      const ebox = document.getElementById("phoneModalErr");
+      if (ebox) ebox.textContent = "JSエラーで停止しました。\n" + JSON.stringify(o, null, 2);
+    }catch(_){}
+  };
+  window.onunhandledrejection = function(ev){
+    try{
+      const r = ev && ev.reason;
+      const o = { where:"unhandledrejection", reason:String(r && r.stack ? r.stack : r) };
+      document.getElementById("out").textContent = JSON.stringify(o, null, 2);
+      const ebox = document.getElementById("phoneModalErr");
+      if (ebox) ebox.textContent = "Promise例外で停止しました。\n" + JSON.stringify(o, null, 2);
+    }catch(_){}
+  };
+
+
   function setOut(obj){
     $("out").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
   }
