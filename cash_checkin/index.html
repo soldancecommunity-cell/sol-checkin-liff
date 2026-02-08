@@ -187,7 +187,7 @@
   <div class="wrap">
 
     <!-- ====== SCREEN 1: 会員確認（ページ） ====== -->
-    <div id="screenVerify" class="card hide">
+    <div id="screenVerify" class="card">
       <div class="head">
         <h1>会員確認</h1>
         <p class="sub">
@@ -526,8 +526,8 @@
           + `&displayName=${encodeURIComponent(gDisplayName)}`
           + `&classId=${encodeURIComponent(classId)}`
           + `&className=${encodeURIComponent(className)}`
-          + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
           + (gVerifiedPhone ? `&phone=${encodeURIComponent(gVerifiedPhone)}` : "")
+          + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
 
         const res = await jsonp(url);
         setOut(res);
@@ -692,6 +692,7 @@
 
   async function main(){
     showVerifyScreen_();
+    setOutVerify({ where:"boot_ok", at:new Date().toISOString() });
     setVerifyStatus("LIFF初期化中…");
     setOutVerify("LIFF init...");
 
