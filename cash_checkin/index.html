@@ -182,7 +182,7 @@
 </head>
 
 <body>
-  <!-- BUILD: 2026-02-09_cash_checkin_member_gate_v5_rowindex_force -->
+  <!-- BUILD: 2026-02-09_cash_checkin_member_gate_v6_autoresolve_on_select -->
   <div class="wrap">
 
     <!-- ====== SCREEN 1: 会員確認（ページ） ====== -->
@@ -191,14 +191,14 @@
         <h1>会員確認</h1>
         <p class="sub">
           電話番号（入会フォームの「緊急連絡先」）で会員を特定します。<br>
-          <strong>候補が複数出た場合は必ず選択して、もう一度押してください。</strong>
+          <strong>候補が出たら選択した瞬間に自動で確定</strong>します（2回押し不要）。
         </p>
       </div>
 
       <div class="content">
         <div class="label">電話番号（ハイフンなし）</div>
         <input id="verifyPhone" inputmode="numeric" placeholder="例：08012345678" />
-        <div class="hint">候補が複数出た場合は、選択してもう一度「会員確認して続行」を押してください。</div>
+        <div class="hint">候補が複数出た場合は、選択すると自動で確定します。</div>
 
         <div id="verifySelectBox" class="hide" style="margin-top:12px;">
           <div class="label">同じ電話番号の候補が複数あります（選択）</div>
@@ -283,7 +283,7 @@
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
-  document.title = "cash_checkin BUILD 2026-02-09_cash_checkin_member_gate_v5_rowindex_force";
+  document.title = "cash_checkin BUILD 2026-02-09_cash_checkin_member_gate_v6_autoresolve_on_select";
 
   const JSONP_TIMEOUT_MS = 16000;
   const $ = (id)=>document.getElementById(id);
@@ -295,6 +295,8 @@
   let gVerifiedPhone = "";
   let gSelectedRowIndex = 0;
   let gMemberId = "";
+
+  let RESOLVE_IN_FLIGHT = false; // ★resolve多重送信防止
 
   window.onerror = function(msg, src, line, col, err){
     try{
@@ -377,16 +379,11 @@
     if (el) el.textContent = String(gSelectedRowIndex || 0);
   }
 
-  // ★iOS/LIFF対策：valueが空でも “現在の選択option” から強制取得する
   function forceRowIndexFromSelect_(){
     const sel = $("verifyMemberSel");
     if (!sel) return 0;
-
-    // 通常取得
     let v = Number(sel.value || 0);
     if (v) return v;
-
-    // valueが空の事故対策
     const idx = (typeof sel.selectedIndex === "number") ? sel.selectedIndex : 0;
     const opt = sel.options && sel.options[idx];
     const ov = opt ? Number(opt.value || 0) : 0;
@@ -406,7 +403,6 @@
     const badge = $("contractBadge");
     badge.innerHTML = '<span class="dot"></span>' + (me.is_contract ? "月謝会員" : "通常会員");
     badge.className = "badge " + (me.is_contract ? "ok" : "ng");
-
     const fee = Number(me.cash_fee || 0);
     $("fee").textContent = fee ? `¥${fee.toLocaleString()}` : "—";
   }
@@ -434,7 +430,6 @@
 
     if (sel.options.length > 0){
       sel.selectedIndex = 0;
-      // ★valueが反映されない事故を避けるため明示的にセット
       sel.value = sel.options[0].value;
       gSelectedRowIndex = Number(sel.options[0].value || 0);
     } else {
@@ -442,14 +437,17 @@
     }
     updatePickedRowIndexLabel_();
 
-    sel.onchange = ()=> {
+    // ★候補選択した瞬間に自動で確定（2回押し不要）
+    sel.onchange = async ()=>{
       gSelectedRowIndex = forceRowIndexFromSelect_();
       updatePickedRowIndexLabel_();
+      // 選択＝確定へ
+      await doResolveMember_({fromAuto:true});
     };
 
     box.classList.remove("hide");
+    setVerifyStatus("候補を選択してください（選択で自動確定）");
 
-    // 候補表示後にスクロールして確実に視界に入れる（操作ミス防止）
     setTimeout(()=>{ try{ box.scrollIntoView({behavior:"smooth", block:"nearest"}); }catch(_){ } }, 50);
   }
 
@@ -464,7 +462,6 @@
     setStatus("会員情報を取得中…");
     try{
       const me = await fetchMeCashByUserId_();
-
       if (me && me.status === "success"){
         if (me.member_id) gMemberId = String(me.member_id).trim();
         applyMeToUi_(me);
@@ -478,11 +475,9 @@
         }
         return true;
       }
-
       setOut({ where:"me_cash_failed", me });
       setStatus("失敗");
       return false;
-
     }catch(e){
       setOut({ where:"me_cash_exception", error:String(e?.message||e) });
       setStatus("失敗");
@@ -516,7 +511,6 @@
 
   async function goToCheckin_(){
     showCheckinScreen_();
-
     $("yyyymm").textContent = yyyymmNowJst();
     setMemberUiLocked_();
 
@@ -587,7 +581,6 @@
         }
 
         setStatus("エラー");
-
       } catch(err){
         setOut(String(err && err.message ? err.message : err));
         setStatus("通信失敗");
@@ -598,14 +591,17 @@
     };
   }
 
-  async function doResolveMember_(){
+  async function doResolveMember_({fromAuto=false} = {}){
+    if (RESOLVE_IN_FLIGHT) return;
+    RESOLVE_IN_FLIGHT = true;
+
     try{
       $("btnVerifyOk").disabled = true;
       $("btnVerifyCancel").disabled = true;
 
       $("verifyErr").textContent = "";
-      setOutVerify("照会中…");
-      setVerifyStatus("照会中…");
+      setOutVerify(fromAuto ? "候補確定中…" : "照会中…");
+      setVerifyStatus(fromAuto ? "候補確定中…" : "照会中…");
 
       const phone = normPhone_($("verifyPhone").value);
       gVerifiedPhone = phone;
@@ -618,11 +614,9 @@
 
       const hasCandidates = !$("verifySelectBox").classList.contains("hide");
 
-      // ★ここがv5の肝：候補表示中なら “必ず” rowIndex を確定する
       let rowIndex = 0;
       if (hasCandidates){
         rowIndex = forceRowIndexFromSelect_();
-        // まだ0なら、最後の保険で gSelectedRowIndex を使う
         if (!rowIndex) rowIndex = Number(gSelectedRowIndex || 0);
         gSelectedRowIndex = rowIndex;
         updatePickedRowIndexLabel_();
@@ -646,7 +640,7 @@
 
       if (r && r.status === "need_member_select"){
         setVerifyCandidates_(r.candidates || []);
-        $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
+        $("verifyErr").textContent = "候補を選択してください（選択で自動確定します）";
         setOutVerify({ where:"resolve_member_need_select", url, picked_rowIndex: rowIndex, r });
         setVerifyStatus("候補選択");
         return;
@@ -675,6 +669,7 @@
       setOutVerify({ where:"resolve_member_exception", error:String(err?.message || err) });
       setVerifyStatus("失敗");
     } finally {
+      RESOLVE_IN_FLIGHT = false;
       $("btnVerifyOk").disabled = false;
       $("btnVerifyCancel").disabled = false;
     }
@@ -717,11 +712,11 @@
     okBtn.addEventListener("click", (e)=>{
       e.preventDefault();
       e.stopPropagation();
-      doResolveMember_();
+      doResolveMember_({fromAuto:false});
     }, true);
 
     phone.addEventListener("keydown", (e)=>{
-      if (e.key === "Enter") doResolveMember_();
+      if (e.key === "Enter") doResolveMember_({fromAuto:false});
     });
 
     bindVerifyCancel_();
@@ -743,8 +738,6 @@
     gDisplayName = prof.displayName || "";
 
     bindVerifyUI_();
-
-    // 方針：毎回verify（自動スキップ無し）
     setVerifyStatus("電話番号入力が必要");
   }
 
