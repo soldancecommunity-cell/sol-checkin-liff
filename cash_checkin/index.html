@@ -37,7 +37,6 @@
       border-radius:var(--radius);
       box-shadow:var(--shadow);
       overflow:hidden;
-      backdrop-filter: blur(10px);
     }
     .head{
       padding:16px 16px 12px;
@@ -99,10 +98,6 @@
       outline:none;
       font-size:16px;
     }
-    select:focus, input:focus{
-      border-color: rgba(124,92,255,.60);
-      box-shadow: 0 0 0 3px rgba(124,92,255,.18);
-    }
     .hint{ color:var(--muted); font-size:12px; line-height:1.6; margin-top:8px; }
 
     pre{
@@ -117,14 +112,12 @@
       line-height:1.55;
     }
 
-    /* Sticky action bar (押しやすい) */
     .actionBar{
       position: sticky;
       bottom: 0;
       padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
       background: linear-gradient(180deg, rgba(11,13,18,0), rgba(11,13,18,.75) 22%, rgba(11,13,18,.95));
       border-top: 1px solid rgba(255,255,255,.08);
-      backdrop-filter: blur(10px);
     }
     .btn{
       width:100%;
@@ -136,12 +129,11 @@
       letter-spacing:.2px;
       color:#0b0d12;
       background: linear-gradient(135deg, rgba(124,92,255,.98), rgba(45,212,191,.92));
-      box-shadow: 0 14px 40px rgba(124,92,255,.18);
       cursor:pointer;
       transition: transform .06s ease, opacity .15s ease;
     }
     .btn:active{ transform: translateY(1px); }
-    .btn[disabled]{ opacity:.55; cursor:not-allowed; box-shadow:none; }
+    .btn[disabled]{ opacity:.55; cursor:not-allowed; }
 
     .statusLine{
       margin-top:10px;
@@ -161,7 +153,6 @@
       font-weight:900;
       white-space:nowrap;
     }
-
     .hide{ display:none; }
   </style>
 </head>
@@ -207,30 +198,14 @@
             <div class="label">同じ電話番号の候補が複数あります（選択してください）</div>
             <select id="memberSel"></select>
             <div class="hint">選択後にもう一度「チェックイン」を押すと紐付けして続行します。</div>
-            <div class="hint">未連携の場合のみ表示されます。</div>
           </div>
+
+          <div class="hint">未連携の場合のみ表示されます。</div>
         </div>
 
         <div class="label" style="margin-top:12px;">結果</div>
         <pre id="out">—</pre>
         <div style="height:10px"></div>
-      </div>
-
-      <!-- modal -->
-      <div id="modal" class="hide" style="
-        position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-        padding:18px; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); z-index:9999;">
-        <div style="
-          width:min(560px,100%);
-          border-radius:18px;
-          border:1px solid rgba(255,255,255,.12);
-          background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
-          box-shadow:0 24px 80px rgba(0,0,0,.55);
-          padding:16px;">
-          <div id="modalTitle" style="font-size:16px; font-weight:1000; margin-bottom:8px;">確認</div>
-          <div id="modalText" style="font-size:13px; color:rgba(234,240,255,.92); line-height:1.6; white-space:pre-wrap; margin-bottom:12px;"></div>
-          <button id="modalOk" class="btn" type="button">OK</button>
-        </div>
       </div>
 
       <div class="actionBar">
@@ -256,19 +231,9 @@
   let gUserId = "";
   let gDisplayName = "";
   let gSelectedRowIndex = 0;
+  let RUNNING = false;
 
   const $ = (id)=>document.getElementById(id);
-
-  function showModal(title, text, onOk){
-    $("modalTitle").textContent = title || "確認";
-    $("modalText").textContent = text || "";
-    $("modal").classList.remove("hide");
-
-    $("modalOk").onclick = () => {
-      $("modal").classList.add("hide");
-      if (typeof onOk === "function") onOk();
-    };
-  }
 
   function setOut(obj){
     $("out").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
@@ -316,11 +281,11 @@
     setOut("LIFF init...");
     setStatus("LIFF初期化中…");
 
-    await withTimeout(liff.init({ liffId: LIFF_ID }), 12000, "liff.init");
+    await withTimeout(liff.init({ liffId: LIFF_ID }), 20000, "liff.init");
 
     if (!liff.isLoggedIn()) { liff.login(); return; }
 
-    const prof = await withTimeout(liff.getProfile(), 8000, "liff.getProfile");
+    const prof = await withTimeout(liff.getProfile(), 12000, "liff.getProfile");
     gUserId = prof.userId;
     gDisplayName = prof.displayName || "";
 
@@ -364,8 +329,12 @@
     setStatus("チェックイン可能");
 
     $("btnCheckin").onclick = async ()=>{
+      if (RUNNING) return;
+      RUNNING = true;
+
       $("btnCheckin").disabled = true;
       setStatus("チェックイン送信中…");
+
       try{
         const classId = sel.value;
         const className = sel.options[sel.selectedIndex]?.textContent || "";
@@ -388,7 +357,6 @@
 
         if (res && res.status === "need_phone") {
           $("phoneBox").classList.remove("hide");
-          $("selectBox").classList.add("hide");
           setStatus("電話番号入力が必要");
           return;
         }
@@ -418,60 +386,39 @@
           return;
         }
 
-        // ✅ success は「ここ1箇所だけ」
         if (res && res.status === "success") {
           gSelectedRowIndex = 0;
           $("selectBox").classList.add("hide");
-        
+
           const lines = [];
-        
-          if (res.pending === true) {
-            lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
-          }
-        
-          if (res.over_limit === true && res.over_message) {
-            lines.push(res.over_message);
-          } else if (res.month_count) {
-            lines.push(`今月の受講は ${res.month_count} 回目です。`);
-          }
-        
+          if (res.pending === true) lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
+          if (res.over_limit === true && res.over_message) lines.push(res.over_message);
+          else if (res.month_count) lines.push(`今月の受講は ${res.month_count} 回目です。`);
           if (lines.length === 0) lines.push("チェックインが完了しました。");
-        
-          const text = lines.join("\n\n") + "\n\nOKを押すとスタンプ付与へ移動します。";
-        
+
+          const text = lines.join("\n\n") + "\n\nOKでスタンプ付与へ移動します。";
           setStatus("確認待ち");
-        
-          // ✅ カスタムモーダルを捨てて、OS標準の confirm/alert にする
-          // confirmが嫌なら alert(text); の1行でもOK
+
           const go = confirm(text);
-        
           if (go) {
             setStatus("スタンプへ移動中…");
-        
-            // ✅ external:false がダメな環境があるので、まず false を試してダメなら true に落とす
-            try {
-              liff.openWindow({ url: STAMP_URL, external: false });
-            } catch (e1) {
-              try {
-                liff.openWindow({ url: STAMP_URL, external: true });
-              } catch (e2) {
-                window.location.href = STAMP_URL;
-              }
+            try { liff.openWindow({ url: STAMP_URL, external: false }); }
+            catch(e1){
+              try { liff.openWindow({ url: STAMP_URL, external: true }); }
+              catch(e2){ window.location.href = STAMP_URL; }
             }
           } else {
             setStatus("キャンセル");
           }
-        
           return;
         }
-
 
         setStatus("エラー");
       } catch(e){
         setOut(String(e && e.message ? e.message : e));
         setStatus("通信失敗");
       } finally {
-        // need_phone / need_member_select の場合も押し直せるようにする
+        RUNNING = false;
         $("btnCheckin").disabled = false;
       }
     };
