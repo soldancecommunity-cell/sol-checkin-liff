@@ -158,7 +158,7 @@
 </head>
 
 <body>
-  <!-- BUILD: 2026-02-08_1018 -->
+  <!-- BUILD: 2026-02-08_memberIdPriority_v1 -->
   <div class="wrap">
     <div class="card">
       <div class="head">
@@ -226,7 +226,8 @@
   const API_TOKEN = "sol_checkin_2026_144025036146";
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
-  document.title = "cash_checkin BUILD 2026-02-08_1018";
+
+  document.title = "cash_checkin BUILD 2026-02-08_memberIdPriority_v1";
 
   const JSONP_TIMEOUT_MS = 16000;
 
@@ -234,6 +235,9 @@
   let gDisplayName = "";
   let gSelectedRowIndex = 0;
   let RUNNING = false;
+
+  // ★ 追加：member_id を保持（URL or resolveで確定したらここに入る）
+  let gMemberId = "";
 
   const $ = (id)=>document.getElementById(id);
 
@@ -279,9 +283,36 @@
     return `${y}${m}`;
   }
 
+  function getQueryParam_(k){
+    try{
+      const u = new URL(location.href);
+      return String(u.searchParams.get(k) || "").trim();
+    }catch(e){
+      return "";
+    }
+  }
+
+  function applyMeToUi_(me){
+    $("memberName").textContent = me.member_name || "(不明)";
+    const badge = $("contractBadge");
+    badge.innerHTML = '<span class="dot"></span>' + (me.is_contract ? "月謝会員" : "通常会員");
+    badge.className = "badge " + (me.is_contract ? "ok" : "ng");
+    $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
+  }
+
+  // ★ member_id が取れているなら、それで会員情報を取り直す（不明事故を防ぐ）
+  async function fetchMeByMemberId_(memberId){
+    const url = `${API_URL}?api=me_by_member_id&token=${encodeURIComponent(API_TOKEN)}&member_id=${encodeURIComponent(memberId)}`;
+    const me = await jsonp(url);
+    return me;
+  }
+
   async function main(){
     setOut("LIFF init...");
     setStatus("LIFF初期化中…");
+
+    // 0) URLからmember_idを拾う（Step1を挟む設計にした時に効く）
+    gMemberId = getQueryParam_("member_id");
 
     await withTimeout(liff.init({ liffId: LIFF_ID }), 20000, "liff.init");
 
@@ -293,19 +324,42 @@
 
     $("yyyymm").textContent = yyyymmNowJst();
 
-    // 1) me_cash
-    setOut("me_cash 呼び出し中...");
+    // 1) me（優先：member_id → fallback: userId）
+    setOut("me 呼び出し中...");
     setStatus("会員情報を取得中…");
 
-    const meUrl = `${API_URL}?api=me_cash&token=${encodeURIComponent(API_TOKEN)}&userId=${encodeURIComponent(gUserId)}`;
-    const me = await jsonp(meUrl);
-    if (!me || me.status !== "success") { setOut({ where:"me_cash", meUrl, me }); setStatus("失敗"); return; }
+    let me = null;
 
-    $("memberName").textContent = me.member_name || "(不明)";
-    const badge = $("contractBadge");
-    badge.innerHTML = '<span class="dot"></span>' + (me.is_contract ? "月謝会員" : "通常会員");
-    badge.className = "badge " + (me.is_contract ? "ok" : "ng");
-    $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
+    // 1-A) member_idがあるならそれで確定
+    if (gMemberId){
+      try{
+        const r = await fetchMeByMemberId_(gMemberId);
+        if (r && r.status === "success") {
+          me = r;
+        } else {
+          setOut({ where:"me_by_member_id", member_id:gMemberId, r });
+        }
+      }catch(e){
+        setOut({ where:"me_by_member_id", member_id:gMemberId, error:String(e?.message||e) });
+      }
+    }
+
+    // 1-B) fallback: 既存のme_cash（line_user_idで引く）
+    if (!me){
+      const meUrl = `${API_URL}?api=me_cash&token=${encodeURIComponent(API_TOKEN)}&userId=${encodeURIComponent(gUserId)}`;
+      const r = await jsonp(meUrl);
+      if (!r || r.status !== "success") {
+        setOut({ where:"me_cash", meUrl, r });
+        setStatus("失敗");
+        return;
+      }
+      me = r;
+
+      // me_cashがmember_idを返せるなら保持（サーバ側が対応してればここで確定）
+      if (me.member_id) gMemberId = String(me.member_id).trim();
+    }
+
+    applyMeToUi_(me);
 
     // 2) classes
     setOut("classes 読み込み中...");
@@ -343,10 +397,12 @@
 
         const phone = $("phoneBox").classList.contains("hide") ? "" : ($("phoneInput").value || "");
 
+        // ★重要：member_idがあるなら必ず送る（サーバ側の判定を安定させる）
         const url =
           `${API_URL}?api=checkin`
           + `&token=${encodeURIComponent(API_TOKEN)}`
           + `&cash=1`
+          + (gMemberId ? `&member_id=${encodeURIComponent(gMemberId)}` : "")
           + `&userId=${encodeURIComponent(gUserId)}`
           + `&displayName=${encodeURIComponent(gDisplayName)}`
           + `&classId=${encodeURIComponent(classId)}`
@@ -388,9 +444,13 @@
           return;
         }
 
+        // ★ success分岐は1つだけ（ここが壊れると「確認」系が変になる）
         if (res && res.status === "success") {
           gSelectedRowIndex = 0;
           $("selectBox").classList.add("hide");
+
+          // サーバがmember_idを返すなら、以後の安定化のため保持
+          if (res.member_id) gMemberId = String(res.member_id).trim();
 
           const lines = [];
           if (res.pending === true) lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
@@ -401,8 +461,8 @@
           const text = lines.join("\n\n") + "\n\nOKでスタンプ付与へ移動します。";
           setStatus("確認待ち");
 
-          const go = confirm(text);
-          if (go) {
+          const ok = confirm(text);
+          if (ok) {
             setStatus("スタンプへ移動中…");
             try { liff.openWindow({ url: STAMP_URL, external: false }); }
             catch(e1){
