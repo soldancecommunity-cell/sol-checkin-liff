@@ -520,7 +520,10 @@
         return;
       }
 
-      $("phoneModalErr").textContent = "照合に失敗しました";
+      $("phoneModalErr").textContent =
+        "照会に失敗しました。\n" +
+        "status=" + String(r && r.status) + "\n" +
+        "message=" + String(r && r.message ? r.message : "(no message)");
       setOut({ where:"resolve_member_error", url, r });
 
     } catch(e){
@@ -661,6 +664,40 @@
         $("btnCheckin").disabled = false;
       }
     };
+    (function bindModalClose_(){
+      const modal = $("phoneModal");
+      const cancel = $("phoneModalCancel");
+    
+      if (cancel){
+        cancel.type = "button";
+        cancel.addEventListener("click", (e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          closePhoneModal_();
+        }, { passive:false });
+      }
+    
+      // 背景タップで閉じる（カード部分は閉じない）
+      if (modal){
+        modal.addEventListener("click", (e)=>{
+          if (e.target === modal) closePhoneModal_();
+        });
+      }
+    })();
+    function openPhoneModal_(msg){
+      $("phoneModalErr").textContent = "";
+      $("phoneModalSelectBox").classList.add("hide");
+      $("phoneModalMsg").textContent = msg || "電話番号（入会フォームの「緊急連絡先」）を入力してください。";
+    
+      $("phoneModalOk").disabled = false;
+      $("phoneModalCancel").disabled = false;
+    
+      const cur = $("phoneInput") ? String($("phoneInput").value || "") : "";
+      $("phoneModalInput").value = cur;
+    
+      $("phoneModal").classList.remove("hide");
+      setTimeout(()=>{ try{ $("phoneModalInput").focus(); }catch(_){ } }, 50);
+    }
   }
 
   main().catch(e=>{
