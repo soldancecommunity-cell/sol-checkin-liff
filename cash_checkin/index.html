@@ -395,8 +395,12 @@
     const badge = $("contractBadge");
     badge.innerHTML = '<span class="dot"></span>' + (me.is_contract ? "月謝会員" : "通常会員");
     badge.className = "badge " + (me.is_contract ? "ok" : "ng");
-    $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
+  
+    // ★現地精算での金額は GAS確定の cash_fee を表示
+    const fee = Number(me.cash_fee || 0);
+    $("fee").textContent = fee ? `¥${fee.toLocaleString()}` : "—";
   }
+
 
   async function fetchMeCashByUserId_(){
     const meUrl = `${API_URL}?api=me_cash&token=${encodeURIComponent(API_TOKEN)}&userId=${encodeURIComponent(gUserId)}`;
@@ -432,6 +436,20 @@
     try{
       const me = await fetchMeCashByUserId_();
       if (me && me.status === "success"){
+        if (me && me.status === "success"){
+          if (me.member_id) gMemberId = String(me.member_id).trim();
+          applyMeToUi_(me);
+        
+          // ★月謝内は現地精算禁止
+          if (me.allow_cash_checkin === false){
+            $("btnCheckin").disabled = true;
+            $("btnCheckin").textContent = "現地精算不可（通常チェックインへ）";
+            setStatus(String(me.cash_reason || "月謝内のため現地精算不可"));
+          } else {
+            setStatus("チェックイン可能");
+          }
+          return true;
+        }
         if (me.member_id) gMemberId = String(me.member_id).trim();
         applyMeToUi_(me);
         setStatus("チェックイン可能");
