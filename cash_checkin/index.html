@@ -403,9 +403,14 @@
 
 
   async function fetchMeCashByUserId_(){
-    const meUrl = `${API_URL}?api=me_cash&token=${encodeURIComponent(API_TOKEN)}&userId=${encodeURIComponent(gUserId)}`;
+    const meUrl =
+      `${API_URL}?api=me_cash`
+      + `&token=${encodeURIComponent(API_TOKEN)}`
+      + `&userId=${encodeURIComponent(gUserId)}`
+      + (gMemberId ? `&member_id=${encodeURIComponent(gMemberId)}` : "");
     return await jsonp(meUrl);
   }
+
 
   function setVerifyCandidates_(cands){
     const box = $("verifySelectBox");
@@ -611,11 +616,17 @@
 
       if (r && r.status === "success"){
         clearVerifyCandidates_();
+      
+        // ★ここを追加：resolve_memberの結果から member_id を保持
+        if (r.member_id) gMemberId = String(r.member_id).trim();
+      
         setOutVerify({ where:"resolve_member_success", url, r });
         setVerifyStatus("完了");
+      
         await goToCheckin_();
         return;
       }
+
 
       $("verifyErr").textContent =
         "照会に失敗しました。\n" +
