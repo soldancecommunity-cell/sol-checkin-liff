@@ -182,7 +182,7 @@
 </head>
 
 <body>
-  <!-- BUILD: 2026-02-09_cash_checkin_member_gate_v4_integrated_fix -->
+  <!-- BUILD: 2026-02-09_cash_checkin_member_gate_v5_rowindex_force -->
   <div class="wrap">
 
     <!-- ====== SCREEN 1: 会員確認（ページ） ====== -->
@@ -283,7 +283,7 @@
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
-  document.title = "cash_checkin BUILD 2026-02-09_cash_checkin_member_gate_v4_integrated_fix";
+  document.title = "cash_checkin BUILD 2026-02-09_cash_checkin_member_gate_v5_rowindex_force";
 
   const JSONP_TIMEOUT_MS = 16000;
   const $ = (id)=>document.getElementById(id);
@@ -293,10 +293,9 @@
   let RUNNING = false;
 
   let gVerifiedPhone = "";
-  let gSelectedRowIndex = 0; // 候補選択 rowIndex
-  let gMemberId = "";        // me_cash 成功で確定した member_id
+  let gSelectedRowIndex = 0;
+  let gMemberId = "";
 
-  // ---------- error hooks ----------
   window.onerror = function(msg, src, line, col, err){
     try{
       const o = { where:"window.onerror", msg:String(msg), src:String(src), line, col, err:String(err && err.stack ? err.stack : err) };
@@ -378,11 +377,20 @@
     if (el) el.textContent = String(gSelectedRowIndex || 0);
   }
 
-  function getSelectedRowIndexFromUI_(){
+  // ★iOS/LIFF対策：valueが空でも “現在の選択option” から強制取得する
+  function forceRowIndexFromSelect_(){
     const sel = $("verifyMemberSel");
     if (!sel) return 0;
-    const v = Number(sel.value || 0);
-    return v || 0;
+
+    // 通常取得
+    let v = Number(sel.value || 0);
+    if (v) return v;
+
+    // valueが空の事故対策
+    const idx = (typeof sel.selectedIndex === "number") ? sel.selectedIndex : 0;
+    const opt = sel.options && sel.options[idx];
+    const ov = opt ? Number(opt.value || 0) : 0;
+    return ov || 0;
   }
 
   function setMemberUiLocked_(){
@@ -399,7 +407,6 @@
     badge.innerHTML = '<span class="dot"></span>' + (me.is_contract ? "月謝会員" : "通常会員");
     badge.className = "badge " + (me.is_contract ? "ok" : "ng");
 
-    // 現地精算での金額は GAS確定の cash_fee を表示
     const fee = Number(me.cash_fee || 0);
     $("fee").textContent = fee ? `¥${fee.toLocaleString()}` : "—";
   }
@@ -425,9 +432,10 @@
       sel.appendChild(opt);
     });
 
-    // 初期選択を強制
     if (sel.options.length > 0){
       sel.selectedIndex = 0;
+      // ★valueが反映されない事故を避けるため明示的にセット
+      sel.value = sel.options[0].value;
       gSelectedRowIndex = Number(sel.options[0].value || 0);
     } else {
       gSelectedRowIndex = 0;
@@ -435,11 +443,14 @@
     updatePickedRowIndexLabel_();
 
     sel.onchange = ()=> {
-      gSelectedRowIndex = Number(sel.value || 0);
+      gSelectedRowIndex = forceRowIndexFromSelect_();
       updatePickedRowIndexLabel_();
     };
 
     box.classList.remove("hide");
+
+    // 候補表示後にスクロールして確実に視界に入れる（操作ミス防止）
+    setTimeout(()=>{ try{ box.scrollIntoView({behavior:"smooth", block:"nearest"}); }catch(_){ } }, 50);
   }
 
   function clearVerifyCandidates_(){
@@ -458,7 +469,6 @@
         if (me.member_id) gMemberId = String(me.member_id).trim();
         applyMeToUi_(me);
 
-        // 月謝内は現地精算禁止
         if (me.allow_cash_checkin === false){
           $("btnCheckin").disabled = true;
           $("btnCheckin").textContent = "現地精算不可（通常チェックインへ）";
@@ -588,7 +598,6 @@
     };
   }
 
-  // 会員確認（電話番号 → resolve_member）
   async function doResolveMember_(){
     try{
       $("btnVerifyOk").disabled = true;
@@ -608,12 +617,21 @@
       }
 
       const hasCandidates = !$("verifySelectBox").classList.contains("hide");
-      const rowIndex = hasCandidates ? getSelectedRowIndexFromUI_() : 0;
+
+      // ★ここがv5の肝：候補表示中なら “必ず” rowIndex を確定する
+      let rowIndex = 0;
+      if (hasCandidates){
+        rowIndex = forceRowIndexFromSelect_();
+        // まだ0なら、最後の保険で gSelectedRowIndex を使う
+        if (!rowIndex) rowIndex = Number(gSelectedRowIndex || 0);
+        gSelectedRowIndex = rowIndex;
+        updatePickedRowIndexLabel_();
+      }
 
       if (hasCandidates && !rowIndex){
-        $("verifyErr").textContent = "候補を選択してください（rowIndexが0）";
+        $("verifyErr").textContent = "候補を選択してください（rowIndexが0のままです）";
         setVerifyStatus("候補選択");
-        setOutVerify({ where:"rowIndex_missing", hasCandidates, rowIndex, gSelectedRowIndex });
+        setOutVerify({ where:"rowIndex_still_zero", hasCandidates, rowIndex, sel_value: $("verifyMemberSel")?.value || "" });
         return;
       }
 
@@ -636,7 +654,6 @@
 
       if (r && r.status === "success"){
         clearVerifyCandidates_();
-        // もしGASがmember_id返すなら保持（なくてもOK）
         if (r.member_id) gMemberId = String(r.member_id).trim();
 
         setOutVerify({ where:"resolve_member_success", url, picked_rowIndex: rowIndex, r });
@@ -670,7 +687,6 @@
       e.preventDefault();
       e.stopPropagation();
 
-      // LIFFなら閉じる
       try{
         if (window.liff && liff.isInClient && liff.isInClient()){
           liff.closeWindow();
@@ -678,7 +694,6 @@
         }
       }catch(_){}
 
-      // ブラウザなら入力をリセット
       $("verifyPhone").value = "";
       $("verifyErr").textContent = "";
       $("outVerify").textContent = "—";
@@ -705,7 +720,6 @@
       doResolveMember_();
     }, true);
 
-    // Enterでも実行
     phone.addEventListener("keydown", (e)=>{
       if (e.key === "Enter") doResolveMember_();
     });
