@@ -117,6 +117,7 @@
       line-height:1.55;
     }
 
+    /* Sticky action bar (押しやすい) */
     .actionBar{
       position: sticky;
       bottom: 0;
@@ -198,7 +199,6 @@
         <div class="label">クラス</div>
         <select id="classSel"></select>
 
-        <!-- ★ phoneBox / selectBox の閉じタグを正しく -->
         <div id="phoneBox" class="hide" style="margin-top:12px;">
           <div class="label">初回のみ：電話番号（ハイフンなし）</div>
           <input id="phoneInput" inputmode="numeric" placeholder="例：08012345678" />
@@ -216,11 +216,10 @@
         <div style="height:10px"></div>
       </div>
 
-      <!-- modal（ボタンが効かない系の保険でpointer-events明示） -->
+      <!-- modal -->
       <div id="modal" class="hide" style="
         position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-        padding:18px; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); z-index:9999;
-        pointer-events:auto;">
+        padding:18px; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); z-index:9999;">
         <div style="
           width:min(560px,100%);
           border-radius:18px;
@@ -257,6 +256,7 @@
   let gUserId = "";
   let gDisplayName = "";
   let gSelectedRowIndex = 0;
+
   const $ = (id)=>document.getElementById(id);
 
   function showModal(title, text, onOk){
@@ -264,9 +264,7 @@
     $("modalText").textContent = text || "";
     $("modal").classList.remove("hide");
 
-    const btn = $("modalOk");
-    btn.disabled = false;
-    btn.onclick = () => {
+    $("modalOk").onclick = () => {
       $("modal").classList.add("hide");
       if (typeof onOk === "function") onOk();
     };
@@ -318,24 +316,11 @@
     setOut("LIFF init...");
     setStatus("LIFF初期化中…");
 
-    await withTimeout(liff.init({ liffId: LIFF_ID }), 30000, "liff.init");
+    await withTimeout(liff.init({ liffId: LIFF_ID }), 12000, "liff.init");
 
-    // ★ LINE内限定
-    if (!liff.isInClient()){
-      setOut("LINEアプリ内（LIFF）で開いてください。");
-      setStatus("LINE外");
-      $("btnCheckin").textContent = "LINEで開いてください";
-      return;
-    }
+    if (!liff.isLoggedIn()) { liff.login(); return; }
 
-    // ★ iOS対策：redirectUri を明示（無限/戻れない/ログイン不安定対策）
-    if (!liff.isLoggedIn()) {
-      const here = location.href;
-      liff.login({ redirectUri: here });
-      return;
-    }
-
-    const prof = await withTimeout(liff.getProfile(), 12000, "liff.getProfile");
+    const prof = await withTimeout(liff.getProfile(), 8000, "liff.getProfile");
     gUserId = prof.userId;
     gDisplayName = prof.displayName || "";
 
@@ -404,7 +389,6 @@
         if (res && res.status === "need_phone") {
           $("phoneBox").classList.remove("hide");
           $("selectBox").classList.add("hide");
-          gSelectedRowIndex = 0;
           setStatus("電話番号入力が必要");
           return;
         }
@@ -434,14 +418,23 @@
           return;
         }
 
+        // ✅ success は「ここ1箇所だけ」
         if (res && res.status === "success") {
           gSelectedRowIndex = 0;
           $("selectBox").classList.add("hide");
 
           const lines = [];
-          if (res.pending === true) lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
-          if (res.over_limit === true && res.over_message) lines.push(res.over_message);
-          else if (res.month_count) lines.push(`今月の受講は ${res.month_count} 回目です。`);
+
+          if (res.pending === true) {
+            lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
+          }
+
+          if (res.over_limit === true && res.over_message) {
+            lines.push(res.over_message);
+          } else if (res.month_count) {
+            lines.push(`今月の受講は ${res.month_count} 回目です。`);
+          }
+
           if (lines.length === 0) lines.push("チェックインが完了しました。");
 
           const text = lines.join("\n\n") + "\n\nOKを押すとスタンプ付与へ移動します。";
@@ -455,7 +448,7 @@
               try {
                 liff.openWindow({ url: STAMP_URL, external: false });
               } catch(e) {
-                location.href = STAMP_URL;
+                window.location.href = STAMP_URL;
               }
             }
           );
@@ -467,6 +460,7 @@
         setOut(String(e && e.message ? e.message : e));
         setStatus("通信失敗");
       } finally {
+        // need_phone / need_member_select の場合も押し直せるようにする
         $("btnCheckin").disabled = false;
       }
     };
