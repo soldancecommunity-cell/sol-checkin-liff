@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>現地払いチェックイン</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
   <style>
     :root{
       --bg0:#06070a; --bg1:#0b0d12;
@@ -51,6 +52,7 @@
     }
     .sub{ margin:0; color:var(--muted); font-size:12px; line-height:1.55; }
     .content{ padding:14px 16px 0; }
+
     .grid{
       display:grid;
       grid-template-columns: 1fr 1fr;
@@ -68,6 +70,7 @@
     .label{ color:var(--muted); font-size:12px; margin-bottom:6px; }
     .value{ font-weight:900; letter-spacing:.2px; }
     .fee{ font-size:24px; font-weight:1000; letter-spacing:.3px; }
+
     .badge{
       display:inline-flex; align-items:center; gap:8px;
       padding:8px 12px;
@@ -136,6 +139,19 @@
     .btn:active{ transform: translateY(1px); }
     .btn[disabled]{ opacity:.55; cursor:not-allowed; box-shadow:none; }
 
+    .btnSub{
+      width:100%;
+      border-radius:16px;
+      padding:14px 14px;
+      font-size:14px;
+      font-weight:900;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      cursor:pointer;
+    }
+    .btnSub[disabled]{ opacity:.55; cursor:not-allowed; }
+
     .statusLine{
       margin-top:10px;
       color: rgba(234,240,255,.78);
@@ -154,14 +170,65 @@
       font-weight:900;
       white-space:nowrap;
     }
-    .hide{ display:none !important; }
+
+    .hide{ display:none; }
+
+    .err{
+      margin-top:10px;
+      color:#ff98ad;
+      font-size:12px;
+      white-space:pre-wrap;
+    }
   </style>
 </head>
 
 <body>
-  <!-- BUILD: 2026-02-08_member_resolve_modal_v2_FIX -->
+  <!-- BUILD: 2026-02-08_cash_checkin_member_gate_v1 -->
   <div class="wrap">
-    <div class="card">
+
+    <!-- ====== SCREEN 1: 会員確認（ページ） ====== -->
+    <div id="screenVerify" class="card hide">
+      <div class="head">
+        <h1>会員確認</h1>
+        <p class="sub">
+          電話番号（入会フォームの「緊急連絡先」）で会員を特定します。<br>
+          <strong>確認が完了するとチェックイン画面に移動</strong>します。
+        </p>
+      </div>
+
+      <div class="content">
+        <div class="label">電話番号（ハイフンなし）</div>
+        <input id="verifyPhone" inputmode="numeric" placeholder="例：08012345678" />
+        <div class="hint">一度確認できれば、以後は自動でスキップされることがあります。</div>
+
+        <div id="verifySelectBox" class="hide" style="margin-top:12px;">
+          <div class="label">同じ電話番号の候補が複数あります（選択）</div>
+          <select id="verifyMemberSel"></select>
+          <div class="hint">候補を選んだら、もう一度「会員確認して続行」を押してください。</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="label">結果</div>
+        <pre id="outVerify">—</pre>
+
+        <div id="verifyErr" class="err"></div>
+
+        <div style="height:14px"></div>
+      </div>
+
+      <div class="actionBar">
+        <button class="btn" id="btnVerifyOk" type="button">会員確認して続行</button>
+        <button class="btnSub" id="btnVerifyCancel" type="button" style="margin-top:10px;">キャンセル（閉じる）</button>
+        <div class="statusLine">
+          <div id="verifyStatus">起動中…</div>
+          <div class="pill">本人確認</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== SCREEN 2: チェックイン ====== -->
+    <div id="screenCheckin" class="card hide">
       <div class="head">
         <h1>現地払いチェックイン</h1>
         <p class="sub">このQRは<strong>現地精算（PENDING）専用</strong>です。月謝契約の有無と単発料金を表示します。</p>
@@ -171,11 +238,11 @@
         <div class="grid">
           <div class="item">
             <div class="label">会員</div>
-            <div id="memberName" class="value">読み込み中…</div>
+            <div id="memberName" class="value">—</div>
           </div>
           <div class="item">
             <div class="label">区分</div>
-            <div id="contractBadge" class="badge warn"><span class="dot"></span>判定中</div>
+            <div id="contractBadge" class="badge warn"><span class="dot"></span>—</div>
           </div>
           <div class="item">
             <div class="label">単発料金</div>
@@ -192,15 +259,9 @@
         <div class="label">クラス</div>
         <select id="classSel"></select>
 
-        <!-- 互換用：以前の phoneBox（モーダルに統一するが残してOK） -->
-        <div id="phoneBox" class="hide" style="margin-top:12px;">
-          <div class="label">初回のみ：電話番号（ハイフンなし）</div>
-          <input id="phoneInput" inputmode="numeric" placeholder="例：08012345678" />
-          <div class="hint">未連携の場合のみ表示されます。</div>
-        </div>
-
         <div class="label" style="margin-top:12px;">結果</div>
         <pre id="out">—</pre>
+
         <div style="height:10px"></div>
       </div>
 
@@ -212,68 +273,7 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- phone modal -->
-  <div id="phoneModal" class="hide" style="
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    padding:18px; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); z-index:9999;
-    pointer-events:auto;">
-    <div id="phoneModalPanel" style="
-      width:min(560px,100%);
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
-      box-shadow:0 24px 80px rgba(0,0,0,.55);
-      padding:16px;">
-      <div style="font-size:16px; font-weight:1000; margin-bottom:8px;">会員確認</div>
-      <div id="phoneModalMsg" style="font-size:13px; color:rgba(234,240,255,.92); line-height:1.6; white-space:pre-wrap; margin-bottom:10px;">
-        電話番号（入会フォームの「緊急連絡先」）を入力してください。
-      </div>
-
-      <input id="phoneModalInput" inputmode="numeric" placeholder="例：08012345678" style="
-        width:100%;
-        padding:14px 14px;
-        border-radius:14px;
-        border:1px solid rgba(255,255,255,.14);
-        background:rgba(255,255,255,.04);
-        color:var(--text);
-        outline:none;
-        font-size:16px;" />
-
-      <div id="phoneModalSelectBox" class="hide" style="margin-top:12px;">
-        <div style="font-size:12px; color:rgba(234,240,255,.72); margin-bottom:6px;">
-          同じ電話番号の候補が複数あります（選択）
-        </div>
-        <select id="phoneModalMemberSel" style="
-          width:100%;
-          padding:14px 14px;
-          border-radius:14px;
-          border:1px solid rgba(255,255,255,.14);
-          background:rgba(255,255,255,.04);
-          color:var(--text);
-          outline:none;
-          font-size:16px;"></select>
-        <div style="margin-top:6px; color:rgba(234,240,255,.70); font-size:11px; line-height:1.5;">
-          候補を選んだら、もう一度「会員確認して続行」を押してください。
-        </div>
-      </div>
-
-      <div style="display:grid; gap:10px; margin-top:12px;">
-        <button id="phoneModalOk" class="btn" type="button">会員確認して続行</button>
-        <button id="phoneModalCancel" type="button" style="
-          width:100%;
-          border-radius:16px;
-          padding:14px 14px;
-          font-size:14px;
-          font-weight:900;
-          border:1px solid rgba(255,255,255,.14);
-          background:rgba(255,255,255,.04);
-          color:var(--text);">キャンセル</button>
-      </div>
-
-      <div id="phoneModalErr" style="margin-top:10px; color:#ff98ad; font-size:12px; white-space:pre-wrap;"></div>
-    </div>
   </div>
 
 <script>
@@ -284,47 +284,58 @@
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
-  document.title = "cash_checkin BUILD 2026-02-08_member_resolve_modal_v2_FIX";
+  document.title = "cash_checkin BUILD 2026-02-08_cash_checkin_member_gate_v1";
 
   const JSONP_TIMEOUT_MS = 16000;
 
-  let gUserId = "";
-  let gDisplayName = "";
-  let gSelectedRowIndex = 0;
-  let RUNNING = false;
-
-  // member_id を保持（URL or resolveで確定したらここに入る）
-  let gMemberId = "";
-
-  // ★重要：ユーザーがキャンセルしたら「自動再表示」を止めるフラグ
-  // （ユーザーがボタンを押した時だけ再表示は許可）
-  let USER_DISMISSED_MODAL = false;
-
   const $ = (id)=>document.getElementById(id);
 
+  let gUserId = "";
+  let gDisplayName = "";
+  let RUNNING = false;
+
+  // member_id（確定したら必ず入る）
+  let gMemberId = "";
+
+  // resolve_member で複数候補になった時の rowIndex
+  let gSelectedRowIndex = 0;
+
+  // ---------- error hooks（必ずoutに出す） ----------
   window.onerror = function(msg, src, line, col, err){
     try{
       const o = { where:"window.onerror", msg:String(msg), src:String(src), line, col, err:String(err && err.stack ? err.stack : err) };
-      document.getElementById("out").textContent = JSON.stringify(o, null, 2);
-      const ebox = document.getElementById("phoneModalErr");
-      if (ebox) ebox.textContent = "JSエラーで停止しました。\n" + JSON.stringify(o, null, 2);
+      if ($("out")) $("out").textContent = JSON.stringify(o, null, 2);
+      if ($("outVerify")) $("outVerify").textContent = JSON.stringify(o, null, 2);
+      if ($("verifyErr")) $("verifyErr").textContent = "JSエラーで停止しました。\n" + JSON.stringify(o, null, 2);
     }catch(_){}
   };
   window.onunhandledrejection = function(ev){
     try{
       const r = ev && ev.reason;
       const o = { where:"unhandledrejection", reason:String(r && r.stack ? r.stack : r) };
-      document.getElementById("out").textContent = JSON.stringify(o, null, 2);
-      const ebox = document.getElementById("phoneModalErr");
-      if (ebox) ebox.textContent = "Promise例外で停止しました。\n" + JSON.stringify(o, null, 2);
+      if ($("out")) $("out").textContent = JSON.stringify(o, null, 2);
+      if ($("outVerify")) $("outVerify").textContent = JSON.stringify(o, null, 2);
+      if ($("verifyErr")) $("verifyErr").textContent = "Promise例外で停止しました。\n" + JSON.stringify(o, null, 2);
     }catch(_){}
   };
-
 
   function setOut(obj){
     $("out").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
   }
+  function setOutVerify(obj){
+    $("outVerify").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
+  }
   function setStatus(t){ $("statusText").textContent = t || ""; }
+  function setVerifyStatus(t){ $("verifyStatus").textContent = t || ""; }
+
+  function showVerifyScreen_(){
+    $("screenCheckin").classList.add("hide");
+    $("screenVerify").classList.remove("hide");
+  }
+  function showCheckinScreen_(){
+    $("screenVerify").classList.add("hide");
+    $("screenCheckin").classList.remove("hide");
+  }
 
   function withTimeout(p, ms, label){
     let t;
@@ -363,7 +374,6 @@
     return `${y}${m}`;
   }
 
-  // 電話番号正規化：数字のみ / 10〜11桁想定
   function normPhone_(s){
     s = String(s || '').trim().replace(/[^\d]/g,'');
     if (s.length < 10) return "";
@@ -396,66 +406,27 @@
     $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
   }
 
-  // ===== modal control (確実に閉じる + 多重表示防止) =====
-  let MODAL_SUPPRESS_UNTIL = 0;
-  let MODAL_OPEN = false;
-
-  function suppressModalFor_(ms){
-    MODAL_SUPPRESS_UNTIL = Date.now() + (ms || 0);
-  }
-  function canOpenModal_(){
-    return Date.now() > MODAL_SUPPRESS_UNTIL && !MODAL_OPEN;
+  // member_id から会員情報
+  async function fetchMeByMemberId_(memberId){
+    const url = `${API_URL}?api=me_by_member_id&token=${encodeURIComponent(API_TOKEN)}&member_id=${encodeURIComponent(memberId)}`;
+    return await jsonp(url);
   }
 
-  function forceClosePhoneModal_(){
-    const modal = $("phoneModal");
-    if (modal) modal.classList.add("hide");
-    MODAL_OPEN = false;
-
-    // iOSで“押せない”事故防止：フォーカス解除
-    const active = document.activeElement;
-    if (active && typeof active.blur === "function") active.blur();
+  // line_user_id から会員情報（既に紐づいてる人はこれでスキップ可能）
+  async function fetchMeCashByUserId_(){
+    const meUrl = `${API_URL}?api=me_cash&token=${encodeURIComponent(API_TOKEN)}&userId=${encodeURIComponent(gUserId)}`;
+    return await jsonp(meUrl);
   }
 
-  function openPhoneModal_(msg, {force=false} = {}){
-    // force=true はユーザー操作（ボタン押下等）で必ず開きたい時
-    if (!force){
-      if (USER_DISMISSED_MODAL) return;  // 自動再表示は禁止
-      if (!canOpenModal_()) return;
-    }
-
-    $("phoneModalErr").textContent = "";
-    $("phoneModalSelectBox").classList.add("hide");
-    $("phoneModalMsg").textContent = msg || "電話番号（入会フォームの「緊急連絡先」）を入力してください。";
-
-    $("phoneModalOk").disabled = false;
-    $("phoneModalCancel").disabled = false;
-
-    const cur = $("phoneInput") ? String($("phoneInput").value || "") : "";
-    $("phoneModalInput").value = cur;
-
-    $("phoneModal").classList.remove("hide");
-    MODAL_OPEN = true;
-
-    setTimeout(()=>{ try{ $("phoneModalInput").focus(); }catch(_){ } }, 50);
-  }
-
-  function closePhoneModal_(){
-    // 閉じた直後の即復活防止（短時間抑止）
-    suppressModalFor_(1500);
-    forceClosePhoneModal_();
-  }
-
-  function setPhoneModalCandidates_(cands){
-    const box = $("phoneModalSelectBox");
-    const sel = $("phoneModalMemberSel");
+  function setVerifyCandidates_(cands){
+    const box = $("verifySelectBox");
+    const sel = $("verifyMemberSel");
     sel.innerHTML = "";
 
     (cands || []).forEach((c, i)=>{
       const opt = document.createElement("option");
       opt.value = String(c.rowIndex || "");
-      opt.textContent =
-        `${c.member_name || "(不明)"}${c.member_type ? " / "+c.member_type : ""}（候補${i+1}）`;
+      opt.textContent = `${c.member_name || "(不明)"}${c.member_type ? " / "+c.member_type : ""}（候補${i+1}）`;
       sel.appendChild(opt);
     });
 
@@ -465,217 +436,46 @@
     box.classList.remove("hide");
   }
 
-  // member_id が取れているなら、それで会員情報を取り直す（任意API）
-  async function fetchMeByMemberId_(memberId){
-    const url = `${API_URL}?api=me_by_member_id&token=${encodeURIComponent(API_TOKEN)}&member_id=${encodeURIComponent(memberId)}`;
-    return await jsonp(url);
+  function clearVerifyCandidates_(){
+    $("verifySelectBox").classList.add("hide");
+    $("verifyMemberSel").innerHTML = "";
+    gSelectedRowIndex = 0;
   }
 
-  // 会員情報を確定させる（優先：member_id、fallback：me_cash）
-  // allowAutoModal=true の時だけ need_phone を自動でモーダル表示してよい
-  async function ensureMemberInfoReady_({allowAutoModal=true} = {}){
+  // 会員情報を確定（member_idがある状態で成功させる）
+  async function ensureMemberInfoByMemberId_(){
     setStatus("会員情報を取得中…");
+    if (!gMemberId) return false;
 
-    // A) member_id があるならそれで確定
-    if (gMemberId){
-      try{
-        const r = await fetchMeByMemberId_(gMemberId);
-        if (r && r.status === "success"){
-          applyMeToUi_(r);
-          setStatus("チェックイン可能");
-          return true;
-        } else {
-          setOut({ where:"me_by_member_id", member_id:gMemberId, r });
-          // fallthrough
-        }
-      }catch(e){
-        setOut({ where:"me_by_member_id_exception", member_id:gMemberId, error:String(e?.message||e) });
-        // fallthrough
-      }
-    }
-
-    // B) fallback: me_cash（line_user_idで引く）
-    const meUrl = `${API_URL}?api=me_cash&token=${encodeURIComponent(API_TOKEN)}&userId=${encodeURIComponent(gUserId)}`;
-    let me;
     try{
-      me = await jsonp(meUrl);
-    }catch(e){
-      setOut({ where:"me_cash_exception", meUrl, error:String(e?.message||e) });
-      setStatus("失敗");
-      return false;
-    }
-
-    if (me && me.status === "need_phone"){
-      setMemberUiLocked_();
-      setStatus("電話番号入力が必要");
-
-      // ★ここが肝：自動表示は allowAutoModal=true の時だけ
-      if (allowAutoModal){
-        openPhoneModal_("会員確認が必要です。電話番号を入力してください。");
+      const r = await fetchMeByMemberId_(gMemberId);
+      if (r && r.status === "success"){
+        applyMeToUi_(r);
+        setStatus("チェックイン可能");
+        return true;
       }
-      setOut({ where:"me_cash_need_phone", meUrl, me });
+      setOut({ where:"me_by_member_id", member_id:gMemberId, r });
+      setStatus("失敗");
       return false;
-    }
-
-    if (!me || me.status !== "success"){
-      setOut({ where:"me_cash", meUrl, me });
+    }catch(e){
+      setOut({ where:"me_by_member_id_exception", member_id:gMemberId, error:String(e?.message||e) });
       setStatus("失敗");
       return false;
     }
-
-    if (me.member_id) gMemberId = String(me.member_id).trim();
-
-    applyMeToUi_(me);
-    setStatus("チェックイン可能");
-    return true;
   }
 
-  // ====== modal bindings（1回だけ・確実に効く） ======
-  (function bindPhoneModalUI_(){
-    const modal = $("phoneModal");
-    const panel = $("phoneModalPanel");
-    const cancel = $("phoneModalCancel");
-    const ok = $("phoneModalOk");
-
-    if (!modal || !panel || !cancel || !ok) return;
-
-    cancel.type = "button";
-    ok.type = "button";
-
-    // キャンセル：確実に閉じる + 自動再表示を止める
-    cancel.addEventListener("click", (e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      USER_DISMISSED_MODAL = true;
-      closePhoneModal_();
-      setStatus("会員確認をキャンセル");
-      // チェックインボタンは“会員確認が必要”のまま
-      $("btnCheckin").disabled = false;
-      $("btnCheckin").textContent = "会員確認が必要";
-    }, true);
-
-    // 背景タップ：閉じる（パネル内クリックは無視）
-    modal.addEventListener("click", (e)=>{
-      if (e.target === modal){
-        e.preventDefault();
-        e.stopPropagation();
-        USER_DISMISSED_MODAL = true;
-        closePhoneModal_();
-        setStatus("会員確認をキャンセル");
-        $("btnCheckin").disabled = false;
-        $("btnCheckin").textContent = "会員確認が必要";
-      }
-    }, true);
-
-    // パネル内クリックは伝播しない
-    panel.addEventListener("click", (e)=> e.stopPropagation(), true);
-
-    // ESCでも閉じる（PC向け）
-    document.addEventListener("keydown", (e)=>{
-      if (e.key === "Escape" && MODAL_OPEN){
-        USER_DISMISSED_MODAL = true;
-        closePhoneModal_();
-      }
-    }, true);
-  })();
-
-  // ====== modal OK（会員照会） ======
-  $("phoneModalOk").addEventListener("click", async (e)=>{
-    e.preventDefault();
-    e.stopPropagation();
-
-    const phone = normPhone_($("phoneModalInput").value);
-    if (!phone){
-      $("phoneModalErr").textContent = "電話番号を入力してください（ハイフンなし）";
-      return;
-    }
-
-    $("phoneModalErr").textContent = "";
-    $("phoneModalOk").disabled = true;
-    $("phoneModalCancel").disabled = true;
-
-    const url =
-      `${API_URL}?api=resolve_member`
-      + `&token=${encodeURIComponent(API_TOKEN)}`
-      + `&userId=${encodeURIComponent(gUserId)}`
-      + `&phone=${encodeURIComponent(phone)}`
-      + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
-
-    try{
-      const r = await jsonp(url);
-
-      if (r && r.status === "need_member_select"){
-        setPhoneModalCandidates_(r.candidates || []);
-        $("phoneModalErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
-        setOut({ where:"resolve_member_need_select", url, r });
-        return;
-      }
-
-      if (r && r.status === "success"){
-        if (r.member_id) gMemberId = String(r.member_id || "").trim();
-
-        // 互換：画面内inputにも保持
-        if ($("phoneInput")) $("phoneInput").value = phone;
-
-        // 成功したので「自動表示抑止」は解除（次回必要なら自動で出てOK）
-        USER_DISMISSED_MODAL = false;
-
-        // 会員情報を取り直してUI確定（ここでは自動モーダル許可）
-        const ok = await ensureMemberInfoReady_({allowAutoModal:true});
-
-        if (ok){
-          closePhoneModal_();
-          $("btnCheckin").disabled = false;
-          $("btnCheckin").textContent = "現地精算でチェックイン（PENDING）";
-          setStatus("チェックイン可能");
-        } else {
-          $("phoneModalErr").textContent = "会員情報の取得に失敗しました（サーバ側の応答を確認してください）";
-        }
-        return;
-      }
-
-      $("phoneModalErr").textContent =
-        "照会に失敗しました。\n" +
-        "status=" + String(r && r.status) + "\n" +
-        "message=" + String(r && r.message ? r.message : "(no message)");
-      setOut({ where:"resolve_member_error", url, r });
-
-    } catch(err){
-      $("phoneModalErr").textContent = "通信失敗: " + String(err?.message || err);
-      setOut({ where:"resolve_member_exception", url, error:String(err?.message || err) });
-    } finally {
-      $("phoneModalOk").disabled = false;
-      $("phoneModalCancel").disabled = false;
-    }
-  }, true);
-
-  async function main(){
-    setOut("LIFF init...");
-    setStatus("LIFF初期化中…");
-
-    // URLからmember_idを拾う（resolve済み遷移でも使える）
-    gMemberId = getQueryParam_("member_id");
-
-    await withTimeout(liff.init({ liffId: LIFF_ID }), 20000, "liff.init");
-    if (!liff.isLoggedIn()) { liff.login(); return; }
-
-    const prof = await withTimeout(liff.getProfile(), 12000, "liff.getProfile");
-    gUserId = prof.userId;
-    gDisplayName = prof.displayName || "";
-
-    $("yyyymm").textContent = yyyymmNowJst();
-
-    // 1) 会員情報（member_id優先 → fallback me_cash）
-    // ★初回は“自動モーダルOK”でよい（ただしキャンセルしたら以後は抑止）
-    const meOk = await ensureMemberInfoReady_({allowAutoModal:true});
-
-    // 2) classes
+  // classes 読み込み（チェックイン画面用）
+  async function loadClasses_(){
     setOut("classes 読み込み中...");
     setStatus("クラス一覧を取得中…");
 
     const clsUrl = `${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`;
     const cls = await jsonp(clsUrl);
-    if (!cls || cls.status !== "success") { setOut({ where:"classes", clsUrl, cls }); setStatus("失敗"); return; }
+    if (!cls || cls.status !== "success") {
+      setOut({ where:"classes", clsUrl, cls });
+      setStatus("失敗");
+      return false;
+    }
 
     const sel = $("classSel");
     sel.innerHTML = "";
@@ -686,23 +486,27 @@
       sel.appendChild(opt);
     });
 
-    // 3) ready
-    $("btnCheckin").disabled = false;
-    $("btnCheckin").textContent = meOk ? "現地精算でチェックイン（PENDING）" : "会員確認が必要";
-    setOut(meOk ? "準備OK。" : "会員未確定（電話番号入力が必要）");
-    setStatus(meOk ? "チェックイン可能" : "会員確認が必要");
+    return true;
+  }
+
+  // 画面遷移：会員確認完了 → チェックイン画面へ
+  async function goToCheckin_(){
+    showCheckinScreen_();
+
+    $("yyyymm").textContent = yyyymmNowJst();
+    setMemberUiLocked_();
+
+    const meOk = await ensureMemberInfoByMemberId_();
+    const clsOk = await loadClasses_();
+
+    $("btnCheckin").disabled = !(meOk && clsOk);
+    $("btnCheckin").textContent = (meOk && clsOk) ? "現地精算でチェックイン（PENDING）" : "読み込み失敗";
+    setOut(meOk ? "準備OK。" : "会員情報取得に失敗");
+
+    if (!(meOk && clsOk)) return;
 
     $("btnCheckin").onclick = async ()=>{
-      // member_id が無い限り、必ずモーダルを出す（料金ブレ事故防止）
-      if (!gMemberId){
-        setMemberUiLocked_();
-        setStatus("会員確認が必要（電話番号入力）");
-
-        // ★ここはユーザー操作なので force=true（キャンセル抑止を無視して開ける）
-        USER_DISMISSED_MODAL = false; // ボタン押した＝もう一回開きたい意図
-        openPhoneModal_("料金を正確に表示するため、会員確認が必要です。電話番号を入力してください。", {force:true});
-        return;
-      }
+      if (!gMemberId) return;
 
       if (RUNNING) return;
       RUNNING = true;
@@ -711,10 +515,9 @@
       setStatus("チェックイン送信中…");
 
       try{
+        const sel = $("classSel");
         const classId = sel.value;
         const className = sel.options[sel.selectedIndex]?.textContent || "";
-
-        const phone = $("phoneInput") ? normPhone_($("phoneInput").value) : "";
 
         const url =
           `${API_URL}?api=checkin`
@@ -725,23 +528,12 @@
           + `&displayName=${encodeURIComponent(gDisplayName)}`
           + `&classId=${encodeURIComponent(classId)}`
           + `&className=${encodeURIComponent(className)}`
-          + (phone ? `&phone=${encodeURIComponent(phone)}` : "")
           + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
 
         const res = await jsonp(url);
         setOut(res);
 
-        if (res && (res.status === "need_phone" || res.status === "need_member_select")){
-          // サーバ起因で電話が必要ならモーダルへ（ユーザー操作の延長なのでforceでOK）
-          setStatus("会員確認が必要");
-          if (res.status === "need_member_select") setPhoneModalCandidates_(res.candidates || []);
-          openPhoneModal_("会員確認が必要です。電話番号を入力してください。", {force:true});
-          return;
-        }
-
         if (res && res.status === "success") {
-          if (res.member_id) gMemberId = String(res.member_id).trim();
-
           const lines = [];
           if (res.pending === true) lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
           if (res.over_limit === true && res.over_message) lines.push(res.over_message);
@@ -776,9 +568,134 @@
     };
   }
 
+  // 会員確認（電話番号 → resolve_member）
+  async function doResolveMember_(){
+    $("verifyErr").textContent = "";
+    setOutVerify("照会中…");
+    setVerifyStatus("照会中…");
+
+    const phone = normPhone_($("verifyPhone").value);
+    if (!phone){
+      $("verifyErr").textContent = "電話番号を入力してください（ハイフンなし）";
+      setVerifyStatus("入力待ち");
+      return;
+    }
+
+    $("btnVerifyOk").disabled = true;
+    $("btnVerifyCancel").disabled = true;
+
+    const url =
+      `${API_URL}?api=resolve_member`
+      + `&token=${encodeURIComponent(API_TOKEN)}`
+      + `&userId=${encodeURIComponent(gUserId)}`
+      + `&phone=${encodeURIComponent(phone)}`
+      + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
+
+    try{
+      const r = await jsonp(url);
+
+      if (r && r.status === "need_member_select"){
+        setVerifyCandidates_(r.candidates || []);
+        $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
+        setOutVerify({ where:"resolve_member_need_select", url, r });
+        setVerifyStatus("候補選択");
+        return;
+      }
+
+      if (r && r.status === "success"){
+        clearVerifyCandidates_();
+        if (r.member_id) gMemberId = String(r.member_id || "").trim();
+
+        setOutVerify({ where:"resolve_member_success", url, r });
+        setVerifyStatus("完了");
+
+        // ここで「チェックイン画面へ移動（同ページ内）」が要件
+        await goToCheckin_();
+        return;
+      }
+
+      $("verifyErr").textContent =
+        "照会に失敗しました。\n" +
+        "status=" + String(r && r.status) + "\n" +
+        "message=" + String(r && r.message ? r.message : "(no message)");
+      setOutVerify({ where:"resolve_member_error", url, r });
+      setVerifyStatus("失敗");
+
+    } catch(err){
+      $("verifyErr").textContent = "通信失敗: " + String(err?.message || err);
+      setOutVerify({ where:"resolve_member_exception", url, error:String(err?.message || err) });
+      setVerifyStatus("失敗");
+    } finally {
+      $("btnVerifyOk").disabled = false;
+      $("btnVerifyCancel").disabled = false;
+    }
+  }
+
+  async function main(){
+    // 初期は verify を表示しておく（後で条件で切り替える）
+    showVerifyScreen_();
+    setVerifyStatus("LIFF初期化中…");
+    setOutVerify("LIFF init...");
+
+    // URLからmember_idを拾う（既に確定済みなら会員確認をスキップ）
+    gMemberId = getQueryParam_("member_id");
+
+    await withTimeout(liff.init({ liffId: LIFF_ID }), 20000, "liff.init");
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+
+    const prof = await withTimeout(liff.getProfile(), 12000, "liff.getProfile");
+    gUserId = prof.userId;
+    gDisplayName = prof.displayName || "";
+
+    // 1) member_id がURLにある → そのままチェックインへ
+    if (gMemberId){
+      setVerifyStatus("会員確認済み（member_id）");
+      await goToCheckin_();
+      return;
+    }
+
+    // 2) URLになければ、まず me_cash を試す（既に紐づいてる人はスキップ）
+    try{
+      const me = await fetchMeCashByUserId_();
+
+      // 既に紐づいていて member_id も返るなら、そのままチェックインへ
+      if (me && me.status === "success" && me.member_id){
+        gMemberId = String(me.member_id).trim();
+        setOutVerify({ where:"me_cash_success_skip_verify", me });
+        setVerifyStatus("会員確認済み（自動）");
+        await goToCheckin_();
+        return;
+      }
+
+      // need_phone / 失敗 → 会員確認ページのまま
+      setOutVerify({ where:"me_cash_need_verify", me });
+      setVerifyStatus("電話番号入力が必要");
+      showVerifyScreen_();
+
+    }catch(e){
+      setOutVerify({ where:"me_cash_exception", error:String(e?.message||e) });
+      setVerifyStatus("電話番号入力が必要");
+      showVerifyScreen_();
+    }
+
+    // verify UI bind
+    $("btnVerifyOk").onclick = doResolveMember_;
+    $("btnVerifyCancel").onclick = ()=>{
+      // “キャンセル＝閉じる” 要件：LIFFなら閉じる / 無理なら戻る
+      try{
+        if (liff && liff.isInClient()){
+          liff.closeWindow();
+          return;
+        }
+      }catch(_){}
+      history.back();
+    };
+
+  }
+
   main().catch(e=>{
-    setOut("FATAL: " + String(e && e.message ? e.message : e));
-    setStatus("起動失敗");
+    setOutVerify("FATAL: " + String(e && e.message ? e.message : e));
+    setVerifyStatus("起動失敗");
   });
 </script>
 </body>
