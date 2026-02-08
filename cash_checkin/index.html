@@ -375,12 +375,12 @@
   }
 
   function getSelectedRowIndexFromUI_(){
-    const box = $("verifySelectBox");
     const sel = $("verifyMemberSel");
-    const shown = box && !box.classList.contains("hide");
-    if (!shown || !sel) return 0;
-    return Number(sel.value || 0);
+    if (!sel) return 0;
+    const v = Number(sel.value || 0);
+    return v || 0;
   }
+
 
   function setMemberUiLocked_(){
     $("memberName").textContent = "(未確定)";
@@ -416,19 +416,29 @@
     const box = $("verifySelectBox");
     const sel = $("verifyMemberSel");
     sel.innerHTML = "";
-
+  
     (cands || []).forEach((c, i)=>{
       const opt = document.createElement("option");
       opt.value = String(c.rowIndex || "");
       opt.textContent = `${c.member_name || "(不明)"}${c.member_type ? " / "+c.member_type : ""}（候補${i+1}）`;
       sel.appendChild(opt);
     });
-
-    gSelectedRowIndex = Number(sel.value || 0);
-    sel.onchange = ()=> gSelectedRowIndex = Number(sel.value || 0);
-
+  
+    // ★重要：初期選択を強制（valueが空のまま事故を防ぐ）
+    if (sel.options.length > 0){
+      sel.selectedIndex = 0;
+      gSelectedRowIndex = Number(sel.options[0].value || 0);
+    } else {
+      gSelectedRowIndex = 0;
+    }
+  
+    sel.onchange = ()=> {
+      gSelectedRowIndex = Number(sel.value || 0);
+    };
+  
     box.classList.remove("hide");
   }
+
 
   function clearVerifyCandidates_(){
     $("verifySelectBox").classList.add("hide");
@@ -577,64 +587,71 @@
     };
   }
 
-  async function doResolveMember_(){
+  async function doResolveMember_(){async function doResolveMember_(){
     try{
       $("btnVerifyOk").disabled = true;
       $("btnVerifyCancel").disabled = true;
-
+  
       $("verifyErr").textContent = "";
       setOutVerify("照会中…");
       setVerifyStatus("照会中…");
-
+  
       const phone = normPhone_($("verifyPhone").value);
       gVerifiedPhone = phone;
-
+  
       if (!phone){
         $("verifyErr").textContent = "電話番号を入力してください（ハイフンなし）";
         setVerifyStatus("入力待ち");
         return;
       }
-
+  
+      // ★候補が表示済みなら rowIndex 必須
+      const hasCandidates = !$("verifySelectBox").classList.contains("hide");
       const rowIndex = getSelectedRowIndexFromUI_();
-
+  
+      if (hasCandidates && !rowIndex){
+        $("verifyErr").textContent = "候補を選択してください（選択が確定していません）";
+        setVerifyStatus("候補選択");
+        return;
+      }
+  
       const url =
         `${API_URL}?api=resolve_member`
         + `&token=${encodeURIComponent(API_TOKEN)}`
         + `&userId=${encodeURIComponent(gUserId)}`
         + `&phone=${encodeURIComponent(phone)}`
         + (rowIndex ? `&rowIndex=${encodeURIComponent(String(rowIndex))}` : "");
-
+  
       const r = await jsonp(url);
-
+  
       if (r && r.status === "need_member_select"){
         setVerifyCandidates_(r.candidates || []);
         $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
-        setOutVerify({ where:"resolve_member_need_select", url, r });
+        setOutVerify({ where:"resolve_member_need_select", url, r, picked_rowIndex: rowIndex });
         setVerifyStatus("候補選択");
-        return;
+        return; // ★ここで絶対に次画面へ行かない
       }
-
+  
       if (r && r.status === "success"){
         clearVerifyCandidates_();
-      
-        // ★ここを追加：resolve_memberの結果から member_id を保持
+  
+        // ★保険：member_idも保持（GAS側が返すなら）
         if (r.member_id) gMemberId = String(r.member_id).trim();
-      
-        setOutVerify({ where:"resolve_member_success", url, r });
+  
+        setOutVerify({ where:"resolve_member_success", url, r, picked_rowIndex: rowIndex });
         setVerifyStatus("完了");
-      
+  
         await goToCheckin_();
         return;
       }
-
-
+  
       $("verifyErr").textContent =
         "照会に失敗しました。\n" +
         "status=" + String(r && r.status) + "\n" +
         "message=" + String(r && r.message ? r.message : "(no message)");
-      setOutVerify({ where:"resolve_member_error", url, r });
+      setOutVerify({ where:"resolve_member_error", url, r, picked_rowIndex: rowIndex });
       setVerifyStatus("失敗");
-
+  
     } catch(err){
       $("verifyErr").textContent = "通信失敗: " + String(err?.message || err);
       setOutVerify({ where:"resolve_member_exception", error:String(err?.message || err) });
@@ -644,6 +661,7 @@
       $("btnVerifyCancel").disabled = false;
     }
   }
+
 
   function bindVerifyCancel_(){
     const btn = $("btnVerifyCancel");
