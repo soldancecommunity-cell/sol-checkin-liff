@@ -329,6 +329,17 @@
       document.body.appendChild(script);
     });
   }
+  function showServerDump_(title, url, obj){
+    const lines = [];
+    lines.push(`【${title}】`);
+    lines.push(`url: ${url}`);
+    try{
+      lines.push(`res: ${JSON.stringify(obj, null, 2)}`);
+    }catch(e){
+      lines.push(`res(raw): ${String(obj)}`);
+    }
+    setOut(lines.join("\n\n"));
+  }
 
   function yyyymmNowJst(){
     const now = new Date();
@@ -665,25 +676,25 @@
       }
     };
     (function bindModalClose_(){
-      const modal = $("phoneModal");
       const cancel = $("phoneModalCancel");
     
-      if (cancel){
-        cancel.type = "button";
-        cancel.addEventListener("click", (e)=>{
-          e.preventDefault();
-          e.stopPropagation();
-          closePhoneModal_();
-        }, { passive:false });
-      }
+      if (!cancel) return;
     
-      // 背景タップで閉じる（カード部分は閉じない）
-      if (modal){
-        modal.addEventListener("click", (e)=>{
-          if (e.target === modal) closePhoneModal_();
-        });
-      }
+      cancel.type = "button";
+      cancel.addEventListener("click", (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+    
+        try{
+          closePhoneModal_();
+        }catch(err){
+          // 最終保険：直接閉じる
+          const modal = $("phoneModal");
+          if (modal) modal.classList.add("hide");
+        }
+      }, { passive:false });
     })();
+
     function openPhoneModal_(msg){
       $("phoneModalErr").textContent = "";
       $("phoneModalSelectBox").classList.add("hide");
@@ -698,6 +709,12 @@
       $("phoneModal").classList.remove("hide");
       setTimeout(()=>{ try{ $("phoneModalInput").focus(); }catch(_){ } }, 50);
     }
+    function closePhoneModal_(){
+      const modal = $("phoneModal");
+      if (!modal) return;
+      modal.classList.add("hide");
+    }
+
   }
 
   main().catch(e=>{
