@@ -117,7 +117,6 @@
       line-height:1.55;
     }
 
-    /* Sticky action bar (押しやすい) */
     .actionBar{
       position: sticky;
       bottom: 0;
@@ -199,14 +198,17 @@
         <div class="label">クラス</div>
         <select id="classSel"></select>
 
+        <!-- ★ phoneBox / selectBox の閉じタグを正しく -->
         <div id="phoneBox" class="hide" style="margin-top:12px;">
           <div class="label">初回のみ：電話番号（ハイフンなし）</div>
           <input id="phoneInput" inputmode="numeric" placeholder="例：08012345678" />
+
           <div id="selectBox" class="hide" style="margin-top:12px;">
-          <div class="label">同じ電話番号の候補が複数あります（選択してください）</div>
-          <select id="memberSel"></select>
-          <div class="hint">選択後にもう一度「チェックイン」を押すと紐付けして続行します。</div>
-          <div class="hint">未連携の場合のみ表示されます。</div>
+            <div class="label">同じ電話番号の候補が複数あります（選択してください）</div>
+            <select id="memberSel"></select>
+            <div class="hint">選択後にもう一度「チェックイン」を押すと紐付けして続行します。</div>
+            <div class="hint">未連携の場合のみ表示されます。</div>
+          </div>
         </div>
 
         <div class="label" style="margin-top:12px;">結果</div>
@@ -214,23 +216,23 @@
         <div style="height:10px"></div>
       </div>
 
-        <!-- modal -->
-        <div id="modal" class="hide" style="
-          position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-          padding:18px; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); z-index:9999;">
-          <div style="
-            width:min(560px,100%);
-            border-radius:18px;
-            border:1px solid rgba(255,255,255,.12);
-            background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
-            box-shadow:0 24px 80px rgba(0,0,0,.55);
-            padding:16px;">
-            <div id="modalTitle" style="font-size:16px; font-weight:1000; margin-bottom:8px;">確認</div>
-            <div id="modalText" style="font-size:13px; color:rgba(234,240,255,.92); line-height:1.6; white-space:pre-wrap; margin-bottom:12px;"></div>
-            <button id="modalOk" class="btn" type="button">OK</button>
-          </div>
+      <!-- modal（ボタンが効かない系の保険でpointer-events明示） -->
+      <div id="modal" class="hide" style="
+        position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+        padding:18px; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); z-index:9999;
+        pointer-events:auto;">
+        <div style="
+          width:min(560px,100%);
+          border-radius:18px;
+          border:1px solid rgba(255,255,255,.12);
+          background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+          box-shadow:0 24px 80px rgba(0,0,0,.55);
+          padding:16px;">
+          <div id="modalTitle" style="font-size:16px; font-weight:1000; margin-bottom:8px;">確認</div>
+          <div id="modalText" style="font-size:13px; color:rgba(234,240,255,.92); line-height:1.6; white-space:pre-wrap; margin-bottom:12px;"></div>
+          <button id="modalOk" class="btn" type="button">OK</button>
         </div>
-
+      </div>
 
       <div class="actionBar">
         <button class="btn" id="btnCheckin" disabled>読み込み中…</button>
@@ -244,7 +246,7 @@
 
 <script>
   /* ====== 設定（必ず差し替え） ====== */
-  const LIFF_ID   = "2008938862-M5N6CXP3"; // あなたのLIFF
+  const LIFF_ID   = "2008938862-M5N6CXP3";
   const API_URL   = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
   const API_TOKEN = "sol_checkin_2026_144025036146";
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
@@ -254,19 +256,21 @@
 
   let gUserId = "";
   let gDisplayName = "";
-  let gSelectedRowIndex = 0; // 同一電話番号複数ヒット時に保持
+  let gSelectedRowIndex = 0;
   const $ = (id)=>document.getElementById(id);
+
   function showModal(title, text, onOk){
     $("modalTitle").textContent = title || "確認";
     $("modalText").textContent = text || "";
     $("modal").classList.remove("hide");
-  
-    $("modalOk").onclick = () => {
+
+    const btn = $("modalOk");
+    btn.disabled = false;
+    btn.onclick = () => {
       $("modal").classList.add("hide");
       if (typeof onOk === "function") onOk();
     };
   }
-
 
   function setOut(obj){
     $("out").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
@@ -314,11 +318,24 @@
     setOut("LIFF init...");
     setStatus("LIFF初期化中…");
 
-    await withTimeout(liff.init({ liffId: LIFF_ID }), 12000, "liff.init");
+    await withTimeout(liff.init({ liffId: LIFF_ID }), 30000, "liff.init");
 
-    if (!liff.isLoggedIn()) { liff.login(); return; }
+    // ★ LINE内限定
+    if (!liff.isInClient()){
+      setOut("LINEアプリ内（LIFF）で開いてください。");
+      setStatus("LINE外");
+      $("btnCheckin").textContent = "LINEで開いてください";
+      return;
+    }
 
-    const prof = await withTimeout(liff.getProfile(), 8000, "liff.getProfile");
+    // ★ iOS対策：redirectUri を明示（無限/戻れない/ログイン不安定対策）
+    if (!liff.isLoggedIn()) {
+      const here = location.href;
+      liff.login({ redirectUri: here });
+      return;
+    }
+
+    const prof = await withTimeout(liff.getProfile(), 12000, "liff.getProfile");
     gUserId = prof.userId;
     gDisplayName = prof.displayName || "";
 
@@ -381,24 +398,24 @@
           + (phone ? `&phone=${encodeURIComponent(phone)}` : "")
           + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
 
-
         const res = await jsonp(url);
         setOut(res);
 
         if (res && res.status === "need_phone") {
           $("phoneBox").classList.remove("hide");
+          $("selectBox").classList.add("hide");
+          gSelectedRowIndex = 0;
           setStatus("電話番号入力が必要");
           return;
         }
+
         if (res && res.status === "need_member_select") {
-          // 電話番号入力は前提なので表示
           $("phoneBox").classList.remove("hide");
-        
-          // 候補を表示
+
           const box = $("selectBox");
           const sel2 = $("memberSel");
           sel2.innerHTML = "";
-        
+
           const list = res.candidates || [];
           list.forEach((c, i) => {
             const opt = document.createElement("option");
@@ -408,56 +425,28 @@
             opt.textContent = `${name}${type}（候補${i+1}）`;
             sel2.appendChild(opt);
           });
-        
-          // デフォルト選択
+
           gSelectedRowIndex = Number(sel2.value || 0);
-        
-          sel2.onchange = () => {
-            gSelectedRowIndex = Number(sel2.value || 0);
-          };
-        
+          sel2.onchange = () => { gSelectedRowIndex = Number(sel2.value || 0); };
+
           box.classList.remove("hide");
           setStatus("候補を選択してください");
           return;
         }
-        if (res && res.status === "success") {
-          // 候補選択状態をクリア
-          gSelectedRowIndex = 0;
-          $("selectBox").classList.add("hide");
-        
-          setStatus("完了");
-          liff.openWindow({ url: STAMP_URL, external: false });
-          return;
-        }
 
         if (res && res.status === "success") {
-          // 候補選択状態をクリア
           gSelectedRowIndex = 0;
           $("selectBox").classList.add("hide");
-        
-          // 表示メッセージを組み立て（PENDING/回数/超過）
+
           const lines = [];
-        
-          // cash_checkin は cash=1 で送ってるので、原則 pending 扱いになる想定
-          if (res.pending === true) {
-            lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
-          }
-        
-          if (res.over_limit === true && res.over_message) {
-            lines.push(res.over_message);
-          } else if (res.month_count) {
-            lines.push(`今月の受講は ${res.month_count} 回目です。`);
-          }
-        
-          // 何も無ければ最低限
-          if (lines.length === 0) {
-            lines.push("チェックインが完了しました。");
-          }
-        
+          if (res.pending === true) lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
+          if (res.over_limit === true && res.over_message) lines.push(res.over_message);
+          else if (res.month_count) lines.push(`今月の受講は ${res.month_count} 回目です。`);
+          if (lines.length === 0) lines.push("チェックインが完了しました。");
+
           const text = lines.join("\n\n") + "\n\nOKを押すとスタンプ付与へ移動します。";
-        
           setStatus("確認待ち");
-        
+
           showModal(
             (res.pending === true) ? "現地精算の確認" : "チェックイン完了",
             text,
@@ -466,13 +455,12 @@
               try {
                 liff.openWindow({ url: STAMP_URL, external: false });
               } catch(e) {
-                window.location.href = STAMP_URL;
+                location.href = STAMP_URL;
               }
             }
           );
           return;
         }
-
 
         setStatus("エラー");
       } catch(e){
