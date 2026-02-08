@@ -405,6 +405,15 @@
     $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
   }
 
+  function getSelectedRowIndexFromUI_(){
+    const box = $("verifySelectBox");
+    const sel = $("verifyMemberSel");
+    const shown = box && !box.classList.contains("hide");
+    if (!shown || !sel) return 0;
+    return Number(sel.value || 0);
+  }
+
+
   async function fetchMeByMemberId_(memberId){
     const url = `${API_URL}?api=me_by_member_id&token=${encodeURIComponent(API_TOKEN)}&member_id=${encodeURIComponent(memberId)}`;
     return await jsonp(url);
@@ -544,6 +553,7 @@
         const sel = $("classSel");
         const classId = sel.value;
         const className = sel.options[sel.selectedIndex]?.textContent || "";
+        const rowIndex = getSelectedRowIndexFromUI_();
 
         const url =
           `${API_URL}?api=checkin`
@@ -554,7 +564,9 @@
           + `&displayName=${encodeURIComponent(gDisplayName)}`
           + `&classId=${encodeURIComponent(classId)}`
           + `&className=${encodeURIComponent(className)}`
-          + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
+          + `&phone=${encodeURIComponent(phone)}`
+          + (rowIndex ? `&rowIndex=${encodeURIComponent(String(rowIndex))}` : "");
+
 
         const res = await jsonp(url);
         setOut(res);
