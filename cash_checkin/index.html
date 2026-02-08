@@ -415,23 +415,37 @@
     return await jsonp(meUrl);
   }
 
+  let gVerifyCandidates = []; // 追加：候補を保持
+
   function setVerifyCandidates_(cands){
+    gVerifyCandidates = Array.isArray(cands) ? cands : [];
+  
     const box = $("verifySelectBox");
     const sel = $("verifyMemberSel");
     sel.innerHTML = "";
-
-    (cands || []).forEach((c, i)=>{
+  
+    gVerifyCandidates.forEach((c, i)=>{
       const opt = document.createElement("option");
+      // ★ value は rowIndex（サーバが確実に解釈できる）
       opt.value = String(c.rowIndex || "");
       opt.textContent = `${c.member_name || "(不明)"}${c.member_type ? " / "+c.member_type : ""}（候補${i+1}）`;
       sel.appendChild(opt);
     });
-
+  
+    // ★初期選択＝1件目を確定
     gSelectedRowIndex = Number(sel.value || 0);
-    sel.onchange = ()=> gSelectedRowIndex = Number(sel.value || 0);
-
+    const hit0 = gVerifyCandidates.find(x => Number(x.rowIndex) === gSelectedRowIndex);
+    if (hit0 && hit0.member_id) gMemberId = String(hit0.member_id);
+  
+    sel.onchange = ()=>{
+      gSelectedRowIndex = Number(sel.value || 0);
+      const hit = gVerifyCandidates.find(x => Number(x.rowIndex) === gSelectedRowIndex);
+      if (hit && hit.member_id) gMemberId = String(hit.member_id);
+    };
+  
     box.classList.remove("hide");
   }
+
 
   function clearVerifyCandidates_(){
     $("verifySelectBox").classList.add("hide");
@@ -441,24 +455,42 @@
 
   async function ensureMemberInfoByMemberId_(){
     setStatus("会員情報を取得中…");
-    if (!gMemberId) return false;
-
+  
+    // A) member_id で引く（優先）
+    if (gMemberId){
+      try{
+        const r = await fetchMeByMemberId_(gMemberId);
+        if (r && r.status === "success"){
+          applyMeToUi_(r);
+          setStatus("チェックイン可能");
+          return true;
+        }
+        // 失敗は out に残してフォールバックへ
+        setOut({ where:"me_by_member_id_failed_fallback_to_me_cash", member_id:gMemberId, r });
+      }catch(e){
+        setOut({ where:"me_by_member_id_exception_fallback_to_me_cash", member_id:gMemberId, error:String(e?.message||e) });
+      }
+    }
+  
+    // B) フォールバック：me_cash（resolve_memberで紐付いた後なら成功する想定）
     try{
-      const r = await fetchMeByMemberId_(gMemberId);
-      if (r && r.status === "success"){
-        applyMeToUi_(r);
+      const me = await fetchMeCashByUserId_();
+      if (me && me.status === "success"){
+        if (me.member_id) gMemberId = String(me.member_id).trim();
+        applyMeToUi_(me);
         setStatus("チェックイン可能");
         return true;
       }
-      setOut({ where:"me_by_member_id", member_id:gMemberId, r });
+      setOut({ where:"me_cash_failed", me });
       setStatus("失敗");
       return false;
     }catch(e){
-      setOut({ where:"me_by_member_id_exception", member_id:gMemberId, error:String(e?.message||e) });
+      setOut({ where:"me_cash_exception", error:String(e?.message||e) });
       setStatus("失敗");
       return false;
     }
   }
+
 
   async function loadClasses_(){
     setOut("classes 読み込み中...");
