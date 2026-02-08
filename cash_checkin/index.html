@@ -183,7 +183,7 @@
 </head>
 
 <body>
-  <!-- BUILD: 2026-02-08_cash_checkin_member_gate_v2_bindfix -->
+  <!-- BUILD: 2026-02-08_cash_checkin_member_gate_v3_no_me_by_member_id -->
   <div class="wrap">
 
     <!-- ====== SCREEN 1: 会員確認（ページ） ====== -->
@@ -199,12 +199,12 @@
       <div class="content">
         <div class="label">電話番号（ハイフンなし）</div>
         <input id="verifyPhone" inputmode="numeric" placeholder="例：08012345678" />
-        <div class="hint">一度確認できれば、以後は自動でスキップされることがあります。</div>
+        <div class="hint">候補が複数出た場合は、選択してもう一度「会員確認して続行」を押してください。</div>
 
         <div id="verifySelectBox" class="hide" style="margin-top:12px;">
           <div class="label">同じ電話番号の候補が複数あります（選択）</div>
           <select id="verifyMemberSel"></select>
-          <div class="hint">候補を選んだら、もう一度「会員確認して続行」を押してください。</div>
+          <div class="hint">候補を選んだ状態で「会員確認して続行」を押してください。</div>
         </div>
 
         <div class="sep"></div>
@@ -284,7 +284,7 @@
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
-  document.title = "cash_checkin BUILD 2026-02-08_cash_checkin_member_gate_v2_bindfix";
+  document.title = "cash_checkin BUILD 2026-02-08_cash_checkin_member_gate_v3_no_me_by_member_id";
 
   const JSONP_TIMEOUT_MS = 16000;
   const $ = (id)=>document.getElementById(id);
@@ -293,11 +293,11 @@
   let gDisplayName = "";
   let RUNNING = false;
 
-  // member_id（確定したら必ず入る）
-  let gMemberId = "";
-
-  // resolve_member で複数候補になった時の rowIndex
+  // resolve_member で候補選択が必要なときの rowIndex
   let gSelectedRowIndex = 0;
+
+  // 会員確認が済んだら、me_cash の member_id をここに入れて checkin に使う
+  let gMemberId = "";
 
   // ---------- error hooks（必ずoutに出す） ----------
   window.onerror = function(msg, src, line, col, err){
@@ -380,13 +380,13 @@
     return s;
   }
 
-  function getQueryParam_(k){
-    try{
-      const u = new URL(location.href);
-      return String(u.searchParams.get(k) || "").trim();
-    }catch(e){
-      return "";
-    }
+  // ★候補が出ている時は、必ずDOMからrowIndexを取る（gSelectedRowIndex依存を減らす）
+  function getSelectedRowIndexFromUI_(){
+    const box = $("verifySelectBox");
+    const sel = $("verifyMemberSel");
+    const shown = box && !box.classList.contains("hide");
+    if (!shown || !sel) return 0;
+    return Number(sel.value || 0);
   }
 
   function setMemberUiLocked_(){
@@ -405,56 +405,30 @@
     $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
   }
 
-  function getSelectedRowIndexFromUI_(){
-    const box = $("verifySelectBox");
-    const sel = $("verifyMemberSel");
-    const shown = box && !box.classList.contains("hide");
-    if (!shown || !sel) return 0;
-    return Number(sel.value || 0);
-  }
-
-
-  async function fetchMeByMemberId_(memberId){
-    const url = `${API_URL}?api=me_by_member_id&token=${encodeURIComponent(API_TOKEN)}&member_id=${encodeURIComponent(memberId)}`;
-    return await jsonp(url);
-  }
-
+  // 既に紐づいてる人はこれでスキップ可能（userIdベース）
   async function fetchMeCashByUserId_(){
     const meUrl = `${API_URL}?api=me_cash&token=${encodeURIComponent(API_TOKEN)}&userId=${encodeURIComponent(gUserId)}`;
     return await jsonp(meUrl);
   }
 
-  let gVerifyCandidates = []; // 追加：候補を保持
-
   function setVerifyCandidates_(cands){
-    gVerifyCandidates = Array.isArray(cands) ? cands : [];
-  
     const box = $("verifySelectBox");
     const sel = $("verifyMemberSel");
     sel.innerHTML = "";
-  
-    gVerifyCandidates.forEach((c, i)=>{
+
+    (cands || []).forEach((c, i)=>{
       const opt = document.createElement("option");
-      // ★ value は rowIndex（サーバが確実に解釈できる）
       opt.value = String(c.rowIndex || "");
       opt.textContent = `${c.member_name || "(不明)"}${c.member_type ? " / "+c.member_type : ""}（候補${i+1}）`;
       sel.appendChild(opt);
     });
-  
-    // ★初期選択＝1件目を確定
+
+    // 初期選択を確定
     gSelectedRowIndex = Number(sel.value || 0);
-    const hit0 = gVerifyCandidates.find(x => Number(x.rowIndex) === gSelectedRowIndex);
-    if (hit0 && hit0.member_id) gMemberId = String(hit0.member_id);
-  
-    sel.onchange = ()=>{
-      gSelectedRowIndex = Number(sel.value || 0);
-      const hit = gVerifyCandidates.find(x => Number(x.rowIndex) === gSelectedRowIndex);
-      if (hit && hit.member_id) gMemberId = String(hit.member_id);
-    };
-  
+    sel.onchange = ()=> gSelectedRowIndex = Number(sel.value || 0);
+
     box.classList.remove("hide");
   }
-
 
   function clearVerifyCandidates_(){
     $("verifySelectBox").classList.add("hide");
@@ -462,26 +436,9 @@
     gSelectedRowIndex = 0;
   }
 
-  async function ensureMemberInfoByMemberId_(){
+  // 会員情報を確定（me_cashのみ。me_by_member_idは使わない）
+  async function ensureMemberInfoByMeCash_(){
     setStatus("会員情報を取得中…");
-  
-    // A) member_id で引く（優先）
-    if (gMemberId){
-      try{
-        const r = await fetchMeByMemberId_(gMemberId);
-        if (r && r.status === "success"){
-          applyMeToUi_(r);
-          setStatus("チェックイン可能");
-          return true;
-        }
-        // 失敗は out に残してフォールバックへ
-        setOut({ where:"me_by_member_id_failed_fallback_to_me_cash", member_id:gMemberId, r });
-      }catch(e){
-        setOut({ where:"me_by_member_id_exception_fallback_to_me_cash", member_id:gMemberId, error:String(e?.message||e) });
-      }
-    }
-  
-    // B) フォールバック：me_cash（resolve_memberで紐付いた後なら成功する想定）
     try{
       const me = await fetchMeCashByUserId_();
       if (me && me.status === "success"){
@@ -499,7 +456,6 @@
       return false;
     }
   }
-
 
   async function loadClasses_(){
     setOut("classes 読み込み中...");
@@ -531,7 +487,8 @@
     $("yyyymm").textContent = yyyymmNowJst();
     setMemberUiLocked_();
 
-    const meOk = await ensureMemberInfoByMemberId_();
+    // ★会員情報は me_cash で確定させる（resolve_member成功後なら success になる）
+    const meOk = await ensureMemberInfoByMeCash_();
     const clsOk = await loadClasses_();
 
     $("btnCheckin").disabled = !(meOk && clsOk);
@@ -541,7 +498,11 @@
     if (!(meOk && clsOk)) return;
 
     $("btnCheckin").onclick = async ()=>{
-      if (!gMemberId) return;
+      if (!gMemberId){
+        setOut({ where:"checkin_blocked", reason:"member_id_empty_after_me_cash" });
+        setStatus("会員未確定");
+        return;
+      }
 
       if (RUNNING) return;
       RUNNING = true;
@@ -553,7 +514,6 @@
         const sel = $("classSel");
         const classId = sel.value;
         const className = sel.options[sel.selectedIndex]?.textContent || "";
-        const rowIndex = getSelectedRowIndexFromUI_();
 
         const url =
           `${API_URL}?api=checkin`
@@ -564,9 +524,7 @@
           + `&displayName=${encodeURIComponent(gDisplayName)}`
           + `&classId=${encodeURIComponent(classId)}`
           + `&className=${encodeURIComponent(className)}`
-          + `&phone=${encodeURIComponent(phone)}`
-          + (rowIndex ? `&rowIndex=${encodeURIComponent(String(rowIndex))}` : "");
-
+          + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
 
         const res = await jsonp(url);
         setOut(res);
@@ -623,12 +581,15 @@
         return;
       }
 
+      // ★候補が出ているなら必ずDOMからrowIndexを拾う
+      const rowIndex = getSelectedRowIndexFromUI_();
+
       const url =
         `${API_URL}?api=resolve_member`
         + `&token=${encodeURIComponent(API_TOKEN)}`
         + `&userId=${encodeURIComponent(gUserId)}`
         + `&phone=${encodeURIComponent(phone)}`
-        + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
+        + (rowIndex ? `&rowIndex=${encodeURIComponent(String(rowIndex))}` : "");
 
       const r = await jsonp(url);
 
@@ -637,13 +598,13 @@
         if ($("verifyErr")) $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
         setOutVerify({ where:"resolve_member_need_select", url, r });
         setVerifyStatus("候補選択");
-        return;
+        return; // ★ここで絶対にチェックインへ行かない
       }
 
       if (r && r.status === "success"){
         clearVerifyCandidates_();
-        if (r.member_id) gMemberId = String(r.member_id || "").trim();
 
+        // resolve_member成功＝userId紐付け完了。次に me_cash を取り直して確定させる
         setOutVerify({ where:"resolve_member_success", url, r });
         setVerifyStatus("完了");
 
@@ -670,7 +631,7 @@
     }
   }
 
-  // キャンセル：LIFFなら closeWindow、それ以外は “入力クリアして待機” に落とす（history.back依存を排除）
+  // キャンセル：LIFFなら closeWindow、それ以外は入力クリア（history.back依存なし）
   function bindVerifyCancel_(){
     const btn = $("btnVerifyCancel");
     if (!btn) return;
@@ -680,7 +641,6 @@
       e.preventDefault();
       e.stopPropagation();
 
-      // 1) LIFF内なら閉じる
       try{
         if (window.liff && liff.isInClient && liff.isInClient()){
           liff.closeWindow();
@@ -688,7 +648,6 @@
         }
       }catch(_){}
 
-      // 2) 履歴が無いケース対策：入力クリアで“戻った扱い”
       try{
         if ($("verifyPhone")) $("verifyPhone").value = "";
         if ($("verifyErr")) $("verifyErr").textContent = "";
@@ -699,7 +658,6 @@
     }, true);
   }
 
-  // Verify UIのバインドを「落ちない」「確実に付く」形に統一し、バインド完了をoutVerifyに表示
   function bindVerifyUI_(){
     const okBtn = $("btnVerifyOk");
     const cancelBtn = $("btnVerifyCancel");
@@ -729,13 +687,9 @@
   }
 
   async function main(){
-    // 初期は verify を表示しておく（後で条件で切り替える）
     showVerifyScreen_();
     setVerifyStatus("LIFF初期化中…");
     setOutVerify("LIFF init...");
-
-    // URLからmember_idを拾う（既に確定済みなら会員確認をスキップ）
-    gMemberId = getQueryParam_("member_id");
 
     await withTimeout(liff.init({ liffId: LIFF_ID }), 20000, "liff.init");
     if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -744,39 +698,26 @@
     gUserId = prof.userId;
     gDisplayName = prof.displayName || "";
 
-    // 1) member_id がURLにある → そのままチェックインへ
-    if (gMemberId){
-      setVerifyStatus("会員確認済み（member_id）");
-      await goToCheckin_();
-      return;
-    }
+    // UI bind（ここが死ぬとボタン無反応になる）
+    bindVerifyUI_();
 
-    // 2) URLになければ、まず me_cash を試す（既に紐づいてる人はスキップ）
+    // 既に紐づいてる人は me_cash で自動スキップ
     try{
       const me = await fetchMeCashByUserId_();
-
-      // 既に紐づいていて member_id も返るなら、そのままチェックインへ
       if (me && me.status === "success" && me.member_id){
-        gMemberId = String(me.member_id).trim();
         setOutVerify({ where:"me_cash_success_skip_verify", me });
         setVerifyStatus("会員確認済み（自動）");
         await goToCheckin_();
         return;
       }
-
-      // need_phone / 失敗 → 会員確認ページのまま
       setOutVerify({ where:"me_cash_need_verify", me });
       setVerifyStatus("電話番号入力が必要");
       showVerifyScreen_();
-
     }catch(e){
       setOutVerify({ where:"me_cash_exception", error:String(e?.message||e) });
       setVerifyStatus("電話番号入力が必要");
       showVerifyScreen_();
     }
-
-    // ===== UI bind（ここが死ぬとボタン無反応になるので、必ず例外を出してoutVerifyに落とす） =====
-    bindVerifyUI_();
   }
 
   main().catch(e=>{
