@@ -383,23 +383,75 @@
     $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
   }
 
+  // ===== modal control (確実に閉じる + 再表示抑止) =====
+  let MODAL_SUPPRESS_UNTIL = 0;
+  
+  function suppressModalFor_(ms){
+    MODAL_SUPPRESS_UNTIL = Date.now() + (ms || 0);
+  }
+  
+  function canOpenModal_(){
+    return Date.now() > MODAL_SUPPRESS_UNTIL;
+  }
+  
+  function forceClosePhoneModal_(){
+    try{
+      const modal = $("phoneModal");
+      if (modal) modal.classList.add("hide");
+      // blur解除（iOSでタップ無反応になる事故対策）
+      const active = document.activeElement;
+      if (active && typeof active.blur === "function") active.blur();
+    }catch(_){}
+  }
+
+
   // ---------- phone modal ----------
   function openPhoneModal_(msg){
+    // ★キャンセル直後の“即復活”を止める
+    if (!canOpenModal_()) return;
+  
     $("phoneModalErr").textContent = "";
     $("phoneModalSelectBox").classList.add("hide");
     $("phoneModalMsg").textContent = msg || "電話番号（入会フォームの「緊急連絡先」）を入力してください。";
-
+  
+    $("phoneModalOk").disabled = false;
+    $("phoneModalCancel").disabled = false;
+  
     // 互換：既存入力を引き継ぐ
     const cur = $("phoneInput") ? String($("phoneInput").value || "") : "";
     $("phoneModalInput").value = cur;
-
+  
     $("phoneModal").classList.remove("hide");
     setTimeout(()=>{ try{ $("phoneModalInput").focus(); }catch(_){ } }, 50);
   }
-
+  
   function closePhoneModal_(){
-    $("phoneModal").classList.add("hide");
+    // ★閉じた直後に再表示されないように抑止（まずは3秒）
+    suppressModalFor_(3000);
+    forceClosePhoneModal_();
   }
+
+  (function bindPhoneModalCancel_(){
+    const cancel = $("phoneModalCancel");
+    const modal  = $("phoneModal");
+    if (!cancel || !modal) return;
+  
+    cancel.type = "button";
+  
+    // iOSで取りこぼしが出る時があるので capture で取る
+    cancel.addEventListener("click", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      closePhoneModal_();
+    }, true);
+  
+    // 背景タップでも閉じる（UI的にも事故防止）
+    modal.addEventListener("click", (e)=>{
+      if (e.target === modal) closePhoneModal_();
+    }, true);
+  })();
+
+
 
   function setPhoneModalCandidates_(cands){
     const box = $("phoneModalSelectBox");
@@ -482,8 +534,6 @@
     return true;
   }
 
-  // ---------- resolve_member modal actions ----------
-  $("phoneModalCancel").onclick = ()=> closePhoneModal_();
 
   $("phoneModalOk").onclick = async ()=>{
     const phone = normPhone_($("phoneModalInput").value);
@@ -675,25 +725,6 @@
         $("btnCheckin").disabled = false;
       }
     };
-    (function bindModalClose_(){
-      const cancel = $("phoneModalCancel");
-    
-      if (!cancel) return;
-    
-      cancel.type = "button";
-      cancel.addEventListener("click", (e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-    
-        try{
-          closePhoneModal_();
-        }catch(err){
-          // 最終保険：直接閉じる
-          const modal = $("phoneModal");
-          if (modal) modal.classList.add("hide");
-        }
-      }, { passive:false });
-    })();
 
     function openPhoneModal_(msg){
       $("phoneModalErr").textContent = "";
