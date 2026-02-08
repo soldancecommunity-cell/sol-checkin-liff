@@ -293,6 +293,8 @@
   let gDisplayName = "";
   let RUNNING = false;
 
+  let gVerifiedPhone = "";   // ★会員確認で入力された電話番号を保持
+
   // resolve_member で候補選択が必要なときの rowIndex
   let gSelectedRowIndex = 0;
 
@@ -525,6 +527,7 @@
           + `&classId=${encodeURIComponent(classId)}`
           + `&className=${encodeURIComponent(className)}`
           + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
+          + (gVerifiedPhone ? `&phone=${encodeURIComponent(gVerifiedPhone)}` : "")
 
         const res = await jsonp(url);
         setOut(res);
@@ -575,6 +578,7 @@
       setVerifyStatus("照会中…");
 
       const phone = normPhone_($("verifyPhone") ? $("verifyPhone").value : "");
+      gVerifiedPhone = phone;
       if (!phone){
         if ($("verifyErr")) $("verifyErr").textContent = "電話番号を入力してください（ハイフンなし）";
         setVerifyStatus("入力待ち");
@@ -700,20 +704,9 @@
 
     // UI bind（ここが死ぬとボタン無反応になる）
     bindVerifyUI_();
-
-    // 既に紐づいてる人は me_cash で自動スキップ
+    
     try{
-      const me = await fetchMeCashByUserId_();
-      if (me && me.status === "success" && me.member_id){
-        setOutVerify({ where:"me_cash_success_skip_verify", me });
-        setVerifyStatus("会員確認済み（自動）");
-        await goToCheckin_();
-        return;
-      }
-      setOutVerify({ where:"me_cash_need_verify", me });
-      setVerifyStatus("電話番号入力が必要");
-      showVerifyScreen_();
-    }catch(e){
+      catch(e){
       setOutVerify({ where:"me_cash_exception", error:String(e?.message||e) });
       setVerifyStatus("電話番号入力が必要");
       showVerifyScreen_();
