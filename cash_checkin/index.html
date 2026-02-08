@@ -183,7 +183,7 @@
 </head>
 
 <body>
-  <!-- BUILD: 2026-02-08_cash_checkin_member_gate_v1 -->
+  <!-- BUILD: 2026-02-08_cash_checkin_member_gate_v2_bindfix -->
   <div class="wrap">
 
     <!-- ====== SCREEN 1: 会員確認（ページ） ====== -->
@@ -284,10 +284,9 @@
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
-  document.title = "cash_checkin BUILD 2026-02-08_cash_checkin_member_gate_v1";
+  document.title = "cash_checkin BUILD 2026-02-08_cash_checkin_member_gate_v2_bindfix";
 
   const JSONP_TIMEOUT_MS = 16000;
-
   const $ = (id)=>document.getElementById(id);
 
   let gUserId = "";
@@ -406,13 +405,11 @@
     $("fee").textContent = `¥${Number(me.dropin_fee||0).toLocaleString()}`;
   }
 
-  // member_id から会員情報
   async function fetchMeByMemberId_(memberId){
     const url = `${API_URL}?api=me_by_member_id&token=${encodeURIComponent(API_TOKEN)}&member_id=${encodeURIComponent(memberId)}`;
     return await jsonp(url);
   }
 
-  // line_user_id から会員情報（既に紐づいてる人はこれでスキップ可能）
   async function fetchMeCashByUserId_(){
     const meUrl = `${API_URL}?api=me_cash&token=${encodeURIComponent(API_TOKEN)}&userId=${encodeURIComponent(gUserId)}`;
     return await jsonp(meUrl);
@@ -442,7 +439,6 @@
     gSelectedRowIndex = 0;
   }
 
-  // 会員情報を確定（member_idがある状態で成功させる）
   async function ensureMemberInfoByMemberId_(){
     setStatus("会員情報を取得中…");
     if (!gMemberId) return false;
@@ -464,7 +460,6 @@
     }
   }
 
-  // classes 読み込み（チェックイン画面用）
   async function loadClasses_(){
     setOut("classes 読み込み中...");
     setStatus("クラス一覧を取得中…");
@@ -489,7 +484,6 @@
     return true;
   }
 
-  // 画面遷移：会員確認完了 → チェックイン画面へ
   async function goToCheckin_(){
     showCheckinScreen_();
 
@@ -570,33 +564,33 @@
 
   // 会員確認（電話番号 → resolve_member）
   async function doResolveMember_(){
-    $("verifyErr").textContent = "";
-    setOutVerify("照会中…");
-    setVerifyStatus("照会中…");
-
-    const phone = normPhone_($("verifyPhone").value);
-    if (!phone){
-      $("verifyErr").textContent = "電話番号を入力してください（ハイフンなし）";
-      setVerifyStatus("入力待ち");
-      return;
-    }
-
-    $("btnVerifyOk").disabled = true;
-    $("btnVerifyCancel").disabled = true;
-
-    const url =
-      `${API_URL}?api=resolve_member`
-      + `&token=${encodeURIComponent(API_TOKEN)}`
-      + `&userId=${encodeURIComponent(gUserId)}`
-      + `&phone=${encodeURIComponent(phone)}`
-      + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
-
     try{
+      if ($("btnVerifyOk")) $("btnVerifyOk").disabled = true;
+      if ($("btnVerifyCancel")) $("btnVerifyCancel").disabled = true;
+
+      if ($("verifyErr")) $("verifyErr").textContent = "";
+      setOutVerify("照会中…");
+      setVerifyStatus("照会中…");
+
+      const phone = normPhone_($("verifyPhone") ? $("verifyPhone").value : "");
+      if (!phone){
+        if ($("verifyErr")) $("verifyErr").textContent = "電話番号を入力してください（ハイフンなし）";
+        setVerifyStatus("入力待ち");
+        return;
+      }
+
+      const url =
+        `${API_URL}?api=resolve_member`
+        + `&token=${encodeURIComponent(API_TOKEN)}`
+        + `&userId=${encodeURIComponent(gUserId)}`
+        + `&phone=${encodeURIComponent(phone)}`
+        + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
+
       const r = await jsonp(url);
 
       if (r && r.status === "need_member_select"){
         setVerifyCandidates_(r.candidates || []);
-        $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
+        if ($("verifyErr")) $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
         setOutVerify({ where:"resolve_member_need_select", url, r });
         setVerifyStatus("候補選択");
         return;
@@ -609,26 +603,85 @@
         setOutVerify({ where:"resolve_member_success", url, r });
         setVerifyStatus("完了");
 
-        // ここで「チェックイン画面へ移動（同ページ内）」が要件
         await goToCheckin_();
         return;
       }
 
-      $("verifyErr").textContent =
-        "照会に失敗しました。\n" +
-        "status=" + String(r && r.status) + "\n" +
-        "message=" + String(r && r.message ? r.message : "(no message)");
+      if ($("verifyErr")){
+        $("verifyErr").textContent =
+          "照会に失敗しました。\n" +
+          "status=" + String(r && r.status) + "\n" +
+          "message=" + String(r && r.message ? r.message : "(no message)");
+      }
       setOutVerify({ where:"resolve_member_error", url, r });
       setVerifyStatus("失敗");
 
     } catch(err){
-      $("verifyErr").textContent = "通信失敗: " + String(err?.message || err);
-      setOutVerify({ where:"resolve_member_exception", url, error:String(err?.message || err) });
+      if ($("verifyErr")) $("verifyErr").textContent = "通信失敗: " + String(err?.message || err);
+      setOutVerify({ where:"resolve_member_exception", error:String(err?.message || err) });
       setVerifyStatus("失敗");
     } finally {
-      $("btnVerifyOk").disabled = false;
-      $("btnVerifyCancel").disabled = false;
+      if ($("btnVerifyOk")) $("btnVerifyOk").disabled = false;
+      if ($("btnVerifyCancel")) $("btnVerifyCancel").disabled = false;
     }
+  }
+
+  // キャンセル：LIFFなら closeWindow、それ以外は “入力クリアして待機” に落とす（history.back依存を排除）
+  function bindVerifyCancel_(){
+    const btn = $("btnVerifyCancel");
+    if (!btn) return;
+
+    btn.type = "button";
+    btn.addEventListener("click", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+
+      // 1) LIFF内なら閉じる
+      try{
+        if (window.liff && liff.isInClient && liff.isInClient()){
+          liff.closeWindow();
+          return;
+        }
+      }catch(_){}
+
+      // 2) 履歴が無いケース対策：入力クリアで“戻った扱い”
+      try{
+        if ($("verifyPhone")) $("verifyPhone").value = "";
+        if ($("verifyErr")) $("verifyErr").textContent = "";
+        if ($("verifyStatus")) $("verifyStatus").textContent = "入力待ち";
+        if ($("outVerify")) $("outVerify").textContent = "—";
+        clearVerifyCandidates_();
+      }catch(_){}
+    }, true);
+  }
+
+  // Verify UIのバインドを「落ちない」「確実に付く」形に統一し、バインド完了をoutVerifyに表示
+  function bindVerifyUI_(){
+    const okBtn = $("btnVerifyOk");
+    const cancelBtn = $("btnVerifyCancel");
+    const phone = $("verifyPhone");
+    const out = $("outVerify");
+    const st = $("verifyStatus");
+
+    if (!okBtn || !cancelBtn || !phone || !out || !st){
+      throw new Error("Missing verify elements: "
+        + JSON.stringify({
+          ok: !!okBtn, cancel: !!cancelBtn, phone: !!phone, out: !!out, status: !!st
+        })
+      );
+    }
+
+    okBtn.type = "button";
+    okBtn.addEventListener("click", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      doResolveMember_();
+    }, true);
+
+    bindVerifyCancel_();
+
+    setOutVerify({ where:"bindVerifyUI_", ok:true, at:new Date().toISOString() });
+    setVerifyStatus("入力待ち");
   }
 
   async function main(){
@@ -678,19 +731,8 @@
       showVerifyScreen_();
     }
 
-    // verify UI bind
-    $("btnVerifyOk").onclick = doResolveMember_;
-    $("btnVerifyCancel").onclick = ()=>{
-      // “キャンセル＝閉じる” 要件：LIFFなら閉じる / 無理なら戻る
-      try{
-        if (liff && liff.isInClient()){
-          liff.closeWindow();
-          return;
-        }
-      }catch(_){}
-      history.back();
-    };
-
+    // ===== UI bind（ここが死ぬとボタン無反応になるので、必ず例外を出してoutVerifyに落とす） =====
+    bindVerifyUI_();
   }
 
   main().catch(e=>{
