@@ -422,38 +422,49 @@
         if (res && res.status === "success") {
           gSelectedRowIndex = 0;
           $("selectBox").classList.add("hide");
-
+        
           const lines = [];
-
+        
           if (res.pending === true) {
             lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
           }
-
+        
           if (res.over_limit === true && res.over_message) {
             lines.push(res.over_message);
           } else if (res.month_count) {
             lines.push(`今月の受講は ${res.month_count} 回目です。`);
           }
-
+        
           if (lines.length === 0) lines.push("チェックインが完了しました。");
-
+        
           const text = lines.join("\n\n") + "\n\nOKを押すとスタンプ付与へ移動します。";
+        
           setStatus("確認待ち");
-
-          showModal(
-            (res.pending === true) ? "現地精算の確認" : "チェックイン完了",
-            text,
-            () => {
-              setStatus("完了");
+        
+          // ✅ カスタムモーダルを捨てて、OS標準の confirm/alert にする
+          // confirmが嫌なら alert(text); の1行でもOK
+          const go = confirm(text);
+        
+          if (go) {
+            setStatus("スタンプへ移動中…");
+        
+            // ✅ external:false がダメな環境があるので、まず false を試してダメなら true に落とす
+            try {
+              liff.openWindow({ url: STAMP_URL, external: false });
+            } catch (e1) {
               try {
-                liff.openWindow({ url: STAMP_URL, external: false });
-              } catch(e) {
+                liff.openWindow({ url: STAMP_URL, external: true });
+              } catch (e2) {
                 window.location.href = STAMP_URL;
               }
             }
-          );
+          } else {
+            setStatus("キャンセル");
+          }
+        
           return;
         }
+
 
         setStatus("エラー");
       } catch(e){
