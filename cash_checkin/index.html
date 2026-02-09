@@ -545,29 +545,32 @@
     try{
       const me = await fetchMeCashByUserId_();
       setOut({ where:"me_cash_on_checkin", me });
-
-      if (me && me.status === "success"){
-        if (me.member_id) gMemberId = String(me.member_id).trim();
-        applyMeToUi_(me);
-
-        if (me.allow_cash_checkin === false){
-          $("btnCheckin").disabled = true;
-          $("btnCheckin").textContent = "現地精算不可（通常チェックインへ）";
-          setStatus(String(me.cash_reason || "月謝内のため現地精算不可"));
-        } else {
-          setStatus("チェックイン可能");
-        }
-        return true;
+  
+      if (!me || me.status !== "success"){
+        setStatus("会員情報取得失敗");
+        return { ok:false, allow_cash_checkin:false, me };
       }
-
-      setStatus("会員情報取得失敗");
-      return false;
+  
+      if (me.member_id) gMemberId = String(me.member_id).trim();
+      applyMeToUi_(me);
+  
+      const allow = (me.allow_cash_checkin !== false);
+  
+      if (!allow){
+        setStatus(String(me.cash_reason || "月謝内のため現地精算不可"));
+      } else {
+        setStatus("チェックイン可能");
+      }
+  
+      return { ok:true, allow_cash_checkin:allow, me };
+  
     }catch(e){
       setOut({ where:"me_cash_exception_on_checkin", error:String(e?.message||e) });
       setStatus("会員情報取得失敗");
-      return false;
+      return { ok:false, allow_cash_checkin:false, me:null };
     }
   }
+
 
   async function loadClasses_(){
     setOut("classes 読み込み中...");
@@ -597,34 +600,58 @@
     showCheckinScreen_();
     $("yyyymm").textContent = yyyymmNowJst();
     setMemberUiLocked_();
-
-    const meOk = await ensureMemberInfoByMeCashOnCheckin_();
+  
+    const meState = await ensureMemberInfoByMeCashOnCheckin_();
     const clsOk = await loadClasses_();
-
-    $("btnCheckin").disabled = !(meOk && clsOk);
-    $("btnCheckin").textContent = (meOk && clsOk) ? "現地精算でチェックイン（PENDING）" : "読み込み失敗";
-    setOut(meOk ? "準備OK。" : "会員情報取得に失敗");
-
-    if (!(meOk && clsOk)) return;
-
+  
+    // 失敗なら終了
+    if (!meState.ok || !clsOk){
+      $("btnCheckin").disabled = true;
+      $("btnCheckin").textContent = "読み込み失敗";
+      setOut(!meState.ok ? "会員情報取得に失敗" : "クラス取得に失敗");
+      return;
+    }
+  
+    // ★月謝内＝現地精算不可は「戻さない」
+    if (!meState.allow){
+      $("btnCheckin").disabled = true;
+      $("btnCheckin").textContent = "現地精算不可（通常チェックインへ）";
+  
+      const mc  = Number(meState.me?.month_count || 0);
+      const lim = Number(meState.me?.plan_limit || 0);
+      const msg =
+        `月謝内のため現地精算はできません。\n` +
+        `今月の受講数：${mc}${lim ? ` / ${lim}` : ""}\n\n` +
+        `→ 通常チェックインをしてください。`;
+      alert(msg);
+  
+      setOut({ where:"cash_blocked_ui", member_id:gMemberId, month_count:mc, plan_limit:lim, reason:meState.me?.cash_reason });
+      return;
+    }
+  
+    // allow のときだけ押せる
+    $("btnCheckin").disabled = false;
+    $("btnCheckin").textContent = "現地精算でチェックイン（PENDING）";
+    setOut("準備OK。");
+  
     $("btnCheckin").onclick = async ()=>{
       if (!gMemberId){
         setOut({ where:"checkin_blocked", reason:"member_id_empty_after_me_cash" });
         setStatus("会員未確定");
         return;
       }
-
+  
       if (RUNNING) return;
       RUNNING = true;
-
+  
       $("btnCheckin").disabled = true;
       setStatus("チェックイン送信中…");
-
+  
       try{
         const sel = $("classSel");
         const classId = sel.value;
         const className = sel.options[sel.selectedIndex]?.textContent || "";
-
+  
         const url =
           `${API_URL}?api=checkin`
           + `&token=${encodeURIComponent(API_TOKEN)}`
@@ -636,20 +663,20 @@
           + `&className=${encodeURIComponent(className)}`
           + (gVerifiedPhone ? `&phone=${encodeURIComponent(gVerifiedPhone)}` : "")
           + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
-
+  
         const res = await jsonp(url);
         setOut({ where:"checkin_result", url, res });
-
+  
         if (res && res.status === "success") {
           const lines = [];
           if (res.pending === true) lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
           if (res.over_limit === true && res.over_message) lines.push(res.over_message);
           else if (res.month_count) lines.push(`今月の受講は ${res.month_count} 回目です。`);
           if (lines.length === 0) lines.push("チェックインが完了しました。");
-
+  
           const text = lines.join("\n\n") + "\n\nOKでスタンプ付与へ移動します。";
           setStatus("確認待ち");
-
+  
           const ok = confirm(text);
           if (ok) {
             setStatus("スタンプへ移動中…");
@@ -663,7 +690,7 @@
           }
           return;
         }
-
+  
         setStatus("エラー");
       } catch(err){
         setOut({ where:"checkin_exception", error:String(err?.message || err) });
@@ -674,6 +701,7 @@
       }
     };
   }
+
 
   async function doResolveMember_(){
     if (RESOLVE_IN_FLIGHT) return;
