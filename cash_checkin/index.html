@@ -456,9 +456,11 @@
     const meUrl =
       `${API_URL}?api=me_cash`
       + `&token=${encodeURIComponent(API_TOKEN)}`
-      + `&userId=${encodeURIComponent(gUserId)}`;
+      + `&userId=${encodeURIComponent(gUserId)}`
+      + (gMemberId ? `&member_id=${encodeURIComponent(gMemberId)}` : "");
     return await jsonp(meUrl);
   }
+
 
   function setVerifyCandidates_(cands){
     const box = $("verifySelectBox");
