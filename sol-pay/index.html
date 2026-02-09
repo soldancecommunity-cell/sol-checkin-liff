@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SoL Pay</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body{font-family:system-ui; padding:16px;}
+    button{padding:12px 14px; margin:8px 0; width:100%;}
+    .muted{opacity:.7; font-size:12px;}
+  </style>
+</head>
+<body>
+  <h2>SoL Pay（月謝）</h2>
+  <div id="status" class="muted">起動中...</div>
+
+  <div id="plans" style="display:none">
+    <button onclick="startPay('month4')">月4プラン</button>
+    <button onclick="startPay('month8')">月8プラン</button>
+    <button onclick="startPay('unlimit')">通い放題</button>
+  </div>
+
+<script>
+const LIFF_ID = "2008938862-CTbDrlz3";
+const GAS_EXEC = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
+
+// まずは動かす。tokenは暫定で入れる（後で隠蔽できる）
+const API_TOKEN_PAY = "<<<いまのPROP_API_TOKEN_PAYと同じ値>>>"; // 後述の安全化で消せる
+
+let lineUserId = "";
+let displayName = "";
+
+boot();
+
+async function boot(){
+  const s = document.getElementById("status");
+  try{
+    await liff.init({ liffId: LIFF_ID });
+
+    if (!liff.isLoggedIn()){
+      s.textContent = "LINEログインへ...";
+      liff.login({ redirectUri: location.href });
+      return;
+    }
+
+    const prof = await liff.getProfile();
+    lineUserId = prof.userId;
+    displayName = prof.displayName || "";
+    s.textContent = `ログインOK：${displayName}`;
+    document.getElementById("plans").style.display = "block";
+
+  }catch(e){
+    s.textContent = "起動に失敗：" + (e && e.message ? e.message : String(e));
+  }
+}
+
+function yyyymmNow(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  return `${y}${m}`;
+}
+
+// JSONP helper
+function jsonp(url){
+  return new Promise((resolve,reject)=>{
+    const cb = "cb_" + Math.random().toString(36).slice(2);
+    const s = document.createElement("script");
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error("jsonp timeout")); }, 15000);
+
+    function cleanup(){
+      clearTimeout(timer);
+      delete window[cb];
+      s.remove();
+    }
+
+    window[cb] = (data)=>{ cleanup(); resolve(data); };
+    s.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cb;
+    s.onerror = ()=>{ cleanup(); reject(new Error("jsonp error")); };
+    document.body.appendChild(s);
+  });
+}
+
+async function startPay(plan){
+  const st = document.getElementById("status");
+  try{
+    st.textContent = "決済ページ作成中...";
+
+    const url = new URL(GAS_EXEC);
+    url.searchParams.set("api", "create_checkout");
+    url.searchParams.set("token", API_TOKEN_PAY);
+    url.searchParams.set("lineUserId", lineUserId);
+    url.searchParams.set("plan", plan);
+    url.searchParams.set("yyyymm", yyyymmNow());
+
+    const res = await jsonp(url.toString());
+    if (!res || res.status !== "success" || !res.url) {
+      throw new Error(res && res.message ? res.message : "create_checkout failed");
+    }
+
+    // Stripeへ
+    location.href = res.url;
+
+  }catch(e){
+    st.textContent = "エラー：" + (e && e.message ? e.message : String(e));
+  }
+}
+</script>
+</body>
+</html>
