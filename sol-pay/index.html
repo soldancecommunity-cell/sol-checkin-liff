@@ -193,8 +193,15 @@ async function resolveByPhone(){
     url.searchParams.set("rowIndex", "0");
 
     const res = await jsonp(url.toString());
-    if (!res || res.status !== "success") {
-      throw new Error(res && res.message ? res.message : "resolve_member failed");
+
+    // ★デバッグ：まず中身を見える化（あとで消してOK）
+    console.log("resolve_member res =", res);
+
+    if (!res) throw new Error("resolve_member: empty response");
+
+    // ★error のときだけ落とす（success 固定にしない）
+    if (res.status === "error") {
+      throw new Error(res.message || "resolve_member error");
     }
 
     // 返却形式の揺れに耐える（候補配列を柔らかく拾う）
@@ -202,11 +209,13 @@ async function resolveByPhone(){
       res.candidates ||
       res.members ||
       res.list ||
+      res.items ||
       (res.member ? [res.member] : []) ||
       [];
 
-    if (candidates.length === 0){
-      st.textContent = "該当会員が見つかりませんでした";
+    if (!Array.isArray(candidates) || candidates.length === 0){
+      // ★ここもデバッグ用に返却を表示
+      st.textContent = "候補0件（返却）: " + JSON.stringify(res).slice(0, 300);
       return;
     }
 
@@ -225,6 +234,7 @@ async function resolveByPhone(){
     st.textContent = "エラー：" + (e && e.message ? e.message : String(e));
   }
 }
+
 
 function renderPickList_(candidates){
   const pickBox = document.getElementById("pickBox");
