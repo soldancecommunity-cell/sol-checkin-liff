@@ -14,6 +14,7 @@
     .row{display:flex; gap:8px;}
     .row > *{flex:1;}
     .small{font-size:12px; opacity:.75;}
+    .sep{height:1px; background:#eee; margin:12px 0;}
   </style>
 </head>
 <body>
@@ -29,7 +30,7 @@
       <div class="small">電話番号（ハイフンなし）で会員を検索します</div>
       <div class="row" style="margin-top:8px;">
         <input id="phoneInput" inputmode="numeric" placeholder="例：08012345678" />
-        <button onclick="resolveByPhone()" style="flex:0 0 120px;">検索</button>
+        <button id="btnResolve" style="flex:0 0 120px;">検索</button>
       </div>
       <div class="small" style="margin-top:6px;">※兄弟などで候補が複数の場合は、次に会員名を選択します</div>
     </div>
@@ -39,13 +40,16 @@
       <div id="pickList" style="margin-top:8px;"></div>
     </div>
 
-    <button id="switchBtn" onclick="switchMember()" style="display:none; margin-top:10px;">別の会員に切り替える</button>
+    <div class="sep"></div>
+    <button id="switchBtn" style="display:none;">別の会員に切り替える</button>
   </div>
 
+  <!-- プラン -->
   <div id="plans" style="display:none">
-    <button onclick="startPay('month4')">月4プラン</button>
-    <button onclick="startPay('month8')">月8プラン</button>
-    <button onclick="startPay('unlimit')">通い放題</button>
+    <button id="btn4">月4プラン</button>
+    <button id="btn8">月8プラン</button>
+    <button id="btn12">月12プラン</button>
+    <button id="btnU">通い放題</button>
   </div>
 
 <script>
@@ -56,11 +60,17 @@ const API_TOKEN_PAY = "sol_pay_2026_144025036146";
 let lineUserId = "";
 let displayName = "";
 
-let memberId = "";       // ★ここが主キー
+let memberId = "";       // ★主キー
 let memberName = "";
 
 const LS_KEY_MEMBER_ID = "solpay_member_id";
 const LS_KEY_MEMBER_NAME = "solpay_member_name";
+
+// 画面にJSエラーを出す（無反応対策）
+window.onerror = (msg, src, line, col, err) => {
+  const st = document.getElementById("status");
+  if (st) st.textContent = "JSエラー: " + msg + " (" + line + ":" + col + ")";
+};
 
 boot();
 
@@ -79,7 +89,7 @@ async function boot(){
     lineUserId = prof.userId;
     displayName = prof.displayName || "";
 
-    // localStorage に確定会員があれば先に復元
+    // 保存済み会員の復元（兄弟でも切替可能）
     const savedId = localStorage.getItem(LS_KEY_MEMBER_ID) || "";
     const savedNm = localStorage.getItem(LS_KEY_MEMBER_NAME) || "";
     if (savedId){
@@ -87,15 +97,18 @@ async function boot(){
       memberName = savedNm;
     }
 
-    // まずステータス表示
+    // ボタンイベントを確実に紐付け（inline onclickを使わない）
+    document.getElementById("btnResolve").onclick = () => resolveByPhone();
+    document.getElementById("switchBtn").onclick = () => switchMember();
+
+    document.getElementById("btn4").onclick  = () => startPay("month4");
+    document.getElementById("btn8").onclick  = () => startPay("month8");
+    document.getElementById("btn12").onclick = () => startPay("month12");
+    document.getElementById("btnU").onclick  = () => startPay("unlimit");
+
     s.textContent = `ログインOK：${displayName}`;
 
-    // 会員確定がまだなら、電話番号入力へ
     ensureMemberUI_();
-
-    // ここでは「既存連携を自動で拾う」APIが無い前提にしてる。
-    // もし api=me が member_id を返せるなら、ここで叩いて自動確定できる（後で最適化）。
-    // まずは “確実に運用できる形” を優先。
 
   }catch(e){
     s.textContent = "起動に失敗：" + (e && e.message ? e.message : String(e));
@@ -174,7 +187,7 @@ async function resolveByPhone(){
 
     const url = new URL(GAS_EXEC);
     url.searchParams.set("api", "resolve_member");
-    url.searchParams.set("token", API_TOKEN_PAY); // ※PAY tokenで通す（GAS側で resolve_member を PAY token 許可にするのが理想）
+    url.searchParams.set("token", API_TOKEN_PAY);
     url.searchParams.set("userId", lineUserId);
     url.searchParams.set("phone", phone);
     url.searchParams.set("rowIndex", "0");
@@ -184,9 +197,7 @@ async function resolveByPhone(){
       throw new Error(res && res.message ? res.message : "resolve_member failed");
     }
 
-    // 想定：res に candidates 配列（member_id, member_name）等が入る
-    // 既存の戻り形式に合わせてここを調整する必要があるので、
-    // まずは複数候補/単一候補の両対応で “柔らかく” 実装している。
+    // 返却形式の揺れに耐える（候補配列を柔らかく拾う）
     const candidates =
       res.candidates ||
       res.members ||
@@ -207,7 +218,6 @@ async function resolveByPhone(){
       return;
     }
 
-    // 複数候補：選ばせる
     renderPickList_(candidates);
     st.textContent = "会員が複数見つかりました。選択してください。";
 
@@ -254,7 +264,6 @@ async function startPay(plan){
       return;
     }
 
-    // 二重クリック防止
     disablePlanButtons_(true);
     st.textContent = "決済ページ作成中...";
 
