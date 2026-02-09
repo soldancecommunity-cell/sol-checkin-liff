@@ -432,31 +432,40 @@
     const box = $("verifySelectBox");
     const sel = $("verifyMemberSel");
     sel.innerHTML = "";
-
+  
     (cands || []).forEach((c, i)=>{
       const opt = document.createElement("option");
-      opt.value = String(c.rowIndex || "");
+      opt.value = String(c.rowIndex || ""); // ★必ずrowIndexをvalueへ
       opt.textContent = `${c.member_name || "(不明)"}${c.member_type ? " / "+c.member_type : ""}（候補${i+1}）`;
       sel.appendChild(opt);
     });
-
+  
+    // ★重要：初期選択を「value」でも確定させる（iOS対策）
     if (sel.options.length > 0){
       sel.selectedIndex = 0;
-      sel.value = sel.options[0].value;
-      gSelectedRowIndex = forceRowIndexFromSelect_();
+      sel.value = String(sel.options[0].value || "");
+      gSelectedRowIndex = getSelectedRowIndexFromUI_();
     } else {
       gSelectedRowIndex = 0;
     }
-    updatePickedRowIndexLabel_();
-
-    sel.onchange = ()=>{
-      gSelectedRowIndex = forceRowIndexFromSelect_();
-      updatePickedRowIndexLabel_();
+  
+    // 変更時も value と selectedIndex の両方から確実に取る
+    sel.onchange = ()=> {
+      gSelectedRowIndex = getSelectedRowIndexFromUI_();
+      setOutVerify({ where:"candidate_changed", picked_rowIndex:gSelectedRowIndex, picked_text: sel.options[sel.selectedIndex]?.textContent });
     };
-
+  
     box.classList.remove("hide");
-    setVerifyStatus("候補を選択して続行を押してください");
+  
+    // デバッグ：初期状態を出す
+    setOutVerify({
+      where:"candidates_shown",
+      first_value: sel.options[0]?.value,
+      picked_rowIndex: gSelectedRowIndex,
+      picked_text: sel.options[sel.selectedIndex]?.textContent
+    });
   }
+
 
   function clearVerifyCandidates_(){
     $("verifySelectBox").classList.add("hide");
@@ -653,27 +662,35 @@
         return;
       }
 
-      const hasCandidates = !$("verifySelectBox").classList.contains("hide");
+      const box = $("verifySelectBox");
+      const hasCandidates = box && !box.classList.contains("hide");
+      
+      // 候補表示中は rowIndex を「必ず」確定させる
       let rowIndex = 0;
-
       if (hasCandidates){
-        rowIndex = forceRowIndexFromSelect_();
-        gSelectedRowIndex = rowIndex;
-        updatePickedRowIndexLabel_();
-
+        rowIndex = getSelectedRowIndexFromUI_();
+      
+        // それでも取れないなら、強制的に selectedIndex=0 で確定させる
         if (!rowIndex){
-          $("verifyErr").textContent = "候補の rowIndex が 0 です（選択が確定していません）";
-          setOutVerify({
-            where:"rowIndex_zero",
-            hasCandidates,
-            sel_value: $("verifyMemberSel")?.value || "",
-            selectedIndex: $("verifyMemberSel")?.selectedIndex,
-            selectedOptions0: $("verifyMemberSel")?.selectedOptions?.[0]?.value || ""
-          });
+          const sel = $("verifyMemberSel");
+          if (sel && sel.options && sel.options.length > 0){
+            sel.selectedIndex = Math.max(0, sel.selectedIndex);
+            sel.value = String(sel.options[sel.selectedIndex].value || "");
+            rowIndex = getSelectedRowIndexFromUI_();
+          }
+        }
+      
+        if (!rowIndex){
+          $("verifyErr").textContent = "候補の選択が確定できませんでした。いったん候補を選び直してから続行してください。";
           setVerifyStatus("候補選択");
+          setOutVerify({ where:"rowIndex_missing", hasCandidates:true, selValue: $("verifyMemberSel")?.value, selIndex: $("verifyMemberSel")?.selectedIndex });
           return;
         }
       }
+      
+      // デバッグ：送る直前に必ず表示
+      setOutVerify({ where:"resolve_member_will_send", phone, hasCandidates, rowIndex });
+
 
       const url =
         `${API_URL}?api=resolve_member`
