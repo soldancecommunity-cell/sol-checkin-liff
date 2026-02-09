@@ -182,7 +182,7 @@
 </head>
 
 <body>
-  <!-- BUILD: 2026-02-09_cash_checkin_member_gate_v6_autoresolve_on_select -->
+  <!-- BUILD: 2026-02-09_cash_checkin_member_gate_v8_hold_until_me_cash_success -->
   <div class="wrap">
 
     <!-- ====== SCREEN 1: 会員確認（ページ） ====== -->
@@ -191,19 +191,19 @@
         <h1>会員確認</h1>
         <p class="sub">
           電話番号（入会フォームの「緊急連絡先」）で会員を特定します。<br>
-          <strong>候補が出たら選択した瞬間に自動で確定</strong>します（2回押し不要）。
+          候補が出たら <strong>選択 → 「続行」</strong>（rowIndexを送信）
         </p>
       </div>
 
       <div class="content">
         <div class="label">電話番号（ハイフンなし）</div>
         <input id="verifyPhone" inputmode="numeric" placeholder="例：08012345678" />
-        <div class="hint">候補が複数出た場合は、選択すると自動で確定します。</div>
+        <div class="hint">候補が複数出た場合は、必ず候補を選んでから「続行」を押してください。</div>
 
         <div id="verifySelectBox" class="hide" style="margin-top:12px;">
           <div class="label">同じ電話番号の候補が複数あります（選択）</div>
           <select id="verifyMemberSel"></select>
-          <div class="hint">現在の選択 rowIndex：<strong id="pickedRowIndexLabel">—</strong></div>
+          <div class="hint">送信予定 rowIndex：<strong id="pickedRowIndexLabel">—</strong></div>
         </div>
 
         <div class="sep"></div>
@@ -218,6 +218,7 @@
 
       <div class="actionBar">
         <button class="btn" id="btnVerifyOk" type="button">会員確認して続行</button>
+        <button class="btnSub" id="btnVerifyRetry" type="button" style="margin-top:10px;">会員確認をやり直す（入力クリア）</button>
         <button class="btnSub" id="btnVerifyCancel" type="button" style="margin-top:10px;">キャンセル（閉じる）</button>
         <div class="statusLine">
           <div id="verifyStatus">起動中…</div>
@@ -266,6 +267,7 @@
 
       <div class="actionBar">
         <button class="btn" id="btnCheckin" disabled>読み込み中…</button>
+        <button class="btnSub" id="btnBackToVerify" type="button" style="margin-top:10px;">会員確認に戻る</button>
         <div class="statusLine">
           <div id="statusText">起動中…</div>
           <div class="pill">PENDING 記録</div>
@@ -283,7 +285,7 @@
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
-  document.title = "cash_checkin BUILD 2026-02-09_cash_checkin_member_gate_v6_autoresolve_on_select";
+  document.title = "cash_checkin BUILD 2026-02-09_cash_checkin_member_gate_v8_hold_until_me_cash_success";
 
   const JSONP_TIMEOUT_MS = 16000;
   const $ = (id)=>document.getElementById(id);
@@ -296,8 +298,9 @@
   let gSelectedRowIndex = 0;
   let gMemberId = "";
 
-  let RESOLVE_IN_FLIGHT = false; // ★resolve多重送信防止
+  let RESOLVE_IN_FLIGHT = false;
 
+  // ---------- error hooks ----------
   window.onerror = function(msg, src, line, col, err){
     try{
       const o = { where:"window.onerror", msg:String(msg), src:String(src), line, col, err:String(err && err.stack ? err.stack : err) };
@@ -382,12 +385,22 @@
   function forceRowIndexFromSelect_(){
     const sel = $("verifyMemberSel");
     if (!sel) return 0;
-    let v = Number(sel.value || 0);
-    if (v) return v;
-    const idx = (typeof sel.selectedIndex === "number") ? sel.selectedIndex : 0;
-    const opt = sel.options && sel.options[idx];
-    const ov = opt ? Number(opt.value || 0) : 0;
-    return ov || 0;
+
+    try{
+      const so = sel.selectedOptions && sel.selectedOptions[0];
+      const v1 = so ? Number(so.value || 0) : 0;
+      if (v1) return v1;
+    }catch(_){}
+
+    try{
+      const idx = (typeof sel.selectedIndex === "number") ? sel.selectedIndex : 0;
+      const opt = sel.options && sel.options[idx];
+      const v2 = opt ? Number(opt.value || 0) : 0;
+      if (v2) return v2;
+    }catch(_){}
+
+    const v3 = Number(sel.value || 0);
+    return v3 || 0;
   }
 
   function setMemberUiLocked_(){
@@ -411,8 +424,7 @@
     const meUrl =
       `${API_URL}?api=me_cash`
       + `&token=${encodeURIComponent(API_TOKEN)}`
-      + `&userId=${encodeURIComponent(gUserId)}`
-      + (gMemberId ? `&member_id=${encodeURIComponent(gMemberId)}` : "");
+      + `&userId=${encodeURIComponent(gUserId)}`;
     return await jsonp(meUrl);
   }
 
@@ -431,24 +443,19 @@
     if (sel.options.length > 0){
       sel.selectedIndex = 0;
       sel.value = sel.options[0].value;
-      gSelectedRowIndex = Number(sel.options[0].value || 0);
+      gSelectedRowIndex = forceRowIndexFromSelect_();
     } else {
       gSelectedRowIndex = 0;
     }
     updatePickedRowIndexLabel_();
 
-    // ★候補選択した瞬間に自動で確定（2回押し不要）
-    sel.onchange = async ()=>{
+    sel.onchange = ()=>{
       gSelectedRowIndex = forceRowIndexFromSelect_();
       updatePickedRowIndexLabel_();
-      // 選択＝確定へ
-      await doResolveMember_({fromAuto:true});
     };
 
     box.classList.remove("hide");
-    setVerifyStatus("候補を選択してください（選択で自動確定）");
-
-    setTimeout(()=>{ try{ box.scrollIntoView({behavior:"smooth", block:"nearest"}); }catch(_){ } }, 50);
+    setVerifyStatus("候補を選択して続行を押してください");
   }
 
   function clearVerifyCandidates_(){
@@ -458,10 +465,43 @@
     updatePickedRowIndexLabel_();
   }
 
-  async function ensureMemberInfoByMeCash_(){
+  // ★重要：me_cash が success になるまで「チェックイン画面へ進ませない」
+  async function verifyMeCashOrStayOnVerify_(){
+    setVerifyStatus("会員情報を確認中…（me_cash）");
+    try{
+      const me = await fetchMeCashByUserId_();
+      setOutVerify({ where:"me_cash_after_resolve", me });
+
+      if (me && me.status === "success"){
+        if (me.member_id) gMemberId = String(me.member_id).trim();
+        setVerifyStatus("会員情報OK（チェックインへ移動）");
+        return true;
+      }
+
+      $("verifyErr").textContent =
+        "会員情報取得に失敗しました（me_cashがsuccessではありません）\n" +
+        "→ もう一度「会員確認して続行」を押してください。\n" +
+        "status=" + String(me && me.status) + "\n" +
+        "message=" + String(me && me.message ? me.message : "(no message)");
+      setVerifyStatus("会員情報取得失敗");
+      return false;
+
+    }catch(e){
+      setOutVerify({ where:"me_cash_exception_after_resolve", error:String(e?.message||e) });
+      $("verifyErr").textContent =
+        "会員情報取得に失敗しました（通信/例外）\n" +
+        String(e?.message || e);
+      setVerifyStatus("会員情報取得失敗");
+      return false;
+    }
+  }
+
+  async function ensureMemberInfoByMeCashOnCheckin_(){
     setStatus("会員情報を取得中…");
     try{
       const me = await fetchMeCashByUserId_();
+      setOut({ where:"me_cash_on_checkin", me });
+
       if (me && me.status === "success"){
         if (me.member_id) gMemberId = String(me.member_id).trim();
         applyMeToUi_(me);
@@ -475,12 +515,12 @@
         }
         return true;
       }
-      setOut({ where:"me_cash_failed", me });
-      setStatus("失敗");
+
+      setStatus("会員情報取得失敗");
       return false;
     }catch(e){
-      setOut({ where:"me_cash_exception", error:String(e?.message||e) });
-      setStatus("失敗");
+      setOut({ where:"me_cash_exception_on_checkin", error:String(e?.message||e) });
+      setStatus("会員情報取得失敗");
       return false;
     }
   }
@@ -514,7 +554,7 @@
     $("yyyymm").textContent = yyyymmNowJst();
     setMemberUiLocked_();
 
-    const meOk = await ensureMemberInfoByMeCash_();
+    const meOk = await ensureMemberInfoByMeCashOnCheckin_();
     const clsOk = await loadClasses_();
 
     $("btnCheckin").disabled = !(meOk && clsOk);
@@ -554,7 +594,7 @@
           + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
 
         const res = await jsonp(url);
-        setOut(res);
+        setOut({ where:"checkin_result", url, res });
 
         if (res && res.status === "success") {
           const lines = [];
@@ -582,7 +622,7 @@
 
         setStatus("エラー");
       } catch(err){
-        setOut(String(err && err.message ? err.message : err));
+        setOut({ where:"checkin_exception", error:String(err?.message || err) });
         setStatus("通信失敗");
       } finally {
         RUNNING = false;
@@ -591,17 +631,18 @@
     };
   }
 
-  async function doResolveMember_({fromAuto=false} = {}){
+  async function doResolveMember_(){
     if (RESOLVE_IN_FLIGHT) return;
     RESOLVE_IN_FLIGHT = true;
 
     try{
       $("btnVerifyOk").disabled = true;
       $("btnVerifyCancel").disabled = true;
+      $("btnVerifyRetry").disabled = true;
 
       $("verifyErr").textContent = "";
-      setOutVerify(fromAuto ? "候補確定中…" : "照会中…");
-      setVerifyStatus(fromAuto ? "候補確定中…" : "照会中…");
+      setOutVerify("照会中…");
+      setVerifyStatus("照会中…");
 
       const phone = normPhone_($("verifyPhone").value);
       gVerifiedPhone = phone;
@@ -613,20 +654,25 @@
       }
 
       const hasCandidates = !$("verifySelectBox").classList.contains("hide");
-
       let rowIndex = 0;
+
       if (hasCandidates){
         rowIndex = forceRowIndexFromSelect_();
-        if (!rowIndex) rowIndex = Number(gSelectedRowIndex || 0);
         gSelectedRowIndex = rowIndex;
         updatePickedRowIndexLabel_();
-      }
 
-      if (hasCandidates && !rowIndex){
-        $("verifyErr").textContent = "候補を選択してください（rowIndexが0のままです）";
-        setVerifyStatus("候補選択");
-        setOutVerify({ where:"rowIndex_still_zero", hasCandidates, rowIndex, sel_value: $("verifyMemberSel")?.value || "" });
-        return;
+        if (!rowIndex){
+          $("verifyErr").textContent = "候補の rowIndex が 0 です（選択が確定していません）";
+          setOutVerify({
+            where:"rowIndex_zero",
+            hasCandidates,
+            sel_value: $("verifyMemberSel")?.value || "",
+            selectedIndex: $("verifyMemberSel")?.selectedIndex,
+            selectedOptions0: $("verifyMemberSel")?.selectedOptions?.[0]?.value || ""
+          });
+          setVerifyStatus("候補選択");
+          return;
+        }
       }
 
       const url =
@@ -638,9 +684,10 @@
 
       const r = await jsonp(url);
 
+      // 常に「今回送ったrowIndex」をログへ残す
       if (r && r.status === "need_member_select"){
         setVerifyCandidates_(r.candidates || []);
-        $("verifyErr").textContent = "候補を選択してください（選択で自動確定します）";
+        $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
         setOutVerify({ where:"resolve_member_need_select", url, picked_rowIndex: rowIndex, r });
         setVerifyStatus("候補選択");
         return;
@@ -651,7 +698,11 @@
         if (r.member_id) gMemberId = String(r.member_id).trim();
 
         setOutVerify({ where:"resolve_member_success", url, picked_rowIndex: rowIndex, r });
-        setVerifyStatus("完了");
+        setVerifyStatus("紐付けOK → me_cash確認中…");
+
+        // ★ここが修正点：me_cashがsuccessになるまで「チェックインへ進ませない」
+        const ok = await verifyMeCashOrStayOnVerify_();
+        if (!ok) return;
 
         await goToCheckin_();
         return;
@@ -672,6 +723,7 @@
       RESOLVE_IN_FLIGHT = false;
       $("btnVerifyOk").disabled = false;
       $("btnVerifyCancel").disabled = false;
+      $("btnVerifyRetry").disabled = false;
     }
   }
 
@@ -689,6 +741,7 @@
         }
       }catch(_){}
 
+      // LIFF外：最低限クリア
       $("verifyPhone").value = "";
       $("verifyErr").textContent = "";
       $("outVerify").textContent = "—";
@@ -697,14 +750,40 @@
     }, true);
   }
 
+  function bindVerifyRetry_(){
+    const btn = $("btnVerifyRetry");
+    btn.type = "button";
+    btn.addEventListener("click", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      $("verifyPhone").value = "";
+      $("verifyErr").textContent = "";
+      $("outVerify").textContent = "—";
+      clearVerifyCandidates_();
+      setVerifyStatus("入力待ち");
+    }, true);
+  }
+
+  function bindBackToVerify_(){
+    const btn = $("btnBackToVerify");
+    btn.type = "button";
+    btn.addEventListener("click", (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      showVerifyScreen_();
+      setVerifyStatus("入力待ち");
+    }, true);
+  }
+
   function bindVerifyUI_(){
     const okBtn = $("btnVerifyOk");
     const cancelBtn = $("btnVerifyCancel");
+    const retryBtn = $("btnVerifyRetry");
     const phone = $("verifyPhone");
     const out = $("outVerify");
     const st = $("verifyStatus");
 
-    if (!okBtn || !cancelBtn || !phone || !out || !st){
+    if (!okBtn || !cancelBtn || !retryBtn || !phone || !out || !st){
       throw new Error("Missing verify elements");
     }
 
@@ -712,14 +791,16 @@
     okBtn.addEventListener("click", (e)=>{
       e.preventDefault();
       e.stopPropagation();
-      doResolveMember_({fromAuto:false});
+      doResolveMember_();
     }, true);
 
     phone.addEventListener("keydown", (e)=>{
-      if (e.key === "Enter") doResolveMember_({fromAuto:false});
+      if (e.key === "Enter") doResolveMember_();
     });
 
     bindVerifyCancel_();
+    bindVerifyRetry_();
+    bindBackToVerify_();
 
     setOutVerify({ where:"bindVerifyUI_", ok:true, at:new Date().toISOString() });
     setVerifyStatus("入力待ち");
