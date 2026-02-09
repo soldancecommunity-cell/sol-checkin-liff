@@ -9,27 +9,58 @@
     body{font-family:system-ui; padding:16px;}
     button{padding:12px 14px; margin:8px 0; width:100%;}
     .muted{opacity:.7; font-size:12px;}
+    .card{border:1px solid #ddd; border-radius:12px; padding:12px; margin:12px 0;}
+    input{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd;}
+    .row{display:flex; gap:8px;}
+    .row > *{flex:1;}
+    .small{font-size:12px; opacity:.75;}
   </style>
 </head>
 <body>
   <h2>SoL Pay（月謝）</h2>
   <div id="status" class="muted">起動中...</div>
 
+  <!-- 会員確定（兄弟ケース対策） -->
+  <div id="memberBox" class="card" style="display:none">
+    <div class="small">会員の確定（初回のみ）</div>
+    <div id="memberNow" style="margin:6px 0 10px 0;"></div>
+
+    <div id="needPhoneBox" style="display:none">
+      <div class="small">電話番号（ハイフンなし）で会員を検索します</div>
+      <div class="row" style="margin-top:8px;">
+        <input id="phoneInput" inputmode="numeric" placeholder="例：08012345678" />
+        <button onclick="resolveByPhone()" style="flex:0 0 120px;">検索</button>
+      </div>
+      <div class="small" style="margin-top:6px;">※兄弟などで候補が複数の場合は、次に会員名を選択します</div>
+    </div>
+
+    <div id="pickBox" style="display:none">
+      <div class="small">該当する会員を選択してください</div>
+      <div id="pickList" style="margin-top:8px;"></div>
+    </div>
+
+    <button id="switchBtn" onclick="switchMember()" style="display:none; margin-top:10px;">別の会員に切り替える</button>
+  </div>
+
   <div id="plans" style="display:none">
     <button onclick="startPay('month4')">月4プラン</button>
-    <button onclick="('month8')">月8プラン</button>
-    <button onclick="('unlimit')">通い放題</button>
+    <button onclick="startPay('month8')">月8プラン</button>
+    <button onclick="startPay('unlimit')">通い放題</button>
   </div>
 
 <script>
 const LIFF_ID = "2008938862-CTbDrlz3";
 const GAS_EXEC = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
-
-// まずは動かす。tokenは暫定で入れる（後で隠蔽できる）
-const API_TOKEN_PAY = "sol_pay_2026_144025036146"; // 後述の安全化で消せる
+const API_TOKEN_PAY = "sol_pay_2026_144025036146";
 
 let lineUserId = "";
 let displayName = "";
+
+let memberId = "";       // ★ここが主キー
+let memberName = "";
+
+const LS_KEY_MEMBER_ID = "solpay_member_id";
+const LS_KEY_MEMBER_NAME = "solpay_member_name";
 
 boot();
 
@@ -47,12 +78,62 @@ async function boot(){
     const prof = await liff.getProfile();
     lineUserId = prof.userId;
     displayName = prof.displayName || "";
+
+    // localStorage に確定会員があれば先に復元
+    const savedId = localStorage.getItem(LS_KEY_MEMBER_ID) || "";
+    const savedNm = localStorage.getItem(LS_KEY_MEMBER_NAME) || "";
+    if (savedId){
+      memberId = savedId;
+      memberName = savedNm;
+    }
+
+    // まずステータス表示
     s.textContent = `ログインOK：${displayName}`;
-    document.getElementById("plans").style.display = "block";
+
+    // 会員確定がまだなら、電話番号入力へ
+    ensureMemberUI_();
+
+    // ここでは「既存連携を自動で拾う」APIが無い前提にしてる。
+    // もし api=me が member_id を返せるなら、ここで叩いて自動確定できる（後で最適化）。
+    // まずは “確実に運用できる形” を優先。
 
   }catch(e){
     s.textContent = "起動に失敗：" + (e && e.message ? e.message : String(e));
   }
+}
+
+function ensureMemberUI_(){
+  const box = document.getElementById("memberBox");
+  const now = document.getElementById("memberNow");
+  const needPhone = document.getElementById("needPhoneBox");
+  const pickBox = document.getElementById("pickBox");
+  const switchBtn = document.getElementById("switchBtn");
+  const plans = document.getElementById("plans");
+
+  box.style.display = "block";
+  pickBox.style.display = "none";
+
+  if (memberId){
+    now.innerHTML = `現在の会員：<b>${escapeHtml(memberName || ("ID " + memberId))}</b>`;
+    needPhone.style.display = "none";
+    switchBtn.style.display = "block";
+    plans.style.display = "block";
+    return;
+  }
+
+  now.textContent = "会員が未確定です";
+  needPhone.style.display = "block";
+  switchBtn.style.display = "none";
+  plans.style.display = "none";
+}
+
+function switchMember(){
+  memberId = "";
+  memberName = "";
+  localStorage.removeItem(LS_KEY_MEMBER_ID);
+  localStorage.removeItem(LS_KEY_MEMBER_NAME);
+  document.getElementById("status").textContent = `ログインOK：${displayName}（会員を切り替えました）`;
+  ensureMemberUI_();
 }
 
 function yyyymmNow(){
@@ -82,30 +163,132 @@ function jsonp(url){
   });
 }
 
+// ★電話番号で候補を引く（GAS側 api=resolve_member を流用）
+async function resolveByPhone(){
+  const st = document.getElementById("status");
+  const phone = (document.getElementById("phoneInput").value || "").replace(/[^\d]/g,"");
+  if (!phone) { st.textContent = "電話番号を入力してください"; return; }
+
+  try{
+    st.textContent = "会員照合中...";
+
+    const url = new URL(GAS_EXEC);
+    url.searchParams.set("api", "resolve_member");
+    url.searchParams.set("token", API_TOKEN_PAY); // ※PAY tokenで通す（GAS側で resolve_member を PAY token 許可にするのが理想）
+    url.searchParams.set("userId", lineUserId);
+    url.searchParams.set("phone", phone);
+    url.searchParams.set("rowIndex", "0");
+
+    const res = await jsonp(url.toString());
+    if (!res || res.status !== "success") {
+      throw new Error(res && res.message ? res.message : "resolve_member failed");
+    }
+
+    // 想定：res に candidates 配列（member_id, member_name）等が入る
+    // 既存の戻り形式に合わせてここを調整する必要があるので、
+    // まずは複数候補/単一候補の両対応で “柔らかく” 実装している。
+    const candidates =
+      res.candidates ||
+      res.members ||
+      res.list ||
+      (res.member ? [res.member] : []) ||
+      [];
+
+    if (candidates.length === 0){
+      st.textContent = "該当会員が見つかりませんでした";
+      return;
+    }
+
+    if (candidates.length === 1){
+      const c = candidates[0];
+      setMember_(c.member_id || c.memberId || c.id || "", c.member_name || c.name || "");
+      st.textContent = `会員確定：${memberName}`;
+      ensureMemberUI_();
+      return;
+    }
+
+    // 複数候補：選ばせる
+    renderPickList_(candidates);
+    st.textContent = "会員が複数見つかりました。選択してください。";
+
+  }catch(e){
+    st.textContent = "エラー：" + (e && e.message ? e.message : String(e));
+  }
+}
+
+function renderPickList_(candidates){
+  const pickBox = document.getElementById("pickBox");
+  const list = document.getElementById("pickList");
+  pickBox.style.display = "block";
+  list.innerHTML = "";
+
+  candidates.forEach((c)=>{
+    const id = String(c.member_id || c.memberId || c.id || "").trim();
+    const nm = String(c.member_name || c.name || "").trim() || ("ID " + id);
+    const btn = document.createElement("button");
+    btn.textContent = nm;
+    btn.onclick = ()=>{
+      setMember_(id, nm);
+      document.getElementById("status").textContent = `会員確定：${nm}`;
+      ensureMemberUI_();
+    };
+    list.appendChild(btn);
+  });
+}
+
+function setMember_(id, nm){
+  id = String(id || "").trim();
+  if (!id) throw new Error("member_id missing in candidate");
+  memberId = id;
+  memberName = nm || "";
+  localStorage.setItem(LS_KEY_MEMBER_ID, memberId);
+  localStorage.setItem(LS_KEY_MEMBER_NAME, memberName);
+}
+
 async function startPay(plan){
   const st = document.getElementById("status");
   try{
+    if (!memberId) {
+      st.textContent = "先に会員を確定してください（電話番号で検索）";
+      ensureMemberUI_();
+      return;
+    }
+
+    // 二重クリック防止
+    disablePlanButtons_(true);
     st.textContent = "決済ページ作成中...";
 
     const url = new URL(GAS_EXEC);
     url.searchParams.set("api", "create_checkout");
     url.searchParams.set("token", API_TOKEN_PAY);
     url.searchParams.set("lineUserId", lineUserId);
+    url.searchParams.set("member_id", memberId);
     url.searchParams.set("plan", plan);
     url.searchParams.set("yyyymm", yyyymmNow());
-    url.searchParams.set("member_id", memberId); // ★追加
 
     const res = await jsonp(url.toString());
     if (!res || res.status !== "success" || !res.url) {
       throw new Error(res && res.message ? res.message : "create_checkout failed");
     }
 
-    // Stripeへ
     location.href = res.url;
 
   }catch(e){
     st.textContent = "エラー：" + (e && e.message ? e.message : String(e));
+    disablePlanButtons_(false);
   }
+}
+
+function disablePlanButtons_(disabled){
+  const box = document.getElementById("plans");
+  const btns = box.querySelectorAll("button");
+  btns.forEach(b=>b.disabled = !!disabled);
+}
+
+function escapeHtml(s){
+  return String(s || "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+  }[c]));
 }
 </script>
 </body>
