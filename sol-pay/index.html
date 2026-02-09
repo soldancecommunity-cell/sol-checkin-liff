@@ -671,9 +671,15 @@ async function startPay(plan){
 
     const res = await jsonp(url.toString());
 
-    if (!res || res.status !== "success" || !res.url){
-      throw new Error((res && res.message) ? res.message : "create_checkout failed");
+    if (!res || res.status !== "success" || !res.url) {
+      showToast(
+        "create_checkout失敗\n" +
+        JSON.stringify(res, null, 2),
+        "bad"
+      );
+      throw new Error(res && res.message ? res.message : "create_checkout failed");
     }
+
 
     setPill("ok","Stripeへ移動");
     location.href = res.url;
