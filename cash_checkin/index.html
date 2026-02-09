@@ -622,10 +622,9 @@
       }
 
       $("verifyErr").textContent =
-        "会員情報取得に失敗しました（me_cashがsuccessではありません）\n" +
-        "→ もう一度「会員確認して続行」を押してください。\n" +
-        "status=" + String(me && me.status) + "\n" +
-        "message=" + String(me && me.message ? me.message : "(no message)");
+        "会員情報取得に失敗しました（me_cashレスポンス）\n" +
+        JSON.stringify(me, null, 2);
+
       setVerifyStatus("会員情報取得失敗");
       setVerifyNotice("ng","会員情報取得に失敗","もう一度「会員確認して続行」を押してください。");
       return false;
@@ -693,6 +692,7 @@
     const clsUrl = `${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`;
     const cls = await jsonp(clsUrl);
     if (!cls || cls.status !== "success") {
+      $("verifyErr").textContent = "classes取得失敗\n" + JSON.stringify(cls, null, 2);
       setOut({ where:"classes", clsUrl, cls });
       setStatus("失敗");
       setCheckinNotice("ng","読み込み失敗","クラス一覧の取得に失敗しました。電波状況を確認してやり直してください。");
@@ -787,6 +787,7 @@
           + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
 
         const res = await jsonp(url);
+        setCheckinNotice("ng","チェックイン失敗", "APIレスポンス:\n" + JSON.stringify(res, null, 2));
         setOut({ where:"checkin_result", url, res });
 
         if (res && res.status === "success") {
@@ -931,9 +932,8 @@
       }
 
       $("verifyErr").textContent =
-        "照会に失敗しました。\n" +
-        "status=" + String(r && r.status) + "\n" +
-        "message=" + String(r && r.message ? r.message : "(no message)");
+        "照会に失敗しました（APIレスポンス）\n" +
+        JSON.stringify(r, null, 2);
       setOutVerify({ where:"resolve_member_error", url, picked_rowIndex: rowIndex, r });
       setVerifyStatus("失敗");
       setVerifyNotice("ng","照会に失敗","もう一度やり直してください。");
