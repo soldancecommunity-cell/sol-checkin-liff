@@ -115,6 +115,46 @@
       line-height:1.55;
     }
 
+    /* ===== 追加：本番用の案内UI ===== */
+    .notice{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.045);
+      border-radius: 16px;
+      padding: 12px 12px;
+      line-height: 1.65;
+      font-size: 14px;
+      color: rgba(234,240,255,.92);
+    }
+    .notice .title{
+      font-weight: 1000;
+      margin-bottom: 6px;
+      letter-spacing: .2px;
+    }
+    .notice.ok{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.10); }
+    .notice.warn{ border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.10); }
+    .notice.ng{ border-color: rgba(255,77,109,.30); background: rgba(255,77,109,.10); }
+    .small{
+      font-size: 12px;
+      color: rgba(234,240,255,.70);
+    }
+    /* デバッグはdetailsに退避（通常は非表示） */
+    details{
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.03);
+      border-radius:14px;
+      padding:10px 10px;
+    }
+    details > summary{
+      cursor:pointer;
+      color: rgba(234,240,255,.78);
+      font-size:12px;
+      font-weight:900;
+      list-style:none;
+      outline:none;
+    }
+    details > summary::-webkit-details-marker{ display:none; }
+    /* ===== 追加ここまで ===== */
+
     .actionBar{
       position: sticky;
       bottom: 0;
@@ -182,7 +222,7 @@
 </head>
 
 <body>
-  <!-- BUILD: 2026-02-09_cash_checkin_member_gate_v8_hold_until_me_cash_success -->
+  <!-- BUILD: 2026-02-09_cash_checkin_member_gate_v8_hold_until_me_cash_success__ui_notice_hide_logs -->
   <div class="wrap">
 
     <!-- ====== SCREEN 1: 会員確認（ページ） ====== -->
@@ -208,10 +248,20 @@
 
         <div class="sep"></div>
 
-        <div class="label">結果</div>
-        <pre id="outVerify">—</pre>
+        <!-- ★追加：案内（ログの代わりに表示） -->
+        <div id="verifyNotice" class="notice warn">
+          <div class="title">入力してください</div>
+          <div id="verifyNoticeText">電話番号（ハイフンなし）を入力して「続行」を押してください。</div>
+        </div>
 
+        <!-- ★エラーはそのまま -->
         <div id="verifyErr" class="err"></div>
+
+        <!-- ★デバッグログ（通常非表示：必要ならhideを外す） -->
+        <details id="dbgVerify" class="hide" style="margin-top:12px;">
+          <summary class="hint">デバッグログ</summary>
+          <pre id="outVerify">—</pre>
+        </details>
 
         <div style="height:14px"></div>
       </div>
@@ -254,13 +304,23 @@
           </div>
         </div>
 
+        <!-- ★追加：案内（ログの代わりに表示） -->
+        <div id="checkinNotice" class="notice ok" style="margin-top:12px;">
+          <div class="title">準備中</div>
+          <div id="checkinNoticeText">会員情報とクラス一覧を読み込みます。</div>
+          <div id="checkinNoticeSmall" class="small" style="margin-top:6px;"></div>
+        </div>
+
         <div class="sep"></div>
 
         <div class="label">クラス</div>
         <select id="classSel"></select>
 
-        <div class="label" style="margin-top:12px;">結果</div>
-        <pre id="out">—</pre>
+        <!-- ★デバッグログ（通常非表示：必要ならhideを外す） -->
+        <details id="dbgCheckin" class="hide" style="margin-top:12px;">
+          <summary class="hint">デバッグログ</summary>
+          <pre id="out">—</pre>
+        </details>
 
         <div style="height:10px"></div>
       </div>
@@ -285,7 +345,7 @@
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   /* =================================== */
 
-  document.title = "cash_checkin BUILD 2026-02-09_cash_checkin_member_gate_v8_hold_until_me_cash_success";
+  document.title = "cash_checkin BUILD 2026-02-09_cash_checkin_member_gate_v8_hold_until_me_cash_success__ui_notice_hide_logs";
 
   const JSONP_TIMEOUT_MS = 16000;
   const $ = (id)=>document.getElementById(id);
@@ -304,8 +364,9 @@
   window.onerror = function(msg, src, line, col, err){
     try{
       const o = { where:"window.onerror", msg:String(msg), src:String(src), line, col, err:String(err && err.stack ? err.stack : err) };
-      if ($("out")) $("out").textContent = JSON.stringify(o, null, 2);
-      if ($("outVerify")) $("outVerify").textContent = JSON.stringify(o, null, 2);
+      // デバッグ枠が表示されている時だけ書く（通常は何もしない）
+      setOut(o);
+      setOutVerify(o);
       if ($("verifyErr")) $("verifyErr").textContent = "JSエラーで停止しました。\n" + JSON.stringify(o, null, 2);
     }catch(_){}
   };
@@ -313,14 +374,47 @@
     try{
       const r = ev && ev.reason;
       const o = { where:"unhandledrejection", reason:String(r && r.stack ? r.stack : r) };
-      if ($("out")) $("out").textContent = JSON.stringify(o, null, 2);
-      if ($("outVerify")) $("outVerify").textContent = JSON.stringify(o, null, 2);
+      setOut(o);
+      setOutVerify(o);
       if ($("verifyErr")) $("verifyErr").textContent = "Promise例外で停止しました。\n" + JSON.stringify(o, null, 2);
     }catch(_){}
   };
 
-  function setOut(obj){ $("out").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2); }
-  function setOutVerify(obj){ $("outVerify").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2); }
+  /* ===== 追加：案内UI helper ===== */
+  function setVerifyNotice(type, title, text){
+    const box = $("verifyNotice");
+    if (!box) return;
+    box.className = "notice " + (type || "warn");
+    const t = box.querySelector(".title");
+    if (t) t.textContent = title || "";
+    const el = $("verifyNoticeText");
+    if (el) el.textContent = text || "";
+  }
+  function setCheckinNotice(type, title, text, small){
+    const box = $("checkinNotice");
+    if (!box) return;
+    box.className = "notice " + (type || "ok");
+    const t = box.querySelector(".title");
+    if (t) t.textContent = title || "";
+    const el = $("checkinNoticeText");
+    if (el) el.textContent = text || "";
+    const sm = $("checkinNoticeSmall");
+    if (sm) sm.textContent = small || "";
+  }
+  /* ===== 追加ここまで ===== */
+
+  // ★デバッグは通常非表示：detailsがhideなら書かない
+  function setOut(obj){
+    const dbg = $("dbgCheckin");
+    if (!dbg || dbg.classList.contains("hide")) return;
+    $("out").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
+  }
+  function setOutVerify(obj){
+    const dbg = $("dbgVerify");
+    if (!dbg || dbg.classList.contains("hide")) return;
+    $("outVerify").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
+  }
+
   function setStatus(t){ $("statusText").textContent = t || ""; }
   function setVerifyStatus(t){ $("verifyStatus").textContent = t || ""; }
 
@@ -461,19 +555,18 @@
     return await jsonp(meUrl);
   }
 
-
   function setVerifyCandidates_(cands){
     const box = $("verifySelectBox");
     const sel = $("verifyMemberSel");
     sel.innerHTML = "";
-  
+
     (cands || []).forEach((c, i)=>{
       const opt = document.createElement("option");
       opt.value = String(c.rowIndex || ""); // ★必ずrowIndexをvalueへ
       opt.textContent = `${c.member_name || "(不明)"}${c.member_type ? " / "+c.member_type : ""}（候補${i+1}）`;
       sel.appendChild(opt);
     });
-  
+
     // ★重要：初期選択を「value」でも確定させる（iOS対策）
     if (sel.options.length > 0){
       sel.selectedIndex = 0;
@@ -483,16 +576,20 @@
       gSelectedRowIndex = 0;
     }
     updatePickedRowIndexLabel_();
-  
+
     // 変更時も value と selectedIndex の両方から確実に取る
     sel.onchange = ()=> {
       gSelectedRowIndex = getSelectedRowIndexFromUI_();
       updatePickedRowIndexLabel_();
+      setVerifyNotice("warn","候補を選択してください",`選択中 rowIndex：${gSelectedRowIndex || "—"}\n選択後、「会員確認して続行」を押してください。`);
       setOutVerify({ where:"candidate_changed", picked_rowIndex:gSelectedRowIndex, picked_text: sel.options[sel.selectedIndex]?.textContent });
     };
-  
+
     box.classList.remove("hide");
-  
+
+    // ★案内更新
+    setVerifyNotice("warn","候補を選択してください",`同じ電話番号の会員が複数見つかりました。\n候補を選んで「会員確認して続行」を押してください。\n選択中 rowIndex：${gSelectedRowIndex || "—"}`);
+
     // デバッグ：初期状態を出す
     setOutVerify({
       where:"candidates_shown",
@@ -512,6 +609,7 @@
   // ★重要：me_cash が success になるまで「チェックイン画面へ進ませない」
   async function verifyMeCashOrStayOnVerify_(){
     setVerifyStatus("会員情報を確認中…（me_cash）");
+    setVerifyNotice("warn","確認中…","会員情報を確認しています。少々お待ちください。");
     try{
       const me = await fetchMeCashByUserId_();
       setOutVerify({ where:"me_cash_after_resolve", me });
@@ -519,6 +617,7 @@
       if (me && me.status === "success"){
         if (me.member_id) gMemberId = String(me.member_id).trim();
         setVerifyStatus("会員情報OK（チェックインへ移動）");
+        setVerifyNotice("ok","確認OK","会員情報の確認が完了しました。チェックイン画面へ移動します。");
         return true;
       }
 
@@ -528,6 +627,7 @@
         "status=" + String(me && me.status) + "\n" +
         "message=" + String(me && me.message ? me.message : "(no message)");
       setVerifyStatus("会員情報取得失敗");
+      setVerifyNotice("ng","会員情報取得に失敗","もう一度「会員確認して続行」を押してください。");
       return false;
 
     }catch(e){
@@ -536,51 +636,66 @@
         "会員情報取得に失敗しました（通信/例外）\n" +
         String(e?.message || e);
       setVerifyStatus("会員情報取得失敗");
+      setVerifyNotice("ng","通信失敗","通信に失敗しました。もう一度「会員確認して続行」を押してください。");
       return false;
     }
   }
 
   async function ensureMemberInfoByMeCashOnCheckin_(){
     setStatus("会員情報を取得中…");
+    setCheckinNotice("ok","準備中","会員情報を取得しています…");
     try{
       const me = await fetchMeCashByUserId_();
       setOut({ where:"me_cash_on_checkin", me });
-  
+
       if (!me || me.status !== "success"){
         setStatus("会員情報取得失敗");
+        setCheckinNotice("ng","読み込み失敗","会員情報の取得に失敗しました。会員確認に戻ってやり直してください。");
         return { ok:false, allow_cash_checkin:false, me };
       }
-  
+
       if (me.member_id) gMemberId = String(me.member_id).trim();
       applyMeToUi_(me);
-  
+
       const allow = (me.allow_cash_checkin !== false);
-  
+
       if (!allow){
         setStatus(String(me.cash_reason || "月謝内のため現地精算不可"));
+        const mc  = Number(me?.month_count || 0);
+        const lim = Number(me?.plan_limit || 0);
+        setCheckinNotice(
+          "warn",
+          "現地精算はできません",
+          "月謝内のため、この画面ではチェックインできません。",
+          `今月の受講数：${mc}${lim ? ` / ${lim}` : ""}（通常チェックインへ）`
+        );
       } else {
         setStatus("チェックイン可能");
+        // 金額はUI上部のfeeで見える前提なので、ここは短く
+        setCheckinNotice("ok","チェックインできます","クラスを選択して「現地精算でチェックイン」を押してください。");
       }
-  
+
       return { ok:true, allow_cash_checkin:allow, me };
-  
+
     }catch(e){
       setOut({ where:"me_cash_exception_on_checkin", error:String(e?.message||e) });
       setStatus("会員情報取得失敗");
+      setCheckinNotice("ng","通信失敗","会員情報の取得に失敗しました。会員確認に戻ってやり直してください。");
       return { ok:false, allow_cash_checkin:false, me:null };
     }
   }
 
-
   async function loadClasses_(){
     setOut("classes 読み込み中...");
     setStatus("クラス一覧を取得中…");
+    setCheckinNotice("ok","準備中","クラス一覧を取得しています…");
 
     const clsUrl = `${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`;
     const cls = await jsonp(clsUrl);
     if (!cls || cls.status !== "success") {
       setOut({ where:"classes", clsUrl, cls });
       setStatus("失敗");
+      setCheckinNotice("ng","読み込み失敗","クラス一覧の取得に失敗しました。電波状況を確認してやり直してください。");
       return false;
     }
 
@@ -600,10 +715,12 @@
     showCheckinScreen_();
     $("yyyymm").textContent = yyyymmNowJst();
     setMemberUiLocked_();
-  
+
+    setCheckinNotice("ok","準備中","会員情報とクラス一覧を読み込みます。");
+
     const meState = await ensureMemberInfoByMeCashOnCheckin_();
     const clsOk = await loadClasses_();
-  
+
     // 失敗なら終了
     if (!meState.ok || !clsOk){
       $("btnCheckin").disabled = true;
@@ -611,47 +728,52 @@
       setOut(!meState.ok ? "会員情報取得に失敗" : "クラス取得に失敗");
       return;
     }
-  
+
     // ★月謝内＝現地精算不可は「戻さない」
-    if (!meState.allow){
+    if (!meState.allow_cash_checkin){
       $("btnCheckin").disabled = true;
       $("btnCheckin").textContent = "現地精算不可（通常チェックインへ）";
-  
+
       const mc  = Number(meState.me?.month_count || 0);
       const lim = Number(meState.me?.plan_limit || 0);
+
+      // ポップアップは“最後の安全装置”として残す
       const msg =
         `月謝内のため現地精算はできません。\n` +
         `今月の受講数：${mc}${lim ? ` / ${lim}` : ""}\n\n` +
         `→ 通常チェックインをしてください。`;
       alert(msg);
-  
+
       setOut({ where:"cash_blocked_ui", member_id:gMemberId, month_count:mc, plan_limit:lim, reason:meState.me?.cash_reason });
       return;
     }
-  
+
     // allow のときだけ押せる
     $("btnCheckin").disabled = false;
     $("btnCheckin").textContent = "現地精算でチェックイン（PENDING）";
     setOut("準備OK。");
-  
+    setCheckinNotice("ok","チェックインできます","クラスを選択して「現地精算でチェックイン」を押してください。");
+
     $("btnCheckin").onclick = async ()=>{
       if (!gMemberId){
         setOut({ where:"checkin_blocked", reason:"member_id_empty_after_me_cash" });
         setStatus("会員未確定");
+        setCheckinNotice("ng","会員未確定","会員情報が確定できませんでした。会員確認に戻ってやり直してください。");
         return;
       }
-  
+
       if (RUNNING) return;
       RUNNING = true;
-  
+
       $("btnCheckin").disabled = true;
       setStatus("チェックイン送信中…");
-  
+      setCheckinNotice("ok","送信中…","チェックインを送信しています。");
+
       try{
         const sel = $("classSel");
         const classId = sel.value;
         const className = sel.options[sel.selectedIndex]?.textContent || "";
-  
+
         const url =
           `${API_URL}?api=checkin`
           + `&token=${encodeURIComponent(API_TOKEN)}`
@@ -663,23 +785,25 @@
           + `&className=${encodeURIComponent(className)}`
           + (gVerifiedPhone ? `&phone=${encodeURIComponent(gVerifiedPhone)}` : "")
           + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
-  
+
         const res = await jsonp(url);
         setOut({ where:"checkin_result", url, res });
-  
+
         if (res && res.status === "success") {
           const lines = [];
           if (res.pending === true) lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
           if (res.over_limit === true && res.over_message) lines.push(res.over_message);
           else if (res.month_count) lines.push(`今月の受講は ${res.month_count} 回目です。`);
           if (lines.length === 0) lines.push("チェックインが完了しました。");
-  
+
           const text = lines.join("\n\n") + "\n\nOKでスタンプ付与へ移動します。";
           setStatus("確認待ち");
-  
+          setCheckinNotice("ok","完了","チェックインが完了しました。画面の案内に従ってください。");
+
           const ok = confirm(text);
           if (ok) {
             setStatus("スタンプへ移動中…");
+            setCheckinNotice("ok","移動中…","スタンプ付与画面へ移動します。");
             try { liff.openWindow({ url: STAMP_URL, external: false }); }
             catch(e1){
               try { liff.openWindow({ url: STAMP_URL, external: true }); }
@@ -687,21 +811,37 @@
             }
           } else {
             setStatus("キャンセル");
+            setCheckinNotice("warn","キャンセル","スタンプ付与への移動をキャンセルしました。");
           }
           return;
         }
-  
+
+        // blocked などもここで案内
+        if (res && res.status === "blocked"){
+          setStatus("現地精算不可");
+          const mc  = Number(res.month_count || 0);
+          const lim = Number(res.plan_limit || 0);
+          setCheckinNotice("warn","現地精算はできません", String(res.message || "月謝内のため現地精算不可"), `今月の受講数：${mc}${lim ? ` / ${lim}` : ""}`);
+          alert(String(res.message || "月謝内のため現地精算不可"));
+          return;
+        }
+
         setStatus("エラー");
+        setCheckinNotice("ng","エラー","チェックインに失敗しました。受付へお声がけください。");
+
       } catch(err){
         setOut({ where:"checkin_exception", error:String(err?.message || err) });
         setStatus("通信失敗");
+        setCheckinNotice("ng","通信失敗","通信に失敗しました。電波状況を確認してやり直してください。");
       } finally {
         RUNNING = false;
+
+        // ★注意：ここで無条件に戻さない（現地精算不可の時に戻ってしまう事故防止）
+        // allow の時だけ復帰
         $("btnCheckin").disabled = false;
       }
     };
   }
-
 
   async function doResolveMember_(){
     if (RESOLVE_IN_FLIGHT) return;
@@ -715,6 +855,7 @@
       $("verifyErr").textContent = "";
       setOutVerify("照会中…");
       setVerifyStatus("照会中…");
+      setVerifyNotice("ok","照会中…","電話番号から会員情報を照会しています。");
 
       const phone = normPhone_($("verifyPhone").value);
       gVerifiedPhone = phone;
@@ -722,17 +863,18 @@
       if (!phone){
         $("verifyErr").textContent = "電話番号を入力してください（ハイフンなし）";
         setVerifyStatus("入力待ち");
+        setVerifyNotice("warn","入力してください","電話番号（ハイフンなし）を入力してください。");
         return;
       }
 
       const box = $("verifySelectBox");
       const hasCandidates = box && !box.classList.contains("hide");
-      
+
       // 候補表示中は rowIndex を「必ず」確定させる
       let rowIndex = 0;
       if (hasCandidates){
         rowIndex = getSelectedRowIndexFromUI_();
-      
+
         // それでも取れないなら、強制的に selectedIndex=0 で確定させる
         if (!rowIndex){
           const sel = $("verifyMemberSel");
@@ -742,15 +884,16 @@
             rowIndex = getSelectedRowIndexFromUI_();
           }
         }
-      
+
         if (!rowIndex){
           $("verifyErr").textContent = "候補の選択が確定できませんでした。いったん候補を選び直してから続行してください。";
           setVerifyStatus("候補選択");
+          setVerifyNotice("warn","候補を選択してください","候補を選び直してから「会員確認して続行」を押してください。");
           setOutVerify({ where:"rowIndex_missing", hasCandidates:true, selValue: $("verifyMemberSel")?.value, selIndex: $("verifyMemberSel")?.selectedIndex });
           return;
         }
       }
-      
+
       // デバッグ：送る直前に必ず表示
       setOutVerify({ where:"resolve_member_will_send", phone, hasCandidates, rowIndex });
 
@@ -763,7 +906,6 @@
 
       const r = await jsonp(url);
 
-      // 常に「今回送ったrowIndex」をログへ残す
       if (r && r.status === "need_member_select"){
         setVerifyCandidates_(r.candidates || []);
         $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
@@ -778,6 +920,7 @@
 
         setOutVerify({ where:"resolve_member_success", url, picked_rowIndex: rowIndex, r });
         setVerifyStatus("紐付けOK → me_cash確認中…");
+        setVerifyNotice("ok","紐付けOK","会員情報を確認しています…");
 
         // ★ここが修正点：me_cashがsuccessになるまで「チェックインへ進ませない」
         const ok = await verifyMeCashOrStayOnVerify_();
@@ -793,11 +936,13 @@
         "message=" + String(r && r.message ? r.message : "(no message)");
       setOutVerify({ where:"resolve_member_error", url, picked_rowIndex: rowIndex, r });
       setVerifyStatus("失敗");
+      setVerifyNotice("ng","照会に失敗","もう一度やり直してください。");
 
     } catch(err){
       $("verifyErr").textContent = "通信失敗: " + String(err?.message || err);
       setOutVerify({ where:"resolve_member_exception", error:String(err?.message || err) });
       setVerifyStatus("失敗");
+      setVerifyNotice("ng","通信失敗","通信に失敗しました。電波状況を確認してやり直してください。");
     } finally {
       RESOLVE_IN_FLIGHT = false;
       $("btnVerifyOk").disabled = false;
@@ -823,9 +968,10 @@
       // LIFF外：最低限クリア
       $("verifyPhone").value = "";
       $("verifyErr").textContent = "";
-      $("outVerify").textContent = "—";
       clearVerifyCandidates_();
       setVerifyStatus("入力待ち");
+      setVerifyNotice("warn","入力してください","電話番号（ハイフンなし）を入力して「続行」を押してください。");
+      // デバッグログは触らない（非表示のまま）
     }, true);
   }
 
@@ -837,9 +983,9 @@
       e.stopPropagation();
       $("verifyPhone").value = "";
       $("verifyErr").textContent = "";
-      $("outVerify").textContent = "—";
       clearVerifyCandidates_();
       setVerifyStatus("入力待ち");
+      setVerifyNotice("warn","入力してください","電話番号（ハイフンなし）を入力して「続行」を押してください。");
     }, true);
   }
 
@@ -851,6 +997,7 @@
       e.stopPropagation();
       showVerifyScreen_();
       setVerifyStatus("入力待ち");
+      setVerifyNotice("warn","入力してください","電話番号（ハイフンなし）を入力して「続行」を押してください。");
     }, true);
   }
 
@@ -859,10 +1006,9 @@
     const cancelBtn = $("btnVerifyCancel");
     const retryBtn = $("btnVerifyRetry");
     const phone = $("verifyPhone");
-    const out = $("outVerify");
     const st = $("verifyStatus");
 
-    if (!okBtn || !cancelBtn || !retryBtn || !phone || !out || !st){
+    if (!okBtn || !cancelBtn || !retryBtn || !phone || !st){
       throw new Error("Missing verify elements");
     }
 
@@ -883,12 +1029,14 @@
 
     setOutVerify({ where:"bindVerifyUI_", ok:true, at:new Date().toISOString() });
     setVerifyStatus("入力待ち");
+    setVerifyNotice("warn","入力してください","電話番号（ハイフンなし）を入力して「続行」を押してください。");
   }
 
   async function main(){
     showVerifyScreen_();
     setOutVerify({ where:"boot_ok", at:new Date().toISOString() });
     setVerifyStatus("LIFF初期化中…");
+    setVerifyNotice("ok","起動中…","LINE認証を確認しています…");
 
     await withTimeout(liff.init({ liffId: LIFF_ID }), 20000, "liff.init");
     if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -904,6 +1052,7 @@
   main().catch(e=>{
     setOutVerify("FATAL: " + String(e && e.message ? e.message : e));
     setVerifyStatus("起動失敗");
+    setVerifyNotice("ng","起動失敗","ページを閉じて、もう一度QRから開いてください。");
   });
 </script>
 </body>
