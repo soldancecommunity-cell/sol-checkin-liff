@@ -403,6 +403,38 @@
     return v3 || 0;
   }
 
+  // ★追加：候補選択UIから rowIndex を確実に取得（未定義エラー対策）
+  function getSelectedRowIndexFromUI_(){
+    const box = $("verifySelectBox");
+    const sel = $("verifyMemberSel");
+    if (!box || !sel) return 0;
+    if (box.classList.contains("hide")) return 0;
+
+    // selectedOptions 優先
+    try{
+      const so = sel.selectedOptions && sel.selectedOptions[0];
+      const v1 = so ? String(so.value || "").trim() : "";
+      const n1 = Number(v1);
+      if (Number.isFinite(n1) && n1 > 0) return n1;
+    }catch(_){}
+
+    // selectedIndex fallback
+    try{
+      const idx = (typeof sel.selectedIndex === "number") ? sel.selectedIndex : -1;
+      if (idx >= 0){
+        const opt = sel.options && sel.options[idx];
+        const v2 = opt ? String(opt.value || "").trim() : "";
+        const n2 = Number(v2);
+        if (Number.isFinite(n2) && n2 > 0) return n2;
+      }
+    }catch(_){}
+
+    // value fallback
+    const v3 = String(sel.value || "").trim();
+    const n3 = Number(v3);
+    return (Number.isFinite(n3) && n3 > 0) ? n3 : 0;
+  }
+
   function setMemberUiLocked_(){
     $("memberName").textContent = "(未確定)";
     const badge = $("contractBadge");
@@ -448,10 +480,12 @@
     } else {
       gSelectedRowIndex = 0;
     }
+    updatePickedRowIndexLabel_();
   
     // 変更時も value と selectedIndex の両方から確実に取る
     sel.onchange = ()=> {
       gSelectedRowIndex = getSelectedRowIndexFromUI_();
+      updatePickedRowIndexLabel_();
       setOutVerify({ where:"candidate_changed", picked_rowIndex:gSelectedRowIndex, picked_text: sel.options[sel.selectedIndex]?.textContent });
     };
   
@@ -465,7 +499,6 @@
       picked_text: sel.options[sel.selectedIndex]?.textContent
     });
   }
-
 
   function clearVerifyCandidates_(){
     $("verifySelectBox").classList.add("hide");
@@ -690,7 +723,6 @@
       
       // デバッグ：送る直前に必ず表示
       setOutVerify({ where:"resolve_member_will_send", phone, hasCandidates, rowIndex });
-
 
       const url =
         `${API_URL}?api=resolve_member`
