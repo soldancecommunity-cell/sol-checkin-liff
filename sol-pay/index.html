@@ -564,75 +564,45 @@ window.selectMember = function(mid){
 /** ==========================
  *  boot
  *  ========================== */
-(async function boot(){
-  setButtonsEnabled(false);
-  setPill("warn","起動中…");
-
-  // ★member_id はURLから
-  const u = new URL(location.href);
-  memberId = String(u.searchParams.get("member_id") || u.searchParams.get("memberId") || "").trim();
-
+async function boot(){
+  const s = document.getElementById("status");
   try{
     await liff.init({ liffId: LIFF_ID });
 
+    // ログインしてなければログインへ
     if (!liff.isLoggedIn()){
-      setPill("warn","LINEログイン…");
+      s.textContent = "LINEログインへ...";
       liff.login({ redirectUri: location.href });
       return;
     }
 
-    const prof = await liff.getProfile();
-    lineUserId = prof.userId;
-    displayName = prof.displayName || "";
-
-    document.getElementById("hello").textContent = `こんにちは、${displayName}さん`;
-    document.getElementById("desc").textContent =
-      "プランを選択するとStripeの決済ページに移動します。決済完了後、会員情報が更新されます。";
-
-    // ★member_id が無い場合：ここで自動確定 or 選択へ
-    if (!memberId){
-      setPill("warn","会員確認…");
-      document.getElementById("targetName").textContent = "選択が必要";
-      showToast("会員情報を確認しています。\n（同じLINEで複数会員の場合は選択画面が出ます）", "warn");
-
-      const members = await fetchMembersByLineUserId_(lineUserId);
-
-      if (members.length === 0){
-        setPill("bad","会員未特定");
-        showToast("このLINEに紐づく会員が見つかりません。\nスタッフに連絡してください。", "bad");
+    // ここで token が壊れてると getProfile が Invalid token を投げることがある
+    let prof;
+    try{
+      prof = await liff.getProfile();
+    } catch (e){
+      const msg = String(e && e.message ? e.message : e);
+      if (msg.includes("Invalid token")){
+        // ★復旧：一度ログアウトしてトークン再取得
+        try{ liff.logout(); }catch(_){}
+        s.textContent = "認証を更新中...";
+        liff.login({ redirectUri: location.href });
         return;
       }
-
-      if (members.length === 1){
-        // 1人なら自動確定→URL付与して再読込
-        const mid = String(members[0].member_id || '').trim();
-        replaceUrlWithMemberId_(mid);
-        return;
-      }
-
-      // 複数なら選択UI表示（member_id確定までプランは押せない）
-      hideToast();
-      setPill("warn","会員選択");
-      showMemberPicker_(members);
-      // ボタンは無効のまま
-      return;
+      throw e;
     }
 
-    // member_id が確定している
-    document.getElementById("targetName").textContent = "確定済み";
-    document.getElementById("memberChip").style.display = "inline-flex";
-    document.getElementById("memberIdShort").textContent = shortId(memberId);
-
-    setPill("ok","準備OK");
-    setButtonsEnabled(true);
-    booted = true;
+    lineUserId = prof.userId;
+    displayName = prof.displayName || "";
+    s.textContent = `ログインOK：${displayName}`;
+    document.getElementById("plans").style.display = "block";
 
   }catch(e){
-    setPill("bad","起動失敗");
-    setButtonsEnabled(false);
-    showToast("LIFFの初期化に失敗しました。\n" + (e && e.message ? e.message : String(e)));
+    // ここは「本当に init に失敗した」or それ以外の例外
+    s.textContent = "起動に失敗：" + (e && e.message ? e.message : String(e));
   }
-})();
+}
+
 
 /** ==========================
  *  Pay
