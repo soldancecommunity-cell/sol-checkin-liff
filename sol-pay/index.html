@@ -1,152 +1,483 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SoL Pay</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>SoL Pay（月謝）</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
   <style>
-    body{font-family:system-ui; padding:16px;}
-    button{padding:12px 14px; margin:8px 0; width:100%;}
-    .muted{opacity:.7; font-size:12px;}
-    .card{border:1px solid #ddd; border-radius:12px; padding:12px; margin:12px 0;}
-    input{width:100%; padding:12px; border-radius:10px; border:1px solid #ddd;}
-    .row{display:flex; gap:8px;}
-    .row > *{flex:1;}
-    .small{font-size:12px; opacity:.75;}
-    .sep{height:1px; background:#eee; margin:12px 0;}
+    :root{
+      --bg0:#06070a; --bg1:#0b0d12;
+      --card: rgba(255,255,255,.06);
+      --card2: rgba(255,255,255,.035);
+      --line: rgba(255,255,255,.10);
+      --text:#eaf0ff; --muted:#a9b4d0;
+      --accent:#7c5cff; --accent2:#2dd4bf;
+      --ok:#22c55e; --warn:#f59e0b; --bad:#ff4d6d;
+      --r: 18px;
+      --shadow: 0 24px 80px rgba(0,0,0,.55);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background:
+        radial-gradient(1200px 700px at 20% -10%, rgba(124,92,255,.35), transparent 55%),
+        radial-gradient(1000px 700px at 110% 10%, rgba(45,212,191,.22), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color: var(--text);
+    }
+
+    .wrap{
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 16px 16px 28px;
+      padding-bottom: calc(28px + env(safe-area-inset-bottom));
+    }
+
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top: 6px;
+    }
+    .brand{
+      display:flex; flex-direction:column; gap:2px;
+    }
+    .brand h1{
+      font-size: 18px;
+      margin:0;
+      letter-spacing:.02em;
+    }
+    .brand .sub{
+      font-size:12px;
+      color: var(--muted);
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .dot{
+      width:8px; height:8px; border-radius:999px;
+      background: rgba(255,255,255,.35);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.05);
+    }
+    .dot.ok{ background: var(--ok); box-shadow: 0 0 0 3px rgba(34,197,94,.14); }
+    .dot.warn{ background: var(--warn); box-shadow: 0 0 0 3px rgba(245,158,11,.14); }
+    .dot.bad{ background: var(--bad); box-shadow: 0 0 0 3px rgba(255,77,109,.14); }
+
+    .hero{
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border-radius: var(--r);
+      padding: 14px 14px;
+      box-shadow: var(--shadow);
+    }
+    .hero .row{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+    }
+    .hero .title{
+      font-size: 14px;
+      margin:0;
+      color: var(--text);
+    }
+    .hero .desc{
+      margin:6px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .kv{
+      display:flex; flex-direction:column; align-items:flex-end; gap:4px;
+      min-width: 120px;
+      text-align:right;
+    }
+    .kv .label{
+      font-size: 11px; color: var(--muted);
+    }
+    .kv .value{
+      font-size: 16px; font-weight: 700;
+      letter-spacing:.02em;
+    }
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+      font-size: 12px;
+    }
+    .chip b{ font-weight:700; }
+
+    .sectionTitle{
+      margin: 18px 2px 10px;
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing:.04em;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .plan{
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      background: rgba(255,255,255,.045);
+      overflow:hidden;
+    }
+    .plan .top{
+      padding: 14px 14px 12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap: 12px;
+    }
+    .plan h3{
+      margin:0;
+      font-size: 15px;
+      letter-spacing:.02em;
+    }
+    .plan .meta{
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .price{
+      text-align:right;
+      min-width: 118px;
+    }
+    .price .yen{
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing:.02em;
+    }
+    .price .per{
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .plan .bottom{
+      border-top: 1px solid rgba(255,255,255,.08);
+      padding: 10px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      background: rgba(0,0,0,.12);
+    }
+
+    .tags{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 6px;
+    }
+
+    .btn{
+      appearance:none;
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 800;
+      letter-spacing:.02em;
+      cursor:pointer;
+      color: #0b0d12;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      box-shadow: 0 18px 50px rgba(124,92,255,.25);
+      min-width: 132px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap: 10px;
+      user-select:none;
+    }
+    .btn:disabled{
+      cursor:not-allowed;
+      opacity: .55;
+      filter: grayscale(.25);
+      box-shadow:none;
+    }
+    .btn.secondary{
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+      border: 1px solid var(--line);
+      box-shadow:none;
+    }
+    .spinner{
+      width:16px; height:16px;
+      border-radius:999px;
+      border:2px solid rgba(255,255,255,.35);
+      border-top-color: rgba(255,255,255,.95);
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .foot{
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+      padding: 2px 4px;
+    }
+    .foot a{ color: var(--text); text-decoration: none; border-bottom: 1px dashed rgba(255,255,255,.25); }
+
+    /* Toast */
+    .toast{
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: calc(14px + env(safe-area-inset-bottom));
+      width: calc(100% - 24px);
+      max-width: 520px;
+      border: 1px solid var(--line);
+      background: rgba(10,12,18,.86);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 10px 12px;
+      display:none;
+      box-shadow: 0 18px 60px rgba(0,0,0,.55);
+    }
+    .toast .trow{
+      display:flex; align-items:flex-start; gap:10px;
+    }
+    .toast .tmsg{
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.5;
+      flex: 1;
+      white-space: pre-wrap;
+    }
+    .toast .tbtn{
+      appearance:none; border:0;
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-weight: 700;
+      cursor:pointer;
+    }
+
+    /* Small devices tweaks */
+    @media (max-width: 360px){
+      .price{ min-width: 100px; }
+      .btn{ min-width: 120px; }
+    }
   </style>
 </head>
+
 <body>
-  <h2>SoL Pay（月謝）</h2>
-  <div id="status" class="muted">起動中...</div>
-
-  <!-- 会員確定（兄弟ケース対策） -->
-  <div id="memberBox" class="card" style="display:none">
-    <div class="small">会員の確定（初回のみ）</div>
-    <div id="memberNow" style="margin:6px 0 10px 0;"></div>
-
-    <div id="needPhoneBox" style="display:none">
-      <div class="small">電話番号（ハイフンなし）で会員を検索します</div>
-      <div class="row" style="margin-top:8px;">
-        <input id="phoneInput" inputmode="numeric" placeholder="例：08012345678" />
-        <button id="btnResolve" style="flex:0 0 120px;">検索</button>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <h1>SoL Pay</h1>
+        <div class="sub">月謝の契約 / プラン変更</div>
       </div>
-      <div class="small" style="margin-top:6px;">※兄弟などで候補が複数の場合は、次に会員名を選択します</div>
+
+      <div id="statePill" class="pill">
+        <span id="stateDot" class="dot warn"></span>
+        <span id="stateText">起動中…</span>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="row">
+        <div>
+          <p class="title" id="hello">LINE連携を確認しています</p>
+          <p class="desc" id="desc">
+            決済はStripeで行います。<br/>
+            画面の案内に沿って進めてください。
+          </p>
+        </div>
+
+        <div class="kv">
+          <div class="label">対象</div>
+          <div class="value" id="targetName">未選択</div>
+          <div class="chip" id="memberChip" style="display:none;">
+            member_id <b id="memberIdShort"></b>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="sectionTitle">プランを選択</div>
+
+    <div class="grid" id="plans">
+      <!-- 月4 -->
+      <div class="plan">
+        <div class="top">
+          <div>
+            <h3>月4プラン</h3>
+            <div class="meta">月4回まで（追加受講は現地精算）</div>
+          </div>
+          <div class="price">
+            <div class="yen">¥5,900</div>
+            <div class="per">/ 月（税込）</div>
+          </div>
+        </div>
+        <div class="bottom">
+          <div class="tags">
+            <span class="chip">初心者向け</span>
+            <span class="chip">まずは月4</span>
+          </div>
+          <button class="btn" data-plan="month4" onclick="startPay('month4')">
+            <span>このプラン</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 月8 -->
+      <div class="plan">
+        <div class="top">
+          <div>
+            <h3>月8プラン</h3>
+            <div class="meta">月8回まで（人気）</div>
+          </div>
+          <div class="price">
+            <div class="yen">¥9,900</div>
+            <div class="per">/ 月（税込）</div>
+          </div>
+        </div>
+        <div class="bottom">
+          <div class="tags">
+            <span class="chip">一番人気</span>
+            <span class="chip">通いやすい</span>
+          </div>
+          <button class="btn" data-plan="month8" onclick="startPay('month8')">
+            <span>このプラン</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 月12 -->
+      <div class="plan">
+        <div class="top">
+          <div>
+            <h3>月12プラン</h3>
+            <div class="meta">月12回まで（ガッツリ）</div>
+          </div>
+          <div class="price">
+            <div class="yen">¥12,900</div>
+            <div class="per">/ 月（税込）</div>
+          </div>
+        </div>
+        <div class="bottom">
+          <div class="tags">
+            <span class="chip">週3目安</span>
+            <span class="chip">上達重視</span>
+          </div>
+          <button class="btn" data-plan="month12" onclick="startPay('month12')">
+            <span>このプラン</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 通い放題 -->
+      <div class="plan">
+        <div class="top">
+          <div>
+            <h3>通い放題</h3>
+            <div class="meta">回数制限なし</div>
+          </div>
+          <div class="price">
+            <div class="yen">¥14,900</div>
+            <div class="per">/ 月（税込）</div>
+          </div>
+        </div>
+        <div class="bottom">
+          <div class="tags">
+            <span class="chip">最短で上達</span>
+            <span class="chip">本気勢</span>
+          </div>
+          <button class="btn" data-plan="unlimited" onclick="startPay('unlimited')">
+            <span>このプラン</span>
+          </button>
+        </div>
+      </div>
+
+      <button class="btn secondary" id="refreshBtn" onclick="location.reload()" style="margin-top:6px;">
+        再読み込み
+      </button>
     </div>
 
-    <div id="pickBox" style="display:none">
-      <div class="small">該当する会員を選択してください</div>
-      <div id="pickList" style="margin-top:8px;"></div>
+    <div class="foot">
+      ・このページはLINE内（LIFF）での利用を推奨します。<br/>
+      ・家族（兄弟）で同じLINEを使う場合は <b>member_id をURLに含める</b>運用が確実です。<br/>
+      ・不具合が出たら「再読み込み」を試してください。
     </div>
-
-    <div class="sep"></div>
-    <button id="switchBtn" style="display:none;">別の会員に切り替える</button>
   </div>
 
-  <!-- プラン -->
-  <div id="plans" style="display:none">
-    <button id="btn4">月4プラン</button>
-    <button id="btn8">月8プラン</button>
-    <button id="btn12">月12プラン</button>
-    <button id="btnU">通い放題</button>
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <div class="trow">
+      <span class="dot bad" id="toastDot"></span>
+      <div class="tmsg" id="toastMsg">エラー</div>
+      <button class="tbtn" onclick="hideToast()">閉じる</button>
+    </div>
   </div>
 
 <script>
-const LIFF_ID = "2008938862-CTbDrlz3";
+/** ==========================
+ *  設定
+ *  ========================== */
+const LIFF_ID  = "2008938862-CTbDrlz3";
 const GAS_EXEC = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
-const API_TOKEN_PAY = "sol_pay_2026_144025036146";
+const API_TOKEN_PAY = "sol_pay_2026_144025036146"; // create_checkout 用
 
 let lineUserId = "";
 let displayName = "";
+let memberId = ""; // ★兄弟ケースのキー（URLから受ける想定）
+let booted = false;
+let paying = false;
 
-let memberId = "";       // ★主キー
-let memberName = "";
-
-const LS_KEY_MEMBER_ID = "solpay_member_id";
-const LS_KEY_MEMBER_NAME = "solpay_member_name";
-
-// 画面にJSエラーを出す（無反応対策）
-window.onerror = (msg, src, line, col, err) => {
-  const st = document.getElementById("status");
-  if (st) st.textContent = "JSエラー: " + msg + " (" + line + ":" + col + ")";
-};
-
-boot();
-
-async function boot(){
-  const s = document.getElementById("status");
-  try{
-    await liff.init({ liffId: LIFF_ID });
-
-    if (!liff.isLoggedIn()){
-      s.textContent = "LINEログインへ...";
-      liff.login({ redirectUri: location.href });
-      return;
-    }
-
-    const prof = await liff.getProfile();
-    lineUserId = prof.userId;
-    displayName = prof.displayName || "";
-
-    // 保存済み会員の復元（兄弟でも切替可能）
-    const savedId = localStorage.getItem(LS_KEY_MEMBER_ID) || "";
-    const savedNm = localStorage.getItem(LS_KEY_MEMBER_NAME) || "";
-    if (savedId){
-      memberId = savedId;
-      memberName = savedNm;
-    }
-
-    // ボタンイベントを確実に紐付け（inline onclickを使わない）
-    document.getElementById("btnResolve").onclick = () => resolveByPhone();
-    document.getElementById("switchBtn").onclick = () => switchMember();
-
-    document.getElementById("btn4").onclick  = () => startPay("month4");
-    document.getElementById("btn8").onclick  = () => startPay("month8");
-    document.getElementById("btn12").onclick = () => startPay("month12");
-    document.getElementById("btnU").onclick  = () => startPay("unlimit");
-
-    s.textContent = `ログインOK：${displayName}`;
-
-    ensureMemberUI_();
-
-  }catch(e){
-    s.textContent = "起動に失敗：" + (e && e.message ? e.message : String(e));
-  }
+/** ==========================
+ *  UI helpers
+ *  ========================== */
+function setPill(state, text){
+  const dot = document.getElementById("stateDot");
+  const t = document.getElementById("stateText");
+  dot.classList.remove("ok","warn","bad");
+  dot.classList.add(state);
+  t.textContent = text;
 }
 
-function ensureMemberUI_(){
-  const box = document.getElementById("memberBox");
-  const now = document.getElementById("memberNow");
-  const needPhone = document.getElementById("needPhoneBox");
-  const pickBox = document.getElementById("pickBox");
-  const switchBtn = document.getElementById("switchBtn");
-  const plans = document.getElementById("plans");
-
-  box.style.display = "block";
-  pickBox.style.display = "none";
-
-  if (memberId){
-    now.innerHTML = `現在の会員：<b>${escapeHtml(memberName || ("ID " + memberId))}</b>`;
-    needPhone.style.display = "none";
-    switchBtn.style.display = "block";
-    plans.style.display = "block";
-    return;
-  }
-
-  now.textContent = "会員が未確定です";
-  needPhone.style.display = "block";
-  switchBtn.style.display = "none";
-  plans.style.display = "none";
+function setButtonsEnabled(enabled){
+  document.querySelectorAll(".btn[data-plan]").forEach(b=>{
+    b.disabled = !enabled;
+  });
 }
 
-function switchMember(){
-  memberId = "";
-  memberName = "";
-  localStorage.removeItem(LS_KEY_MEMBER_ID);
-  localStorage.removeItem(LS_KEY_MEMBER_NAME);
-  document.getElementById("status").textContent = `ログインOK：${displayName}（会員を切り替えました）`;
-  ensureMemberUI_();
+function showToast(msg, kind="bad"){
+  const toast = document.getElementById("toast");
+  const dot = document.getElementById("toastDot");
+  const tmsg = document.getElementById("toastMsg");
+  dot.classList.remove("ok","warn","bad");
+  dot.classList.add(kind);
+  tmsg.textContent = msg;
+  toast.style.display = "block";
+}
+
+function hideToast(){
+  document.getElementById("toast").style.display = "none";
 }
 
 function yyyymmNow(){
@@ -156,16 +487,23 @@ function yyyymmNow(){
   return `${y}${m}`;
 }
 
-// JSONP helper
+function shortId(id){
+  if(!id) return "";
+  return id.slice(0,6) + "…" + id.slice(-4);
+}
+
+/** ==========================
+ *  JSONP helper
+ *  ========================== */
 function jsonp(url){
   return new Promise((resolve,reject)=>{
     const cb = "cb_" + Math.random().toString(36).slice(2);
     const s = document.createElement("script");
-    const timer = setTimeout(()=>{ cleanup(); reject(new Error("jsonp timeout")); }, 15000);
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error("jsonp timeout")); }, 20000);
 
     function cleanup(){
       clearTimeout(timer);
-      delete window[cb];
+      try{ delete window[cb]; }catch(_){}
       s.remove();
     }
 
@@ -176,138 +514,111 @@ function jsonp(url){
   });
 }
 
-// ★電話番号で候補を引く（GAS側 api=resolve_member を流用）
-async function resolveByPhone(){
-  const st = document.getElementById("status");
-  const phone = (document.getElementById("phoneInput").value || "").replace(/[^\d]/g,"");
-  if (!phone) { st.textContent = "電話番号を入力してください"; return; }
+/** ==========================
+ *  boot
+ *  ========================== */
+(async function boot(){
+  setButtonsEnabled(false);
+  setPill("warn","起動中…");
+
+  // ★member_id はURLから（兄弟ケースの安全策）
+  const u = new URL(location.href);
+  memberId = String(u.searchParams.get("member_id") || u.searchParams.get("memberId") || "").trim();
+
+  if (memberId){
+    document.getElementById("targetName").textContent = "指定あり";
+    document.getElementById("memberChip").style.display = "inline-flex";
+    document.getElementById("memberIdShort").textContent = shortId(memberId);
+  }
 
   try{
-    st.textContent = "会員照合中...";
+    await liff.init({ liffId: LIFF_ID });
 
-    const url = new URL(GAS_EXEC);
-    url.searchParams.set("api", "resolve_member");
-    url.searchParams.set("token", API_TOKEN_PAY);
-    url.searchParams.set("userId", lineUserId);
-    url.searchParams.set("phone", phone);
-    url.searchParams.set("rowIndex", "0");
-
-    const res = await jsonp(url.toString());
-
-    // ★デバッグ：まず中身を見える化（あとで消してOK）
-    console.log("resolve_member res =", res);
-
-    if (!res) throw new Error("resolve_member: empty response");
-
-    // ★error のときだけ落とす（success 固定にしない）
-    if (res.status === "error") {
-      throw new Error(res.message || "resolve_member error");
-    }
-
-    // 返却形式の揺れに耐える（候補配列を柔らかく拾う）
-    const candidates =
-      res.candidates ||
-      res.members ||
-      res.list ||
-      res.items ||
-      (res.member ? [res.member] : []) ||
-      [];
-
-    if (!Array.isArray(candidates) || candidates.length === 0){
-      // ★ここもデバッグ用に返却を表示
-      st.textContent = "候補0件（返却）: " + JSON.stringify(res).slice(0, 300);
+    if (!liff.isLoggedIn()){
+      setPill("warn","LINEログイン…");
+      liff.login({ redirectUri: location.href });
       return;
     }
 
-    if (candidates.length === 1){
-      const c = candidates[0];
-      setMember_(c.member_id || c.memberId || c.id || "", c.member_name || c.name || "");
-      st.textContent = `会員確定：${memberName}`;
-      ensureMemberUI_();
-      return;
+    const prof = await liff.getProfile();
+    lineUserId = prof.userId;
+    displayName = prof.displayName || "";
+
+    document.getElementById("hello").textContent = `こんにちは、${displayName}さん`;
+    document.getElementById("desc").textContent =
+      "プランを選択するとStripeの決済ページに移動します。決済完了後、会員情報が更新されます。";
+
+    setPill("ok","準備OK");
+
+    // member_id が無いと運用的に危険（兄弟ケースで誤紐付けする）
+    if (!memberId){
+      showToast("member_id がURLにありません。\n兄弟ケース等で誤紐付けを防ぐため、member_id付きURLで開く運用が安全です。", "warn");
+      // ボタンを有効にする/しないは運用次第。ここでは「有効」にしておく（あなたの判断でfalseでもOK）
+      setButtonsEnabled(true);
+    } else {
+      setButtonsEnabled(true);
     }
 
-    renderPickList_(candidates);
-    st.textContent = "会員が複数見つかりました。選択してください。";
+    booted = true;
 
   }catch(e){
-    st.textContent = "エラー：" + (e && e.message ? e.message : String(e));
+    setPill("bad","起動失敗");
+    setButtonsEnabled(false);
+    showToast("LIFFの初期化に失敗しました。\n" + (e && e.message ? e.message : String(e)));
   }
-}
+})();
 
-
-function renderPickList_(candidates){
-  const pickBox = document.getElementById("pickBox");
-  const list = document.getElementById("pickList");
-  pickBox.style.display = "block";
-  list.innerHTML = "";
-
-  candidates.forEach((c)=>{
-    const id = String(c.member_id || c.memberId || c.id || "").trim();
-    const nm = String(c.member_name || c.name || "").trim() || ("ID " + id);
-    const btn = document.createElement("button");
-    btn.textContent = nm;
-    btn.onclick = ()=>{
-      setMember_(id, nm);
-      document.getElementById("status").textContent = `会員確定：${nm}`;
-      ensureMemberUI_();
-    };
-    list.appendChild(btn);
-  });
-}
-
-function setMember_(id, nm){
-  id = String(id || "").trim();
-  if (!id) throw new Error("member_id missing in candidate");
-  memberId = id;
-  memberName = nm || "";
-  localStorage.setItem(LS_KEY_MEMBER_ID, memberId);
-  localStorage.setItem(LS_KEY_MEMBER_NAME, memberName);
-}
-
+/** ==========================
+ *  Pay
+ *  ========================== */
 async function startPay(plan){
-  const st = document.getElementById("status");
-  try{
-    if (!memberId) {
-      st.textContent = "先に会員を確定してください（電話番号で検索）";
-      ensureMemberUI_();
-      return;
-    }
+  if (!booted || paying) return;
+  paying = true;
 
-    disablePlanButtons_(true);
-    st.textContent = "決済ページ作成中...";
+  const btn = document.querySelector(`.btn[data-plan="${plan}"]`);
+  const original = btn ? btn.innerHTML : "";
+
+  try{
+    hideToast();
+    setButtonsEnabled(false);
+    setPill("warn","決済準備…");
+
+    if (btn){
+      btn.innerHTML = `<span class="spinner"></span><span>準備中…</span>`;
+      btn.disabled = true;
+    }
 
     const url = new URL(GAS_EXEC);
     url.searchParams.set("api", "create_checkout");
     url.searchParams.set("token", API_TOKEN_PAY);
     url.searchParams.set("lineUserId", lineUserId);
-    url.searchParams.set("member_id", memberId);
     url.searchParams.set("plan", plan);
     url.searchParams.set("yyyymm", yyyymmNow());
 
+    // ★兄弟ケースの安全策：member_id を必ず渡す
+    if (memberId) url.searchParams.set("member_id", memberId);
+
     const res = await jsonp(url.toString());
-    if (!res || res.status !== "success" || !res.url) {
-      throw new Error(res && res.message ? res.message : "create_checkout failed");
+
+    if (!res || res.status !== "success" || !res.url){
+      throw new Error((res && res.message) ? res.message : "create_checkout failed");
     }
 
+    setPill("ok","Stripeへ移動");
     location.href = res.url;
 
   }catch(e){
-    st.textContent = "エラー：" + (e && e.message ? e.message : String(e));
-    disablePlanButtons_(false);
+    setPill("bad","エラー");
+    showToast("決済ページの作成に失敗しました。\n" + (e && e.message ? e.message : String(e)));
+    setButtonsEnabled(true);
+
+    if (btn){
+      btn.innerHTML = original;
+      btn.disabled = false;
+    }
+  }finally{
+    paying = false;
   }
-}
-
-function disablePlanButtons_(disabled){
-  const box = document.getElementById("plans");
-  const btns = box.querySelectorAll("button");
-  btns.forEach(b=>b.disabled = !!disabled);
-}
-
-function escapeHtml(s){
-  return String(s || "").replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
-  }[c]));
 }
 </script>
 </body>
