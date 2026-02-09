@@ -564,28 +564,51 @@ window.selectMember = function(mid){
 /** ==========================
  *  boot
  *  ========================== */
-async function boot(){
-  const s = document.getElementById("status");
-  try{
-    await liff.init({ liffId: LIFF_ID });
+function withTimeout(p, ms, label){
+  let t;
+  const timeout = new Promise((_, rej)=> t=setTimeout(()=>rej(new Error(label+" timeout")), ms));
+  return Promise.race([p, timeout]).finally(()=>clearTimeout(t));
+}
 
-    // ログインしてなければログインへ
+(async function boot(){
+  setButtonsEnabled(false);
+  setPill("warn","起動中…");
+
+  // member_id はURLから
+  const u = new URL(location.href);
+  memberId = String(u.searchParams.get("member_id") || u.searchParams.get("memberId") || "").trim();
+
+  if (memberId){
+    document.getElementById("targetName").textContent = "指定あり";
+    document.getElementById("memberChip").style.display = "inline-flex";
+    document.getElementById("memberIdShort").textContent = shortId(memberId);
+  } else {
+    document.getElementById("targetName").textContent = "未指定";
+    document.getElementById("memberChip").style.display = "none";
+  }
+
+  try{
+    setPill("warn","LIFF初期化…");
+    await withTimeout(liff.init({ liffId: LIFF_ID }), 20000, "liff.init");
+
     if (!liff.isLoggedIn()){
-      s.textContent = "LINEログインへ...";
+      setPill("warn","LINEログイン…");
       liff.login({ redirectUri: location.href });
       return;
     }
 
-    // ここで token が壊れてると getProfile が Invalid token を投げることがある
+    setPill("warn","プロフィール取得…");
+
     let prof;
     try{
-      prof = await liff.getProfile();
+      prof = await withTimeout(liff.getProfile(), 15000, "liff.getProfile");
     } catch (e){
       const msg = String(e && e.message ? e.message : e);
+
+      // ★ここが重要：Invalid token ならトークン作り直し
       if (msg.includes("Invalid token")){
-        // ★復旧：一度ログアウトしてトークン再取得
+        setPill("warn","認証更新中…");
         try{ liff.logout(); }catch(_){}
-        s.textContent = "認証を更新中...";
         liff.login({ redirectUri: location.href });
         return;
       }
@@ -594,14 +617,26 @@ async function boot(){
 
     lineUserId = prof.userId;
     displayName = prof.displayName || "";
-    s.textContent = `ログインOK：${displayName}`;
-    document.getElementById("plans").style.display = "block";
+
+    document.getElementById("hello").textContent = `こんにちは、${displayName}さん`;
+    document.getElementById("desc").textContent =
+      "プランを選択するとStripeの決済ページに移動します。決済完了後、会員情報が更新されます。";
+
+    setPill("ok","準備OK");
+    setButtonsEnabled(true);
+    booted = true;
+
+    if (!memberId){
+      showToast("member_id がURLにありません。\n兄弟/家族運用では誤紐付け防止のため、member_id付きURLで開くのが安全です。", "warn");
+    }
 
   }catch(e){
-    // ここは「本当に init に失敗した」or それ以外の例外
-    s.textContent = "起動に失敗：" + (e && e.message ? e.message : String(e));
+    setPill("bad","起動失敗");
+    setButtonsEnabled(false);
+    showToast("起動に失敗しました。\n" + (e && e.message ? e.message : String(e)), "bad");
   }
-}
+})();
+
 
 
 /** ==========================
