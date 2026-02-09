@@ -17,8 +17,8 @@
 
   <div id="plans" style="display:none">
     <button onclick="startPay('month4')">月4プラン</button>
-    <button onclick="startPay('month8')">月8プラン</button>
-    <button onclick="startPay('unlimit')">通い放題</button>
+    <button onclick="('month8')">月8プラン</button>
+    <button onclick="('unlimit')">通い放題</button>
   </div>
 
 <script>
@@ -93,6 +93,7 @@ async function startPay(plan){
     url.searchParams.set("lineUserId", lineUserId);
     url.searchParams.set("plan", plan);
     url.searchParams.set("yyyymm", yyyymmNow());
+    url.searchParams.set("member_id", memberId); // ★追加
 
     const res = await jsonp(url.toString());
     if (!res || res.status !== "success" || !res.url) {
