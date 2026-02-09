@@ -513,7 +513,6 @@ function escapeHtml(s){
 function replaceUrlWithMemberId_(mid){
   const u = new URL(location.href);
   u.searchParams.set("member_id", mid);
-  // ★ replace で履歴を増やさず置き換え
   location.replace(u.toString());
 }
 
@@ -544,10 +543,11 @@ function showMemberPicker_(members){
   list.innerHTML = members.map(m => {
     const mid = String(m.member_id || '').trim();
     const name = String(m.member_name || '').trim() || "（名前未設定）";
+    const type = String(m.member_type || '').trim();
     return `
       <button class="pickBtn" onclick="selectMember('${mid}')">
         <div class="pickName">${escapeHtml(name)}</div>
-        <div class="pickSub">${escapeHtml(mid)}</div>
+        <div class="pickSub">${escapeHtml(type ? type + " / " : "")}${escapeHtml(mid)}</div>
       </button>
     `;
   }).join("");
@@ -605,7 +605,6 @@ function withTimeout(p, ms, label){
     } catch (e){
       const msg = String(e && e.message ? e.message : e);
 
-      // ★ここが重要：Invalid token ならトークン作り直し
       if (msg.includes("Invalid token")){
         setPill("warn","認証更新中…");
         try{ liff.logout(); }catch(_){}
@@ -622,13 +621,38 @@ function withTimeout(p, ms, label){
     document.getElementById("desc").textContent =
       "プランを選択するとStripeの決済ページに移動します。決済完了後、会員情報が更新されます。";
 
+    // ★ここから：member_idが無いなら、この画面で候補取得→選択
+    if (!memberId){
+      setPill("warn","会員確認中…");
+      setButtonsEnabled(false);
+
+      const members = await fetchMembersByLineUserId_(lineUserId);
+
+      if (members.length === 0){
+        setPill("bad","会員未登録");
+        showToast("このLINEに紐づく会員が見つかりませんでした。\n入会手続きが未完了の可能性があります。\n受付へお声がけください。", "bad");
+        return;
+      }
+
+      if (members.length === 1){
+        const mid = String(members[0].member_id || '').trim();
+        if (!mid) throw new Error("member_id missing in response");
+        setPill("warn","会員確定…");
+        replaceUrlWithMemberId_(mid);
+        return;
+      }
+
+      // 複数
+      showMemberPicker_(members);
+      showToast("決済する会員を選択してください。", "warn");
+      setPill("warn","会員を選択");
+      return;
+    }
+
+    // member_id ありならOK
     setPill("ok","準備OK");
     setButtonsEnabled(true);
     booted = true;
-
-    if (!memberId){
-      showToast("member_id がURLにありません。\n兄弟/家族運用では誤紐付け防止のため、member_id付きURLで開くのが安全です。", "warn");
-    }
 
   }catch(e){
     setPill("bad","起動失敗");
@@ -636,8 +660,6 @@ function withTimeout(p, ms, label){
     showToast("起動に失敗しました。\n" + (e && e.message ? e.message : String(e)), "bad");
   }
 })();
-
-
 
 /** ==========================
  *  Pay
@@ -684,7 +706,6 @@ async function startPay(plan){
       );
       throw new Error(res && res.message ? res.message : "create_checkout failed");
     }
-
 
     setPill("ok","Stripeへ移動");
     location.href = res.url;
