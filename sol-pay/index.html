@@ -526,11 +526,15 @@ async function fetchMembersByLineUserId_(userId){
   url.searchParams.set("userId", userId);
 
   const res = await jsonp(url.toString());
+
+  // ★ここが重要：失敗時に res を丸ごと表示
   if (!res || res.status !== "success") {
+    showToast("members_by_line_user_id 失敗:\n" + JSON.stringify(res, null, 2), "bad");
     throw new Error(res && res.message ? res.message : "members_by_line_user_id failed");
   }
   return Array.isArray(res.members) ? res.members : [];
 }
+
 
 /** ==========================
  *  member選択UI
