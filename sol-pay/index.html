@@ -309,6 +309,30 @@
       </div>
       <div class="list" id="memberList"></div>
     </div>
+    <!-- 初回紐付け（電話番号入力） -->
+    <div id="phoneLinkArea" style="display:none; margin-top:12px;">
+      <div style="font-size:12px; opacity:.85; margin-bottom:8px;">
+        初回のみ、電話番号で会員を紐付けします（ハイフンなし）
+      </div>
+    
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input id="linkPhoneInput"
+          type="tel"
+          inputmode="numeric"
+          placeholder="08012345678"
+          style="flex:1; padding:12px 14px; border-radius:14px; border:1px solid rgba(255,255,255,.15);
+                 background:rgba(255,255,255,.06); color:#eaf0ff; outline:none;" />
+    
+        <button id="linkPhoneBtn"
+          type="button"
+          style="padding:12px 14px; border-radius:14px; border:0;
+                 background:rgba(124,92,255,.95); color:#0b0d12; font-weight:800;"
+          onclick="linkByPhoneStart()">
+          紐付け
+        </button>
+      </div>
+    </div>
+
 
     <div class="sectionTitle">プランを選択</div>
 
@@ -544,6 +568,39 @@ async function resolveByPhone_(userId, phone){
   // rowIndex は不要なら省略でOK
   const res = await jsonp(url.toString());
   return res;
+}
+
+window.linkByPhoneStart = async function(){
+  const inp = document.getElementById("linkPhoneInput");
+  const phone = inp ? String(inp.value || "").trim() : "";
+  if (!phone) {
+    showToast("電話番号を入力してください（ハイフンなし）", "warn");
+    return;
+  }
+
+  try{
+    setPill("warn","照合中…");
+    const url = new URL(GAS_EXEC);
+    url.searchParams.set("api", "resolve_member");
+    url.searchParams.set("token", API_TOKEN_PAY);
+    url.searchParams.set("userId", lineUserId);
+    url.searchParams.set("phone", phone);
+
+    const res = await jsonp(url.toString());
+
+    if (res && res.status === "success" && res.member_id){
+      setPill("warn","会員確定…");
+      replaceUrlWithMemberId_(String(res.member_id).trim());
+      return;
+    }
+
+    // 複数候補（必要なら後でUI対応）
+    showToast("紐付け失敗:\n" + JSON.stringify(res, null, 2), "bad");
+    setPill("bad","紐付け失敗");
+  }catch(e){
+    showToast("照合に失敗しました:\n" + (e && e.message ? e.message : String(e)), "bad");
+    setPill("bad","エラー");
+  }
 }
 
 
