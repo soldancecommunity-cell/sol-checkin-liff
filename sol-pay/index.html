@@ -535,6 +535,17 @@ async function fetchMembersByLineUserId_(userId){
   return Array.isArray(res.members) ? res.members : [];
 }
 
+async function resolveByPhone_(userId, phone){
+  const url = new URL(GAS_EXEC);
+  url.searchParams.set("api", "resolve_member");
+  url.searchParams.set("token", API_TOKEN_PAY);   // EITHER許可なのでPAYでも通る
+  url.searchParams.set("userId", userId);
+  url.searchParams.set("phone", phone);
+  // rowIndex は不要なら省略でOK
+  const res = await jsonp(url.toString());
+  return res;
+}
+
 
 
 /** ==========================
@@ -634,10 +645,21 @@ function withTimeout(p, ms, label){
       const members = await fetchMembersByLineUserId_(lineUserId);
 
       if (members.length === 0){
-        setPill("bad","会員未登録");
-        showToast("このLINEに紐づく会員が見つかりませんでした。\n入会手続きが未完了の可能性があります。\n受付へお声がけください。", "bad");
+        setPill("warn","初回紐付け");
+        showToast("初回のみ電話番号で会員を紐付けします（ハイフンなし）。", "warn");
+        document.getElementById("phoneLinkArea").style.display = "block";
         return;
       }
+      const res = await resolveByPhone_(lineUserId, phone);
+      if (res.status === "success" && res.member_id){
+        replaceUrlWithMemberId_(res.member_id); // これで以後OK
+      } else if (res.status === "need_member_select"){
+        // candidates UI（既に member pickerがあるなら流用）
+      } else {
+        showToast("紐付け失敗:\n" + JSON.stringify(res,null,2), "bad");
+      }
+
+
 
       if (members.length === 1){
         const mid = String(members[0].member_id || '').trim();
