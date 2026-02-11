@@ -312,7 +312,7 @@
     <!-- 初回紐付け（電話番号入力） -->
     <div id="phoneLinkArea" style="display:none; margin-top:12px;">
       <div style="font-size:12px; opacity:.85; margin-bottom:8px;">
-        初回のみ、電話番号で会員を紐付けします（ハイフンなし）
+        初回のみ、電話番号で会員を検索します（ハイフンなし）
       </div>
     
       <div style="display:flex; gap:8px; align-items:center;">
@@ -328,7 +328,7 @@
           style="padding:12px 14px; border-radius:14px; border:0;
                  background:rgba(124,92,255,.95); color:#0b0d12; font-weight:800;"
           onclick="linkByPhoneStart()">
-          紐付け
+          会員検索
         </button>
       </div>
     </div>
@@ -580,6 +580,7 @@ window.linkByPhoneStart = async function(){
 
   try{
     setPill("warn","照合中…");
+
     const url = new URL(GAS_EXEC);
     url.searchParams.set("api", "resolve_member");
     url.searchParams.set("token", API_TOKEN_PAY);
@@ -588,20 +589,36 @@ window.linkByPhoneStart = async function(){
 
     const res = await jsonp(url.toString());
 
+    // 1) 成功 → member_id をURLへ
     if (res && res.status === "success" && res.member_id){
       setPill("warn","会員確定…");
       replaceUrlWithMemberId_(String(res.member_id).trim());
       return;
     }
 
-    // 複数候補（必要なら後でUI対応）
+    // 2) 複数候補 → 既存の memberPicker を表示して選ばせる
+    if (res && res.status === "need_member_select" && Array.isArray(res.candidates) && res.candidates.length){
+      const members = res.candidates.map(c => ({
+        member_id: c.member_id,
+        member_name: c.member_name,
+        member_type: c.member_type
+      }));
+      showMemberPicker_(members);
+      showToast("該当が複数あります。決済する会員を選択してください。", "warn");
+      setPill("warn","会員を選択");
+      return;
+    }
+
+    // 3) その他（error / 想定外）
     showToast("紐付け失敗:\n" + JSON.stringify(res, null, 2), "bad");
     setPill("bad","紐付け失敗");
+
   }catch(e){
     showToast("照合に失敗しました:\n" + (e && e.message ? e.message : String(e)), "bad");
     setPill("bad","エラー");
   }
-}
+};
+
 
 
 
