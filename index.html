@@ -459,6 +459,20 @@
             <button class="modalBtn" id="payModalOk">OK</button>
           </div>
         </div>
+        <!-- Link confirm/select modal -->
+        <div id="linkModal" class="modal">
+          <div class="modalCard">
+            <div class="modalTitle" id="linkModalTitle">会員確認</div>
+            <div class="modalText" id="linkModalText"></div>
+        
+            <div id="linkModalList" style="display:none; margin-top:10px;"></div>
+        
+            <div style="display:flex; gap:10px; margin-top:14px;">
+              <button class="modalBtn" id="linkModalCancel">戻る</button>
+              <button class="modalBtn" id="linkModalOk">OK</button>
+            </div>
+          </div>
+        </div>
 
         <div id="successView" class="successView">
           <div class="check">✓</div>
@@ -538,6 +552,8 @@
   let LINE_DISPLAY_NAME = "";
   let SELECTED_CLASS = null;
   let TODAY_WD = "";
+  let PENDING_ROW_INDEX = 0;
+  let PENDING_CONFIRM = false;
 
   const $ = (id) => document.getElementById(id);
 
@@ -552,6 +568,61 @@
       if (typeof onOk === "function") onOk();
     };
   }
+
+  function showLinkModal(){ $("linkModal").classList.add("show"); }
+  function hideLinkModal(){ $("linkModal").classList.remove("show"); }
+  
+  function renderCandidateText(c){
+    const name = (c && c.member_name) ? c.member_name : "";
+    const type = (c && c.member_type) ? ` / ${c.member_type}` : "";
+    return `${name}${type}`.trim() || "会員";
+  }
+  
+  function openLinkConfirm(candidate){
+    $("linkModalTitle").textContent = "会員確認";
+    $("linkModalText").textContent = `この会員で間違いありませんか？\n${renderCandidateText(candidate)}`;
+    $("linkModalList").style.display = "none";
+    $("linkModalList").innerHTML = "";
+  
+    PENDING_ROW_INDEX = Number(candidate && candidate.rowIndex ? candidate.rowIndex : 0);
+    PENDING_CONFIRM = true;
+  
+    showLinkModal();
+  }
+  
+  function openLinkSelect(candidates){
+    $("linkModalTitle").textContent = "会員選択";
+    $("linkModalText").textContent = "該当する会員を選択してください。";
+  
+    const box = $("linkModalList");
+    box.style.display = "block";
+    box.innerHTML = "";
+  
+    (candidates || []).forEach(c => {
+      const btn = document.createElement("button");
+      btn.className = "btn";
+      btn.style.width = "100%";
+      btn.style.marginTop = "8px";
+      btn.textContent = renderCandidateText(c);
+      btn.onclick = () => openLinkConfirm(c);
+      box.appendChild(btn);
+    });
+  
+    PENDING_ROW_INDEX = 0;
+    PENDING_CONFIRM = false;
+  
+    showLinkModal();
+  }
+  
+  // モーダルボタン
+  $("linkModalCancel").onclick = () => { hideLinkModal(); PENDING_CONFIRM = false; };
+  $("linkModalOk").onclick = async () => {
+    hideLinkModal();
+    if (!PENDING_CONFIRM || !PENDING_ROW_INDEX) return;
+    // OK押下後：confirm=1 で再度 checkin を叩く
+    await checkin(true);
+  };
+
 
   function showBanner(text, type){
     const el = $("banner");
@@ -962,7 +1033,7 @@
 
   // ===== checkin (DEBUGなし／重複遷移なし) =====
   // ===== checkin (OKボタン付き表示：未払い/現地精算/回数) =====
-async function checkin(){
+async function checkin(isConfirm){
   hideBanner();
 
   // 1) 必須チェック
@@ -1000,7 +1071,9 @@ async function checkin(){
       `&displayName=${encodeURIComponent(LINE_DISPLAY_NAME)}` +
       `&classId=${encodeURIComponent(SELECTED_CLASS.id)}` +
       `&className=${encodeURIComponent(SELECTED_CLASS.name)}` +
-      (phone ? `&phone=${encodeURIComponent(phone)}` : "");
+      (phone ? `&phone=${encodeURIComponent(phone)}` : "") +
+      ((isConfirm && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "");
+
 
     const res = await jsonp(url);
 
@@ -1010,6 +1083,19 @@ async function checkin(){
       showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "info");
       return;
     }
+
+    // 2.5) 会員選択が必要
+    if (res && res.status === "need_member_select") {
+      openLinkSelect(res.candidates || []);
+      return;
+    }
+    
+    // 2.6) 会員確認（1件ヒット）
+    if (res && res.status === "need_link_confirm") {
+      openLinkConfirm(res.candidate);
+      return;
+    }
+
 
     // 3) すでにチェックイン済み（サーバー判定）
     if (res && res.status === "already") {
