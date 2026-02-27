@@ -695,14 +695,27 @@
         `&userId=${encodeURIComponent(LINE_USER_ID)}`;
   
       const r = await jsonp(url);
-      if (!r || r.status !== "success" || !r.code) {
-        return { ok:false, reason:'issue_failed', raw:r };
+
+      // レスポンス無し
+      if (!r) {
+        return { ok:false, reason:'issue_failed_no_response' };
       }
+      
+      // 想定フォーマットでない
+      if (r.status !== "success" || !r.code) {
+        return { ok:false, reason:'issue_failed_bad_response', raw:r };
+      }
+
   
       const code = String(r.code).trim();
   
       // ★ユーザー本人のトークに送信（これが webhook の source.userId を確定させる）
-      await liff.sendMessages([{ type:"text", text:`SoL連携コード:${code}` }]);
+      try {
+        await liff.sendMessages([{ type:"text", text:`SoL連携コード:${code}` }]);
+      } catch (e) {
+        return { ok:false, reason:'sendMessages_failed', error: String(e && e.message ? e.message : e), code };
+      }
+
   
       // 送れたらフラグON
       localStorage.setItem(key, "1");
@@ -1164,6 +1177,13 @@ async function checkin(isConfirm){
         // UI的に軽く案内（邪魔しない）
         showMiniLoading("LINE連携中…");
         const linkRes = await issueLinkCodeAndSend_(phone);
+        if (!linkRes.ok) {
+          showBanner(`LINE連携失敗: ${linkRes.reason}`, "info");
+        } else if (linkRes.skipped) {
+          showBanner(`LINE連携スキップ: ${linkRes.reason}`, "info");
+        } else {
+          showBanner(`LINE連携OK: code=${linkRes.code || "-"}`, "success");
+        }
 
         // 送れなかった理由は運用上重要なので、開発モード/必要時のみ出す
         if (!linkRes.ok && FORCE_PHONE) {
