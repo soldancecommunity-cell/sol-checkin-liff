@@ -666,6 +666,49 @@
       document.body.appendChild(script);
     });
   }
+    // ==========================================================
+    // ★B案：連携コードを発行して、ユーザー本人に送信（webhookで送信用IDと紐付け）
+    //  - GAS側に api=issue_link_code が存在する前提
+    //  - 成功すると { status:"success", code:"123456", expires_at:"..." } 等が返る想定
+    // ==========================================================
+    async function issueLinkCodeAndSend_(phone){
+      phone = normalizePhone(phone);
+      if (!phone) return { ok:false, reason:'no_phone' };
+  
+      // 連携コードの多重送信を防止（端末単位）
+      const key = `sol_linkcode_sent_${phone}`;
+      if (localStorage.getItem(key) === "1") {
+        return { ok:true, skipped:true, reason:'already_sent' };
+      }
+  
+      // LIFF外（ブラウザ）では sendMessages 不可
+      if (!liff.isInClient()) {
+        return { ok:false, reason:'not_in_client' };
+      }
+  
+      // ★GAS：連携コード発行（phoneでmember_id解決する前提）
+      // 必要なら userId も渡す（GAS側で使える）
+      const url =
+        `${API_URL}?api=issue_link_code` +
+        `&token=${encodeURIComponent(API_TOKEN)}` +
+        `&phone=${encodeURIComponent(phone)}` +
+        `&userId=${encodeURIComponent(LINE_USER_ID)}`;
+  
+      const r = await jsonp(url);
+      if (!r || r.status !== "success" || !r.code) {
+        return { ok:false, reason:'issue_failed', raw:r };
+      }
+  
+      const code = String(r.code).trim();
+  
+      // ★ユーザー本人のトークに送信（これが webhook の source.userId を確定させる）
+      await liff.sendMessages([{ type:"text", text:`SoL連携コード:${code}` }]);
+  
+      // 送れたらフラグON
+      localStorage.setItem(key, "1");
+      return { ok:true, code, expires_at: r.expires_at || "" };
+    }
+
 
   function normalizePhone(s){
     return String(s || "").replace(/[^\d]/g, "");
@@ -1112,6 +1155,30 @@ async function checkin(isConfirm){
 
     // 5) 成功（ここで初めて “済” を付ける）
     markDoneToday_(SELECTED_CLASS.id);
+    // ==========================================================
+    // ★B案：初回電話が入っているときだけ、連携コードを送る
+    // （webhookが受けて member_line_links を送信用IDで確定させる）
+    // ==========================================================
+    if (phone) {
+      try {
+        // UI的に軽く案内（邪魔しない）
+        showMiniLoading("LINE連携中…");
+        const linkRes = await issueLinkCodeAndSend_(phone);
+
+        // 送れなかった理由は運用上重要なので、開発モード/必要時のみ出す
+        if (!linkRes.ok && FORCE_PHONE) {
+          showBanner(`LINE連携メッセージを送れませんでした（${linkRes.reason}）。`, "info");
+        }
+      } catch (e) {
+        // 失敗してもチェックイン自体は成功させる（ここで止めない）
+        if (FORCE_PHONE) {
+          showBanner(`LINE連携でエラー: ${String(e && e.message ? e.message : e)}`, "info");
+        }
+      } finally {
+        hideMiniLoading();
+      }
+    }
+
 
     const goStamp = () => {
       showSuccess("スタンプを付与します…");
