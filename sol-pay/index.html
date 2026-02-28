@@ -724,14 +724,7 @@ function withTimeout(p, ms, label){
         document.getElementById("phoneLinkArea").style.display = "block";
         return;
       }
-      const res = await resolveByPhone_(lineUserId, phone);
-      if (res.status === "success" && res.member_id){
-        replaceUrlWithMemberId_(res.member_id); // これで以後OK
-      } else if (res.status === "need_member_select"){
-        // candidates UI（既に member pickerがあるなら流用）
-      } else {
-        showToast("紐付け失敗:\n" + JSON.stringify(res,null,2), "bad");
-      }
+      
 
 
 
