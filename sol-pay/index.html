@@ -715,15 +715,13 @@ function withTimeout(p, ms, label){
 
 (async function boot(){
   const btnPortal = document.getElementById('btnPortal');
-  if (btnPortal) btnPortal.disabled = true;
-  setButtonsEnabled(false);
-  setPill("warn","起動中…");
-  const btnPortal = document.getElementById('btnPortal');
-  if (btnPortal) {
-    btnPortal.disabled = false;
+  if (btnPortal){
+    btnPortal.disabled = true;                 // boot完了まで無効
     btnPortal.addEventListener('click', onClickPortal_);
   }
 
+  setButtonsEnabled(false);
+  setPill("warn","起動中…");
   // member_id はURLから
   const u = new URL(location.href);
   memberId = String(u.searchParams.get("member_id") || u.searchParams.get("memberId") || "").trim();
@@ -802,12 +800,13 @@ function withTimeout(p, ms, label){
       setPill("warn","会員を選択");
       return;
     }
-    const btnPortal = document.getElementById('btnPortal');
-    if (btnPortal) btnPortal.addEventListener('click', onClickPortal_);
     // member_id ありならOK
     setPill("ok","準備OK");
     setButtonsEnabled(true);
     booted = true;
+
+    const btnPortal = document.getElementById('btnPortal');
+    if (btnPortal) btnPortal.disabled = false;
 
   }catch(e){
     setPill("bad","起動失敗");
