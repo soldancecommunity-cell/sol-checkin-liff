@@ -893,8 +893,9 @@ async function onClickPortal_(){
       member_id: memberId,
       userId: lineUserId,
       token: token,
-      callback: 'cb'
     });
+
+    console.log("portal url:", url);
 
     const r = await jsonp(url);
     if (!r || r.status !== 'success' || !r.url) {
@@ -907,7 +908,6 @@ async function onClickPortal_(){
   } catch (e) {
     showToast('ポータル起動エラー: ' + (e?.message || e), 'bad');
   }
-  console.log("portal url:", url);
 }
 </script>
 </body>
