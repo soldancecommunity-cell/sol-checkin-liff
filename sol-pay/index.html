@@ -535,6 +535,21 @@ function jsonp(url){
   });
 }
 
+// === 追加：今開いているURLからGAS /execベースURLを作る ===
+function getGasExecBaseUrl_(){
+  const u = new URL(location.href);
+
+  // 期待： https://script.google.com/macros/s/XXXX/exec?view=pay...
+  // pathname が /macros/s/XXXX/exec になっていればOK
+  const base = u.origin + u.pathname;
+
+  // 念のためチェック（script.google.com 以外ならここで止める）
+  if (!u.hostname.includes('script.google.com') || !u.pathname.endsWith('/exec')) {
+    return '';
+  }
+  return base;
+}
+
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -882,26 +897,26 @@ async function onClickPortal_(){
       showToast('member_idがありません', 'bad');
       return;
     }
+
     const lineUserId = (window.__lineUserId || '');
     const token = getParam_('token') || '';
 
-    // ★重要：GASの /exec URL を使う（SoL Payが元々使ってるやつ）
-    if (typeof actionUrl === 'undefined' || !actionUrl) {
-      alert('actionUrl が未定義です（GASの/exec URLが取れていません）');
+    const base = getGasExecBaseUrl_();
+    if (!base) {
+      alert('GASの /exec URL を特定できませんでした。\n現在URL:\n' + location.href);
       return;
     }
 
-    // callbackは付けない（jsonp()が付ける）
+    // ★callbackは付けない（jsonp()が付ける）
     const url =
-      actionUrl +
-      (actionUrl.includes('?') ? '&' : '?') +
-      'api=create_portal' +
+      base +
+      '?api=create_portal' +
       '&member_id=' + encodeURIComponent(memberId) +
       '&userId=' + encodeURIComponent(lineUserId) +
       '&token=' + encodeURIComponent(token);
 
-    // ★LINE内でも見えるデバッグ
-    alert('portal request:\n' + url);
+    // LINE内でも見えるデバッグ（動いたら後で消してOK）
+    // alert('portal request:\n' + url);
 
     const r = await jsonp(url);
     if (!r || r.status !== 'success' || !r.url) {
@@ -917,6 +932,7 @@ async function onClickPortal_(){
     showToast('ポータル起動エラー: ' + (e?.message || e), 'bad');
   }
 }
+
 </script>
 </body>
 </html>
