@@ -433,6 +433,10 @@
         再読み込み
       </button>
     </div>
+    <!-- ▼ここを「プラン購入ボタン群」の下に追加 -->
+    <button id="btnPortal" class="btn secondary" type="button">
+      プラン変更（契約中の方）
+    </button>
 
     <div class="foot">
       ・このページはLINE内（LIFF）での利用を推奨します。<br/>
@@ -503,6 +507,10 @@ function yyyymmNow(){
 function shortId(id){
   if(!id) return "";
   return id.slice(0,6) + "…" + id.slice(-4);
+}
+function getParam_(key){
+  const u = new URL(location.href);
+  return u.searchParams.get(key) || '';
 }
 
 /** ==========================
@@ -742,7 +750,8 @@ function withTimeout(p, ms, label){
       setPill("warn","会員を選択");
       return;
     }
-
+    const btnPortal = document.getElementById('btnPortal');
+    if (btnPortal) btnPortal.addEventListener('click', onClickPortal_);
     // member_id ありならOK
     setPill("ok","準備OK");
     setButtonsEnabled(true);
@@ -835,6 +844,38 @@ async function goPortal(){
     return showToast('ポータル起動に失敗しました', 'bad');
   }
   location.href = r.url;
+}
+async function onClickPortal_(){
+  try {
+    // member_id は SoL Pay が URL に保持している前提（あなたの実装は member_id 必須で動いてる）
+    const memberId = getParam_('member_id') || getParam_('memberId') || '';
+    if (!memberId) {
+      showToast('会員情報の取得に失敗しました（member_idがありません）', 'bad');
+      return;
+    }
+
+    // line user id（取れてるなら付ける。無くてもGAS側で必須にしてなければOK）
+    const lineUserId = (window.__lineUserId || '');
+
+    const url = buildApiUrl_({
+      api: 'create_portal',
+      member_id: memberId,
+      userId: lineUserId,     // 任意
+      token: API_TOKEN        // あなたの既存トークン変数
+    });
+
+    const r = await jsonp(url);
+    if (!r || r.status !== 'success' || !r.url) {
+      showToast('ポータル起動に失敗しました', 'bad');
+      return;
+    }
+
+    // Stripeポータルへ遷移
+    location.href = r.url;
+
+  } catch (e) {
+    showToast('ポータル起動エラー: ' + (e?.message || e), 'bad');
+  }
 }
 </script>
 </body>
