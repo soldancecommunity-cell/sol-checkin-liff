@@ -514,7 +514,7 @@ function getParam_(key){
 }
 
 /** ==========================
- *  JSONP helper
+ *   helper
  *  ========================== */
 function jsonp(url){
   return new Promise((resolve,reject)=>{
@@ -558,9 +558,6 @@ function buildApiUrl_(params){
     })();
 
   const u = new URL(base);
-
-  // JSONP用 callback がなければ付与（あなたの jsonp() 実装が callback 必須の場合に備える）
-  if (!('callback' in params)) params.callback = 'cb';
 
   Object.keys(params).forEach(k => {
     const v = params[k];
