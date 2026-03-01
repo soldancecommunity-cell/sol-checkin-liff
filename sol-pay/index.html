@@ -901,13 +901,13 @@ async function onClickPortal_(){
       showToast('ポータル起動に失敗しました', 'bad');
       return;
     }
-    console.log("portal url:", url);
 
     location.href = r.url;
 
   } catch (e) {
     showToast('ポータル起動エラー: ' + (e?.message || e), 'bad');
   }
+  console.log("portal url:", url);
 }
 </script>
 </body>
