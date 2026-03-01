@@ -880,21 +880,23 @@ async function goPortal(){
 }
 async function onClickPortal_(){
   try {
-    // member_id は SoL Pay が URL に保持している前提（あなたの実装は member_id 必須で動いてる）
     const memberId = getParam_('member_id') || getParam_('memberId') || '';
     if (!memberId) {
       showToast('会員情報の取得に失敗しました（member_idがありません）', 'bad');
       return;
     }
 
-    // line user id（取れてるなら付ける。無くてもGAS側で必須にしてなければOK）
     const lineUserId = (window.__lineUserId || '');
+
+    // 🔥 token はURLから取得
+    const token = getParam_('token') || '';
 
     const url = buildApiUrl_({
       api: 'create_portal',
       member_id: memberId,
-      userId: lineUserId,     // 任意
-      token: API_TOKEN        // あなたの既存トークン変数
+      userId: lineUserId,
+      token: token,
+      callback: 'cb'
     });
 
     const r = await jsonp(url);
@@ -903,7 +905,6 @@ async function onClickPortal_(){
       return;
     }
 
-    // Stripeポータルへ遷移
     location.href = r.url;
 
   } catch (e) {
