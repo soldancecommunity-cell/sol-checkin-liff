@@ -539,6 +539,39 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// === 追加：API URL 組み立て（create_portal 等に使う） ===
+function buildApiUrl_(params){
+  params = params || {};
+
+  // GAS WebApp のベースURLを決める
+  // 既存の変数がある場合はそれを優先（なければ location.href から /exec を作る）
+  const base =
+    (typeof ACTION_URL !== 'undefined' && ACTION_URL) ? ACTION_URL :
+    (typeof actionUrl  !== 'undefined' && actionUrl)  ? actionUrl  :
+    (typeof GAS_URL    !== 'undefined' && GAS_URL)    ? GAS_URL    :
+    (() => {
+      // 現在のURLが /exec で動いている想定
+      const u = new URL(location.href);
+      u.search = '';
+      u.hash = '';
+      return u.toString();
+    })();
+
+  const u = new URL(base);
+
+  // JSONP用 callback がなければ付与（あなたの jsonp() 実装が callback 必須の場合に備える）
+  if (!('callback' in params)) params.callback = 'cb';
+
+  Object.keys(params).forEach(k => {
+    const v = params[k];
+    if (v === undefined || v === null || v === '') return;
+    u.searchParams.set(k, String(v));
+  });
+
+  return u.toString();
+}
+
+
 /** ==========================
  *  member_id をURLに付与して再読込（履歴を汚さない）
  *  ========================== */
