@@ -459,7 +459,7 @@
  *  設定
  *  ========================== */
 const LIFF_ID  = "2008938862-CTbDrlz3";
-const GAS_EXEC = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
+const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
 const API_TOKEN_PAY = "sol_pay_2026_144025036146"; // pay系API用（create_checkout / members_by_line_user_id など）
 
 let lineUserId = "";
@@ -597,7 +597,7 @@ function replaceUrlWithMemberId_(mid){
  *  members_by_line_user_id を叩く
  *  ========================== */
 async function fetchMembersByLineUserId_(userId){
-  const url = new URL(GAS_EXEC);
+  const url = new URL(GAS_EXEC_URL);
   url.searchParams.set("api", "members_by_line_user_id");
   url.searchParams.set("token", API_TOKEN_PAY);
   url.searchParams.set("userId", userId);
@@ -613,7 +613,7 @@ async function fetchMembersByLineUserId_(userId){
 }
 
 async function resolveByPhone_(userId, phone){
-  const url = new URL(GAS_EXEC);
+  const url = new URL(GAS_EXEC_URL);
   url.searchParams.set("api", "resolve_member");
   url.searchParams.set("token", API_TOKEN_PAY);   // EITHER許可なのでPAYでも通る
   url.searchParams.set("userId", userId);
@@ -634,7 +634,7 @@ window.linkByPhoneStart = async function(){
   try{
     setPill("warn","照合中…");
 
-    const url = new URL(GAS_EXEC);
+    const url = new URL(GAS_EXEC_URL);
     url.searchParams.set("api", "resolve_member");
     url.searchParams.set("token", API_TOKEN_PAY);
     url.searchParams.set("userId", lineUserId);
@@ -836,7 +836,7 @@ async function startPay(plan){
       btn.disabled = true;
     }
 
-    const url = new URL(GAS_EXEC);
+    const url = new URL(GAS_EXEC_URL);
     url.searchParams.set("api", "create_checkout");
     url.searchParams.set("token", API_TOKEN_PAY);
     url.searchParams.set("lineUserId", lineUserId);
@@ -901,22 +901,24 @@ async function onClickPortal_(){
     const lineUserId = (window.__lineUserId || '');
     const token = getParam_('token') || '';
 
-    const base = getGasExecBaseUrl_();
-    if (!base) {
-      alert('GASの /exec URL を特定できませんでした。\n現在URL:\n' + location.href);
+    if (!GAS_EXEC_URL) {
+      alert('GAS_EXEC_URL が未設定です');
+      return;
+    }
+    if (!token) {
+      alert('token がURLにありません（?token=... が必要）');
       return;
     }
 
-    // ★callbackは付けない（jsonp()が付ける）
     const url =
-      base +
+      GAS_EXEC_URL +
       '?api=create_portal' +
       '&member_id=' + encodeURIComponent(memberId) +
       '&userId=' + encodeURIComponent(lineUserId) +
       '&token=' + encodeURIComponent(token);
 
-    // LINE内でも見えるデバッグ（動いたら後で消してOK）
-    // alert('portal request:\n' + url);
+    // デバッグ（1回だけ見たいなら）
+    // alert(url);
 
     const r = await jsonp(url);
     if (!r || r.status !== 'success' || !r.url) {
@@ -932,7 +934,6 @@ async function onClickPortal_(){
     showToast('ポータル起動エラー: ' + (e?.message || e), 'bad');
   }
 }
-
 </script>
 </body>
 </html>
