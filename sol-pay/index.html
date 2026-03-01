@@ -879,26 +879,33 @@ async function onClickPortal_(){
   try {
     const memberId = getParam_('member_id') || getParam_('memberId') || '';
     if (!memberId) {
-      showToast('会員情報の取得に失敗しました（member_idがありません）', 'bad');
+      showToast('member_idがありません', 'bad');
+      return;
+    }
+    const lineUserId = (window.__lineUserId || '');
+    const token = getParam_('token') || '';
+
+    // ★重要：GASの /exec URL を使う（SoL Payが元々使ってるやつ）
+    if (typeof actionUrl === 'undefined' || !actionUrl) {
+      alert('actionUrl が未定義です（GASの/exec URLが取れていません）');
       return;
     }
 
-    const lineUserId = (window.__lineUserId || '');
+    // callbackは付けない（jsonp()が付ける）
+    const url =
+      actionUrl +
+      (actionUrl.includes('?') ? '&' : '?') +
+      'api=create_portal' +
+      '&member_id=' + encodeURIComponent(memberId) +
+      '&userId=' + encodeURIComponent(lineUserId) +
+      '&token=' + encodeURIComponent(token);
 
-    // 🔥 token はURLから取得
-    const token = getParam_('token') || '';
-
-    const url = buildApiUrl_({
-      api: 'create_portal',
-      member_id: memberId,
-      userId: lineUserId,
-      token: token,
-    });
-
-    console.log("portal url:", url);
+    // ★LINE内でも見えるデバッグ
+    alert('portal request:\n' + url);
 
     const r = await jsonp(url);
     if (!r || r.status !== 'success' || !r.url) {
+      alert('portal response:\n' + JSON.stringify(r));
       showToast('ポータル起動に失敗しました', 'bad');
       return;
     }
@@ -906,6 +913,7 @@ async function onClickPortal_(){
     location.href = r.url;
 
   } catch (e) {
+    alert('portal error:\n' + (e?.message || e));
     showToast('ポータル起動エラー: ' + (e?.message || e), 'bad');
   }
 }
