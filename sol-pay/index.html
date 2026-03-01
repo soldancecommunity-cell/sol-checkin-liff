@@ -817,6 +817,25 @@ async function startPay(plan){
     paying = false;
   }
 }
+async function goPortal(){
+  const memberId = getMemberIdFromUrl_(); // 既存の取得関数に合わせる
+  const userId = (window.__lineUserId || ''); // 既存で保持してるなら
+
+  if (!memberId) return showToast('会員IDが取得できませんでした', 'bad');
+
+  const url = buildApiUrl_({
+    api: 'create_portal',
+    member_id: memberId,
+    userId: userId,
+    token: API_TOKEN
+  });
+
+  const r = await jsonp(url);
+  if (!r || r.status !== 'success' || !r.url) {
+    return showToast('ポータル起動に失敗しました', 'bad');
+  }
+  location.href = r.url;
+}
 </script>
 </body>
 </html>
