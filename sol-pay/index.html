@@ -714,8 +714,15 @@ function withTimeout(p, ms, label){
 }
 
 (async function boot(){
+  const btnPortal = document.getElementById('btnPortal');
+  if (btnPortal) btnPortal.disabled = true;
   setButtonsEnabled(false);
   setPill("warn","起動中…");
+  const btnPortal = document.getElementById('btnPortal');
+  if (btnPortal) {
+    btnPortal.disabled = false;
+    btnPortal.addEventListener('click', onClickPortal_);
+  }
 
   // member_id はURLから
   const u = new URL(location.href);
@@ -892,45 +899,45 @@ async function goPortal(){
 }
 async function onClickPortal_(){
   try {
-    const memberId = getParam_('member_id') || getParam_('memberId') || '';
-    if (!memberId) {
-      showToast('member_idがありません', 'bad');
+    hideToast();
+
+    const mid = String(getParam_('member_id') || getParam_('memberId') || memberId || '').trim();
+    if (!mid) {
+      showToast('member_idがありません（会員選択後にお試しください）', 'bad');
       return;
     }
 
-    const lineUserId = (window.__lineUserId || '');
-    const token = getParam_('token') || '';
-
-    if (!GAS_EXEC) {
-      alert('GAS_EXEC が未設定です');
-      return;
-    }
-    if (!token) {
-      alert('token がURLにありません（?token=... が必要）');
+    if (!lineUserId) {
+      showToast('LINE userId が取得できていません。再読み込みしてください。', 'bad');
       return;
     }
 
-    const url =
-      GAS_EXEC +
-      '?api=create_portal' +
-      '&member_id=' + encodeURIComponent(memberId) +
-      '&userId=' + encodeURIComponent(lineUserId) +
-      '&token=' + encodeURIComponent(token);
+    // ★SoL Payの他APIと同じ方式：GAS_EXEC + token=API_TOKEN_PAY
+    const url = new URL(GAS_EXEC);
+    url.searchParams.set('api', 'create_portal');
+    url.searchParams.set('token', API_TOKEN_PAY);
+    url.searchParams.set('member_id', mid);
+    url.searchParams.set('userId', lineUserId);
 
-    // デバッグ（1回だけ見たいなら）
-    // alert(url);
+    // ボタン連打防止（任意）
+    const btn = document.getElementById('btnPortal');
+    const old = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '起動中…'; }
 
-    const r = await jsonp(url);
+    const r = await jsonp(url.toString());
+
+    if (btn) { btn.disabled = false; btn.textContent = old || 'プラン変更（契約中の方）'; }
+
     if (!r || r.status !== 'success' || !r.url) {
-      alert('portal response:\n' + JSON.stringify(r));
-      showToast('ポータル起動に失敗しました', 'bad');
+      showToast('ポータル起動に失敗しました\n' + JSON.stringify(r, null, 2), 'bad');
       return;
     }
 
-    location.href = r.url;
+    location.href = String(r.url);
 
   } catch (e) {
-    alert('portal error:\n' + (e?.message || e));
+    const btn = document.getElementById('btnPortal');
+    if (btn) { btn.disabled = false; btn.textContent = 'プラン変更（契約中の方）'; }
     showToast('ポータル起動エラー: ' + (e?.message || e), 'bad');
   }
 }
