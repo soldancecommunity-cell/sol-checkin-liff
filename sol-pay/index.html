@@ -22,12 +22,43 @@
     html,body{ height:100%; }
     body{
       margin:0;
+      min-height:100svh;
+      position: relative;
+      overflow-x: hidden;
       font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
-      background:
-        radial-gradient(1200px 700px at 20% -10%, rgba(124,92,255,.35), transparent 55%),
-        radial-gradient(1000px 700px at 110% 10%, rgba(45,212,191,.22), transparent 55%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
+      background: linear-gradient(180deg, #06070a 0%, #0a0c11 48%, #0b0d12 100%);
       color: var(--text);
+    }
+
+    body::before,
+    body::after{
+      content:"";
+      position: fixed;
+      inset: 0;
+      pointer-events:none;
+      z-index: 0;
+    }
+
+    body::before{
+      background:
+        radial-gradient(1200px 760px at 18% -8%, rgba(124,92,255,.34), transparent 58%),
+        radial-gradient(980px 700px at 108% 8%, rgba(45,212,191,.18), transparent 56%),
+        radial-gradient(760px 520px at 50% 120%, rgba(124,92,255,.10), transparent 64%);
+    }
+
+    body::after{
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.015), rgba(255,255,255,0));
+      opacity: .75;
+    }
+
+    .wrap{
+      position: relative;
+      z-index: 1;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 16px 16px 28px;
+      padding-bottom: calc(28px + env(safe-area-inset-bottom));
     }
 
     .wrap{
@@ -139,6 +170,25 @@
       justify-content:space-between;
       gap:10px;
       background: rgba(0,0,0,.12);
+    }
+    .plan.recommended{
+      border-color: rgba(124,92,255,.28);
+      box-shadow: 0 18px 54px rgba(124,92,255,.10);
+      background: linear-gradient(180deg, rgba(124,92,255,.10), rgba(255,255,255,.035));
+    }
+
+    .badgeReco{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(124,92,255,.18);
+      border: 1px solid rgba(124,92,255,.34);
+      font-size: 11px;
+      font-weight: 900;
+      color: #ddd6ff;
+      white-space: nowrap;
     }
 
     .tags{ display:flex; flex-wrap:wrap; gap: 6px; }
@@ -261,6 +311,91 @@
     .pickName{ font-weight: 800; font-size: 14px; }
     .pickSub{ margin-top: 4px; font-size: 11px; color: var(--muted); }
 
+    .actionCard{
+      margin-top: 14px;
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: var(--r);
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.03));
+      box-shadow: 0 18px 50px rgba(0,0,0,.22);
+      overflow: hidden;
+    }
+    .actionCardHead{
+      padding: 13px 14px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+    }
+    .actionCardHead .ttl{
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+    .actionCardHead .sub{
+      margin-top: 5px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .actionCardBody{
+      padding: 12px 14px 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .btn.portalBtn{
+      width: 100%;
+      min-height: 52px;
+      border-radius: 16px;
+      font-size: 15px;
+      font-weight: 900;
+      justify-content: center;
+    }
+
+    .subActionRow{
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn.ghost{
+      width: 100%;
+      min-height: 46px;
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: none;
+    }
+
+    .foot{
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+      padding: 2px 4px;
+    }
+
+    .foot strong{
+      color: rgba(234,240,255,.92);
+      font-weight: 800;
+    }
+
+    @media (max-width: 460px){
+      .plan .bottom{
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .tags{
+        width: 100%;
+      }
+      .btn{
+        width: 100%;
+        min-width: 0;
+      }
+      .price{
+        min-width: 104px;
+      }
+    }
+
     @media (max-width: 360px){
       .price{ min-width: 100px; }
       .btn{ min-width: 120px; }
@@ -310,23 +445,21 @@
       <div class="list" id="memberList"></div>
     </div>
     <!-- 初回紐付け（電話番号入力） -->
-    <div id="phoneLinkArea" style="display:none; margin-top:12px;">
-      <div style="font-size:12px; opacity:.85; margin-bottom:8px;">
+    <div id="phoneLinkArea" class="phoneLinkBox" style="display:none;">
+      <div class="phoneLinkLead">
         初回のみ、電話番号で会員を検索します（ハイフンなし）
       </div>
-    
-      <div style="display:flex; gap:8px; align-items:center;">
+
+      <div class="phoneLinkRow">
         <input id="linkPhoneInput"
+          class="phoneLinkInput"
           type="tel"
           inputmode="numeric"
-          placeholder="08012345678"
-          style="flex:1; padding:12px 14px; border-radius:14px; border:1px solid rgba(255,255,255,.15);
-                 background:rgba(255,255,255,.06); color:#eaf0ff; outline:none;" />
-    
+          placeholder="08012345678" />
+
         <button id="linkPhoneBtn"
+          class="phoneLinkBtn"
           type="button"
-          style="padding:12px 14px; border-radius:14px; border:0;
-                 background:rgba(124,92,255,.95); color:#0b0d12; font-weight:800;"
           onclick="linkByPhoneStart()">
           会員検索
         </button>
@@ -361,12 +494,13 @@
       </div>
 
       <!-- 月8 -->
-      <div class="plan">
+      <div class="plan recommended">
         <div class="top">
           <div>
             <h3>月8回受講プラン</h3>
             <div class="meta">月8回まで(おすすめ)</div>
           </div>
+          <div class="badgeReco">お得！</div>
           <div class="price">
             <div class="yen">¥9,900</div>
             <div class="per">/ 月（税別）</div>
@@ -427,22 +561,32 @@
             <span>このプラン</span>
           </button>
         </div>
-      </div>
-
-      <button class="btn secondary" id="refreshBtn" onclick="location.reload()" style="margin-top:6px;">
-        再読み込み
-      </button>
-    </div>
-    <!-- ▼ここを「プラン購入ボタン群」の下に追加 -->
-    <button id="btnPortal" class="btn secondary" type="button">
-      プラン変更（契約中の方）
-    </button>
-
-    <div class="foot">
-      ・このページはLINE内（LIFF）での利用を推奨します。<br/>
-      ・member_id がURLに無い場合は、このページで会員選択してから決済へ進みます。<br/>
-      ・不具合が出たら「再読み込み」を試してください。
-    </div>
+  
+        <div class="actionCard">
+          <div class="actionCardHead">
+            <div class="ttl">契約中の方はこちら</div>
+            <div class="sub">
+              プラン変更はポータルから行います。新規申込とは入口を分けています。
+            </div>
+          </div>
+          <div class="actionCardBody">
+            <button id="btnPortal" class="btn secondary portalBtn" type="button">
+              プラン変更（契約中の方）
+            </button>
+    
+            <div class="subActionRow">
+              <button class="btn ghost" id="refreshBtn" onclick="location.reload()" type="button">
+                再読み込み
+              </button>
+            </div>
+          </div>
+        </div>
+    
+        <div class="foot">
+          ・このページは<strong>新規月謝申込</strong>用です。<br/>
+          ・member_id が未指定の場合は、この画面で会員を選択してから決済へ進みます。<br/>
+          ・画面が止まった場合は「再読み込み」をお試しください。
+        </div>
   </div>
 
   <!-- Toast -->
