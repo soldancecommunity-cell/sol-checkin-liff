@@ -976,6 +976,7 @@ async function loadOneTimeItems(){
     url.searchParams.set("token", API_TOKEN_PAY);
 
     const res = await jsonp(url.toString());
+    console.log("list_onetime_items res =", res);
     const root = document.getElementById("oneTimeItems");
     if (!root) return;
 
@@ -1006,7 +1007,9 @@ async function loadOneTimeItems(){
     `).join("");
   }catch(e){
     const root = document.getElementById("oneTimeItems");
-    if (root) root.innerHTML = "";
+    if (root) {
+      root.innerHTML = `<div class="plan"><div class="top"><div><h3>単発商品の読込に失敗しました</h3><div class="meta">console を確認してください</div></div></div></div>`;
+    }
     console.error("loadOneTimeItems failed:", e);
   }
 }
