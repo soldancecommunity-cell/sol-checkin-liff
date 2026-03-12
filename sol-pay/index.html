@@ -588,8 +588,6 @@
           ・画面が止まった場合は「再読み込み」をお試しください。
         </div>
   </div>
-  <div class="sectionTitle" style="margin-top:20px;">単発商品</div>
-  <div class="grid" id="oneTimeItems"></div>
 
   <!-- Toast -->
   <div class="toast" id="toast">
@@ -1022,60 +1020,6 @@ async function startPay(plan){
   }finally{
     paying = false;
   }
-}
-async function loadOneTimeItems(){
-  try{
-    const url = new URL(GAS_EXEC);
-    url.searchParams.set("api", "list_onetime_items");
-    url.searchParams.set("token", API_TOKEN_PAY);
-
-    const res = await jsonp(url.toString());
-    const root = document.getElementById("oneTimeItems");
-    if (!root) return;
-
-    if (!res || res.status !== "success" || !Array.isArray(res.items)) {
-      root.innerHTML = "";
-      return;
-    }
-
-    if (!res.items.length) {
-      root.innerHTML = `<div class="plan"><div class="top"><div><h3>現在販売中の商品はありません</h3></div></div></div>`;
-      return;
-    }
-
-    root.innerHTML = res.items.map(item => `
-      <div class="plan">
-        <div class="top">
-          <div>
-            <h3>${escapeHtml_(item.item_name || item.plan)}</h3>
-            <div class="meta">${escapeHtml_(item.note || '単発商品')}</div>
-          </div>
-        </div>
-        <div class="bottom">
-          <button class="btn" onclick="startPay('${escapeJs_(item.plan)}')">
-            <span>購入する</span>
-          </button>
-        </div>
-      </div>
-    `).join("");
-  }catch(e){
-    const root = document.getElementById("oneTimeItems");
-    if (root) root.innerHTML = "";
-  }
-
-function escapeHtml_(s){
-  return String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function escapeJs_(s){
-  return String(s || '')
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'");
 }
 async function onClickPortal_(){
   try {
