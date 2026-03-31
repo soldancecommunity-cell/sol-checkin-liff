@@ -718,8 +718,11 @@
 
     setCheckinNotice("ok","準備中","会員情報とクラス一覧を読み込みます。");
 
-    const meState = await ensureMemberInfoByMeCashOnCheckin_();
-    const clsOk = await loadClasses_();
+    // ★並列化：会員情報とクラス一覧を同時取得（直列→並列で約1リクエスト分短縮）
+    const [meState, clsOk] = await Promise.all([
+      ensureMemberInfoByMeCashOnCheckin_(),
+      loadClasses_()
+    ]);
 
     // 失敗なら終了
     if (!meState.ok || !clsOk){
