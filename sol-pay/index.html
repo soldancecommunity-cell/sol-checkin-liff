@@ -4,7 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>SoL Pay（月謝）</title>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js">
+/** ==========================
+ *  タブ切り替え（月謝選択）
+ *  ========================== */
+function switchPlanTab(tab) {
+  const isCard = (tab === 'card');
+  document.getElementById('planPanelCard').style.display   = isCard ? '' : 'none';
+  document.getElementById('planPanelManual').style.display = isCard ? 'none' : '';
+  document.getElementById('tabCard').classList.toggle('active', isCard);
+  document.getElementById('tabManual').classList.toggle('active', !isCard);
+}
+</script>
 
   <style>
     :root{
@@ -400,6 +411,88 @@
       .price{ min-width: 100px; }
       .btn{ min-width: 120px; }
     }
+
+    /* ★タブ切り替え（月謝選択） */
+    .planTabs{
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .planTab{
+      flex: 1;
+      appearance: none;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+    .planTab.active{
+      background: linear-gradient(135deg, rgba(124,92,255,.22), rgba(45,212,191,.12));
+      border-color: rgba(124,92,255,.40);
+      color: var(--text);
+      box-shadow: 0 0 0 1px rgba(124,92,255,.18) inset;
+    }
+    .planTabIcon{ font-size: 15px; }
+    .planPanel{ animation: fadeIn .18s ease; }
+    @keyframes fadeIn{ from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+
+    /* ★手動月謝パネル専用スタイル */
+    .manualNote{
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      background: rgba(245,158,11,.08);
+      border: 1px solid rgba(245,158,11,.22);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .manualNoteIcon{ font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .manualNoteTitle{
+      font-size: 13px;
+      font-weight: 800;
+      color: rgba(251,191,36,.95);
+      margin-bottom: 4px;
+    }
+    .manualNoteDesc{
+      font-size: 12px;
+      color: rgba(245,158,11,.75);
+      line-height: 1.6;
+    }
+    .manualNoteDesc strong{
+      color: rgba(251,191,36,.90);
+      font-weight: 800;
+    }
+    .planManual{
+      border-color: rgba(255,255,255,.07);
+      background: rgba(255,255,255,.025);
+      opacity: 0.92;
+    }
+    .chipManual{
+      background: rgba(245,158,11,.08);
+      border-color: rgba(245,158,11,.20);
+      color: rgba(251,191,36,.80);
+    }
+    .btnManual{
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,.16);
+      box-shadow: none;
+      font-weight: 700;
+    }
+    .btnManual:hover:not(:disabled){
+      background: rgba(255,255,255,.15);
+    }
   </style>
 </head>
 
@@ -469,97 +562,215 @@
 
     <div class="sectionTitle">プランを選択</div>
 
-    <div class="grid" id="plans">
-      <!-- 月4 -->
-      <div class="plan">
-        <div class="top">
-          <div>
-            <h3>月4回受講プラン</h3>
-            <div class="meta">月4回まで（追加受講は現地精算）</div>
+    <!-- ★タブ切り替え -->
+    <div class="planTabs">
+      <button class="planTab active" id="tabCard" onclick="switchPlanTab('card')">
+        <span class="planTabIcon">💳</span>カード・Apple Pay
+      </button>
+      <button class="planTab" id="tabManual" onclick="switchPlanTab('manual')">
+        <span class="planTabIcon">🏪</span>コンビニ・PayPay
+      </button>
+    </div>
+
+    <!-- タブ1：通常月謝（サブスク） -->
+    <div id="planPanelCard" class="planPanel">
+      <div class="grid" id="plans">
+        <!-- 月4 -->
+        <div class="plan">
+          <div class="top">
+            <div>
+              <h3>月4回受講プラン</h3>
+              <div class="meta">月4回まで（追加受講は現地精算）</div>
+            </div>
+            <div class="price">
+              <div class="yen">¥6,000</div>
+              <div class="per">/ 月（税別）</div>
+            </div>
           </div>
-          <div class="price">
-            <div class="yen">¥6,000</div>
-            <div class="per">/ 月（税別）</div>
+          <div class="bottom">
+            <div class="tags">
+              <span class="chip">週1回通いたい方</span>
+              <span class="chip">まずはゆっくりペースで</span>
+            </div>
+            <button class="btn" data-plan="month4" onclick="startPay('month4')">
+              <span>このプラン</span>
+            </button>
           </div>
         </div>
-        <div class="bottom">
-          <div class="tags">
-            <span class="chip">週1回通いたい方</span>
-            <span class="chip">まずはゆっくりペースで</span>
+
+        <!-- 月8 -->
+        <div class="plan recommended">
+          <div class="top">
+            <div>
+              <h3>月8回受講プラン</h3>
+              <div class="meta">月8回まで(おすすめ)</div>
+            </div>
+            <div class="badgeReco">お得！</div>
+            <div class="price">
+              <div class="yen">¥9,900</div>
+              <div class="per">/ 月（税別）</div>
+            </div>
           </div>
-          <button class="btn" data-plan="month4" onclick="startPay('month4')">
-            <span>このプラン</span>
-          </button>
+          <div class="bottom">
+            <div class="tags">
+              <span class="chip">ダンスライフ</span>
+              <span class="chip">ダンス楽しみたい人向け</span>
+            </div>
+            <button class="btn" data-plan="month8" onclick="startPay('month8')">
+              <span>このプラン</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 月12 -->
+        <div class="plan">
+          <div class="top">
+            <div>
+              <h3>月12プラン</h3>
+              <div class="meta">月12回まで（ガッツリ）</div>
+            </div>
+            <div class="price">
+              <div class="yen">¥15,000</div>
+              <div class="per">/ 月（税別）</div>
+            </div>
+          </div>
+          <div class="bottom">
+            <div class="tags">
+              <span class="chip">週3目安</span>
+              <span class="chip">本格的に頑張る人向け</span>
+            </div>
+            <button class="btn" data-plan="month12" onclick="startPay('month12')">
+              <span>このプラン</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 通い放題 -->
+        <div class="plan">
+          <div class="top">
+            <div>
+              <h3>通い放題</h3>
+              <div class="meta">回数制限なし</div>
+            </div>
+            <div class="price">
+              <div class="yen">¥19,800</div>
+              <div class="per">/ 月（税別）</div>
+            </div>
+          </div>
+          <div class="bottom">
+            <div class="tags">
+              <span class="chip">最短で上達</span>
+              <span class="chip">本気勢</span>
+            </div>
+            <button class="btn" data-plan="unlimited" onclick="startPay('unlimited')">
+              <span>このプラン</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- タブ2：手動月謝（コンビニ・PayPay） -->
+    <div id="planPanelManual" class="planPanel" style="display:none;">
+      <div class="manualNote">
+        <span class="manualNoteIcon">⚠️</span>
+        <div>
+          <div class="manualNoteTitle">クレジットカードをお持ちでない方向け</div>
+          <div class="manualNoteDesc">こちらは<strong>当月分のみの都度払い</strong>です。毎月手動での支払いが必要になります。可能であればカード・Apple Payタブからのお申し込みを推奨しています。</div>
         </div>
       </div>
 
-      <!-- 月8 -->
-      <div class="plan recommended">
-        <div class="top">
-          <div>
-            <h3>月8回受講プラン</h3>
-            <div class="meta">月8回まで(おすすめ)</div>
+      <div class="grid">
+        <!-- 月4（手動） -->
+        <div class="plan planManual">
+          <div class="top">
+            <div>
+              <h3>月4回プラン</h3>
+              <div class="meta">月4回まで・当月のみ有効</div>
+            </div>
+            <div class="price">
+              <div class="yen">¥6,000</div>
+              <div class="per">/ 月（税別）</div>
+            </div>
           </div>
-          <div class="badgeReco">お得！</div>
-          <div class="price">
-            <div class="yen">¥9,900</div>
-            <div class="per">/ 月（税別）</div>
+          <div class="bottom">
+            <div class="tags">
+              <span class="chip chipManual">コンビニ払い</span>
+              <span class="chip chipManual">PayPay</span>
+            </div>
+            <button class="btn btnManual" data-plan="month4_manual" onclick="startPay('month4_manual')">
+              <span>このプランで支払う</span>
+            </button>
           </div>
         </div>
-        <div class="bottom">
-          <div class="tags">
-            <span class="chip">ダンスライフ</span>
-            <span class="chip">ダンス楽しみたい人向け</span>
-          </div>
-          <button class="btn" data-plan="month8" onclick="startPay('month8')">
-            <span>このプラン</span>
-          </button>
-        </div>
-      </div>
 
-      <!-- 月12 -->
-      <div class="plan">
-        <div class="top">
-          <div>
-            <h3>月12プラン</h3>
-            <div class="meta">月12回まで（ガッツリ）</div>
+        <!-- 月8（手動） -->
+        <div class="plan planManual">
+          <div class="top">
+            <div>
+              <h3>月8回プラン</h3>
+              <div class="meta">月8回まで・当月のみ有効</div>
+            </div>
+            <div class="price">
+              <div class="yen">¥9,900</div>
+              <div class="per">/ 月（税別）</div>
+            </div>
           </div>
-          <div class="price">
-            <div class="yen">¥15,000</div>
-            <div class="per">/ 月（税別）</div>
+          <div class="bottom">
+            <div class="tags">
+              <span class="chip chipManual">コンビニ払い</span>
+              <span class="chip chipManual">PayPay</span>
+            </div>
+            <button class="btn btnManual" data-plan="month8_manual" onclick="startPay('month8_manual')">
+              <span>このプランで支払う</span>
+            </button>
           </div>
         </div>
-        <div class="bottom">
-          <div class="tags">
-            <span class="chip">週3目安</span>
-            <span class="chip">本格的に頑張る人向け</span>
-          </div>
-          <button class="btn" data-plan="month12" onclick="startPay('month12')">
-            <span>このプラン</span>
-          </button>
-        </div>
-      </div>
 
-      <!-- 通い放題 -->
-      <div class="plan">
-        <div class="top">
-          <div>
-            <h3>通い放題</h3>
-            <div class="meta">回数制限なし</div>
+        <!-- 月12（手動） -->
+        <div class="plan planManual">
+          <div class="top">
+            <div>
+              <h3>月12回プラン</h3>
+              <div class="meta">月12回まで・当月のみ有効</div>
+            </div>
+            <div class="price">
+              <div class="yen">¥15,000</div>
+              <div class="per">/ 月（税別）</div>
+            </div>
           </div>
-          <div class="price">
-            <div class="yen">¥19,800</div>
-            <div class="per">/ 月（税別）</div>
+          <div class="bottom">
+            <div class="tags">
+              <span class="chip chipManual">コンビニ払い</span>
+              <span class="chip chipManual">PayPay</span>
+            </div>
+            <button class="btn btnManual" data-plan="month12_manual" onclick="startPay('month12_manual')">
+              <span>このプランで支払う</span>
+            </button>
           </div>
         </div>
-        <div class="bottom">
-          <div class="tags">
-            <span class="chip">最短で上達</span>
-            <span class="chip">本気勢</span>
+
+        <!-- 通い放題（手動） -->
+        <div class="plan planManual">
+          <div class="top">
+            <div>
+              <h3>通い放題</h3>
+              <div class="meta">回数制限なし・当月のみ有効</div>
+            </div>
+            <div class="price">
+              <div class="yen">¥19,800</div>
+              <div class="per">/ 月（税別）</div>
+            </div>
           </div>
-          <button class="btn" data-plan="unlimited" onclick="startPay('unlimited')">
-            <span>このプラン</span>
-          </button>
+          <div class="bottom">
+            <div class="tags">
+              <span class="chip chipManual">コンビニ払い</span>
+              <span class="chip chipManual">PayPay</span>
+            </div>
+            <button class="btn btnManual" data-plan="unlimited_manual" onclick="startPay('unlimited_manual')">
+              <span>このプランで支払う</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
