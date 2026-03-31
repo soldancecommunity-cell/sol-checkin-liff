@@ -4,18 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>SoL Pay（月謝）</title>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js">
-/** ==========================
- *  タブ切り替え（月謝選択）
- *  ========================== */
-function switchPlanTab(tab) {
-  const isCard = (tab === 'card');
-  document.getElementById('planPanelCard').style.display   = isCard ? '' : 'none';
-  document.getElementById('planPanelManual').style.display = isCard ? 'none' : '';
-  document.getElementById('tabCard').classList.toggle('active', isCard);
-  document.getElementById('tabManual').classList.toggle('active', !isCard);
-}
-</script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
     :root{
@@ -1342,6 +1331,17 @@ async function onClickPortal_(){
   }
 }
 
+
+/** ==========================
+ *  タブ切り替え（月謝選択）
+ *  ========================== */
+function switchPlanTab(tab) {
+  const isCard = (tab === 'card');
+  document.getElementById('planPanelCard').style.display   = isCard ? '' : 'none';
+  document.getElementById('planPanelManual').style.display = isCard ? 'none' : '';
+  document.getElementById('tabCard').classList.toggle('active', isCard);
+  document.getElementById('tabManual').classList.toggle('active', !isCard);
+}
 </script>
 </body>
 </html>
