@@ -955,7 +955,7 @@ async function fetchMembersByLineUserId_(userId){
 
   // ★ここが重要：失敗時に res を丸ごと表示
   if (!res || res.status !== "success") {
-    showToast("members_by_line_user_id 失敗:\n" + JSON.stringify(res, null, 2), "bad");
+    showToast("会員情報の取得に失敗しました。再読み込みしてください。", "bad");
     throw new Error(res && res.message ? res.message : "members_by_line_user_id failed");
   }
   return Array.isArray(res.members) ? res.members : [];
@@ -1012,7 +1012,7 @@ window.linkByPhoneStart = async function(){
     }
 
     // 3) その他（error / 想定外）
-    showToast("紐付け失敗:\n" + JSON.stringify(res, null, 2), "bad");
+    showToast("会員情報の照合に失敗しました。受付にお問い合わせください。", "bad");
     setPill("bad","紐付け失敗");
 
   }catch(e){
@@ -1262,12 +1262,41 @@ async function startPay(plan){
     const res = await jsonp(url.toString());
 
     if (!res || res.status !== "success" || !res.url) {
-      showToast(
-        "create_checkout失敗\n" +
-        JSON.stringify(res, null, 2),
-        "bad"
-      );
-      throw new Error(res && res.message ? res.message : "create_checkout failed");
+      // ★エラーコードに応じて日本語メッセージを表示
+      const code = res && res.code ? res.code : (res && res.message ? res.message : "");
+
+      if (code === "already_paid_this_month") {
+        const days = res.remain_days ? `（翌月まであと ${res.remain_days} 日）` : "";
+        showToast(
+          "月謝プランを購入済みです。\nプラン変更は「プラン変更」ボタンから行ってください。\n" + days,
+          "warn"
+        );
+        // ボタンを元に戻して終了（例外は投げない）
+        setButtonsEnabled(true);
+        if (btn){ btn.innerHTML = original; btn.disabled = false; }
+        setPill("ok", "準備OK");
+        paying = false;
+        return;
+      }
+
+      // その他のエラーは日本語に変換して表示
+      const msgMap = {
+        "member_id required"              : "会員情報が取得できていません。再読み込みしてください。",
+        "lineUserId required"             : "LINE連携が確認できません。再読み込みしてください。",
+        "member_not_found"                : "会員情報が見つかりません。受付にお問い合わせください。",
+        "member_bound_to_other_line"      : "この会員IDは別のLINEアカウントに紐付いています。",
+        "member_linked_to_other_line"     : "この会員は別のLINEアカウントで登録済みです。",
+        "phone_required_for_first_checkout": "初回登録には電話番号が必要です。",
+        "phone_mismatch"                  : "電話番号が会員情報と一致しません。",
+        "unknown_plan_or_price"           : "選択されたプランの設定が見つかりません。受付にお問い合わせください。",
+        "STRIPE_SECRET_KEY 未設定"         : "システムエラーが発生しました。受付にお問い合わせください。",
+        "initial_price_not_configured"    : "プランの初期設定が完了していません。受付にお問い合わせください。",
+        "stripe_create_session_failed"    : "決済ページの作成に失敗しました。しばらくしてから再試行してください。",
+        "STRIPE_PM_CONFIG_ONETIME 未設定"  : "システムエラーが発生しました。受付にお問い合わせください。",
+      };
+      const friendlyMsg = msgMap[code] || msgMap[res && res.message] || "決済ページの作成に失敗しました。しばらくしてから再試行してください。";
+      showToast(friendlyMsg, "bad");
+      throw new Error(code || "create_checkout failed");
     }
 
     setPill("ok","Stripeへ移動");
