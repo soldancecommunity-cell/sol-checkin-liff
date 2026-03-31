@@ -1118,14 +1118,22 @@ function withTimeout(p, ms, label){
     document.getElementById("desc").textContent =
       "プランを選択するとStripeの決済ページに移動します。決済完了後、会員情報が更新されます。";
     
-    await loadOneTimeItems();
+    // ★並列化：単発商品一覧 と 会員照合 を同時取得
+    let members = [];
+    if (!memberId) {
+      setPill("warn","会員確認中…");
+      setButtonsEnabled(false);
+      const [, fetchedMembers] = await Promise.all([
+        loadOneTimeItems(),
+        fetchMembersByLineUserId_(lineUserId)
+      ]);
+      members = fetchedMembers;
+    } else {
+      await loadOneTimeItems();
+    }
 
     // ★ここから：member_idが無いなら、この画面で候補取得→選択
     if (!memberId){
-      setPill("warn","会員確認中…");
-      setButtonsEnabled(false);
-
-      const members = await fetchMembersByLineUserId_(lineUserId);
 
       if (members.length === 0){
         setPill("warn","初回紐付け");
