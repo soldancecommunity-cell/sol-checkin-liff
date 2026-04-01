@@ -1243,6 +1243,7 @@ function withTimeout(p, ms, label){
   // member_id はURLから
   const u = new URL(location.href);
   memberId = String(u.searchParams.get("member_id") || u.searchParams.get("memberId") || "").trim();
+  const switchMode = u.searchParams.get("switch") === "1"; // ★「別の会員として支払う」ボタン経由フラグ
 
   if (memberId){
     document.getElementById("targetName").textContent = "指定あり";
@@ -1304,15 +1305,20 @@ function withTimeout(p, ms, label){
     // ★ここから：member_idが無いなら、この画面で候補取得→選択
     if (!memberId){
 
+      // ★「別の会員として支払う」ボタン経由の場合は、電話番号入力を強制表示
+      if (switchMode){
+        setPill("warn","別の会員を検索");
+        showToast("電話番号で別の会員を検索してください（ハイフンなし）。", "warn");
+        document.getElementById("phoneLinkArea").style.display = "block";
+        return;
+      }
+
       if (members.length === 0){
         setPill("warn","初回紐付け");
         showToast("初回のみ電話番号で会員を紐付けします（ハイフンなし）。", "warn");
         document.getElementById("phoneLinkArea").style.display = "block";
         return;
       }
-      
-
-
 
       if (members.length === 1){
         const mid = String(members[0].member_id || '').trim();
@@ -1549,6 +1555,7 @@ function switchToOtherMember() {
   const u = new URL(location.href);
   u.searchParams.delete('member_id');
   u.searchParams.delete('memberId');
+  u.searchParams.set('switch', '1'); // ★自動会員選択をスキップし電話番号入力を強制表示
   location.replace(u.toString());
 }
 
