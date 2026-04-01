@@ -1162,7 +1162,7 @@ async function checkin(isConfirm){
 
     // 4) 失敗
     if (!res || res.status !== "success") {
-      showBanner((res && res.message) ? res.message : "エラーが発生しました。", "danger");
+      showBanner("チェックインに失敗しました。受付へお声がけください。", "danger");
       return;
     }
 
@@ -1178,21 +1178,21 @@ async function checkin(isConfirm){
         showMiniLoading("LINE連携中…");
         const linkRes = await issueLinkCodeAndSend_(phone);
         if (!linkRes.ok) {
-          showBanner(`LINE連携失敗: ${linkRes.reason}`, "info");
+          showBanner("LINE連携の処理中に問題が発生しました。チェックイン自体は完了しています。", "info");
         } else if (linkRes.skipped) {
-          showBanner(`LINE連携スキップ: ${linkRes.reason}`, "info");
+          // LINE連携スキップ：会員への表示不要のため省略
         } else {
-          showBanner(`LINE連携OK: code=${linkRes.code || "-"}`, "success");
+          // LINE連携OK：会員への表示不要（成功時はバナー不要）
         }
 
         // 送れなかった理由は運用上重要なので、開発モード/必要時のみ出す
         if (!linkRes.ok && FORCE_PHONE) {
-          showBanner(`LINE連携メッセージを送れませんでした（${linkRes.reason}）。`, "info");
+          showBanner("LINE通知の送信に失敗しましたが、チェックインは完了しています。", "info");
         }
       } catch (e) {
         // 失敗してもチェックイン自体は成功させる（ここで止めない）
         if (FORCE_PHONE) {
-          showBanner(`LINE連携でエラー: ${String(e && e.message ? e.message : e)}`, "info");
+          showBanner("LINE連携でエラーが発生しましたが、チェックインは完了しています。", "info");
         }
       } finally {
         hideMiniLoading();
@@ -1274,7 +1274,7 @@ async function checkin(isConfirm){
 
   init().catch(err => {
     hideMiniLoading();
-    showBanner("起動に失敗しました： " + (err && err.message ? err.message : String(err)), "danger");
+    showBanner("読み込みに失敗しました。ページを閉じてQRコードから再度開いてください。", "danger");
     console.error(err);
   });
 </script>
