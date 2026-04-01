@@ -367,7 +367,7 @@
       // デバッグ枠が表示されている時だけ書く（通常は何もしない）
       setOut(o);
       setOutVerify(o);
-      if ($("verifyErr")) $("verifyErr").textContent = "JSエラーで停止しました。\n" + JSON.stringify(o, null, 2);
+      if ($("verifyErr")) $("verifyErr").textContent = "予期しないエラーが発生しました。画面を閉じて再度QRから開いてください。";
     }catch(_){}
   };
   window.onunhandledrejection = function(ev){
@@ -376,7 +376,7 @@
       const o = { where:"unhandledrejection", reason:String(r && r.stack ? r.stack : r) };
       setOut(o);
       setOutVerify(o);
-      if ($("verifyErr")) $("verifyErr").textContent = "Promise例外で停止しました。\n" + JSON.stringify(o, null, 2);
+      if ($("verifyErr")) $("verifyErr").textContent = "エラーが発生しました。画面を閉じて再度QRから開いてください。";
     }catch(_){}
   };
 
@@ -621,9 +621,7 @@
         return true;
       }
 
-      $("verifyErr").textContent =
-        "会員情報取得に失敗しました（me_cashレスポンス）\n" +
-        JSON.stringify(me, null, 2);
+      $("verifyErr").textContent = "会員情報の確認に失敗しました。もう一度「会員確認して続行」を押してください。";
 
       setVerifyStatus("会員情報取得失敗");
       setVerifyNotice("ng","会員情報取得に失敗","もう一度「会員確認して続行」を押してください。");
@@ -632,7 +630,7 @@
     }catch(e){
       setOutVerify({ where:"me_cash_exception_after_resolve", error:String(e?.message||e) });
       $("verifyErr").textContent =
-        "会員情報取得に失敗しました（通信/例外）\n" +
+        "会員情報の取得に失敗しました。電波状況を確認してやり直してください。"
         String(e?.message || e);
       setVerifyStatus("会員情報取得失敗");
       setVerifyNotice("ng","通信失敗","通信に失敗しました。もう一度「会員確認して続行」を押してください。");
@@ -692,7 +690,7 @@
     const clsUrl = `${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`;
     const cls = await jsonp(clsUrl);
     if (!cls || cls.status !== "success") {
-      $("verifyErr").textContent = "classes取得失敗\n" + JSON.stringify(cls, null, 2);
+      $("verifyErr").textContent = "クラス一覧の取得に失敗しました。電波状況を確認してやり直してください。";
       setOut({ where:"classes", clsUrl, cls });
       setStatus("失敗");
       setCheckinNotice("ng","読み込み失敗","クラス一覧の取得に失敗しました。電波状況を確認してやり直してください。");
@@ -790,7 +788,7 @@
           + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
 
         const res = await jsonp(url);
-        setCheckinNotice("ng","チェックイン失敗", "APIレスポンス:\n" + JSON.stringify(res, null, 2));
+        setCheckinNotice("ng","チェックイン失敗", "チェックインに失敗しました。受付へお声がけください。");
         setOut({ where:"checkin_result", url, res });
 
         if (res && res.status === "success") {
@@ -934,15 +932,13 @@
         return;
       }
 
-      $("verifyErr").textContent =
-        "照会に失敗しました（APIレスポンス）\n" +
-        JSON.stringify(r, null, 2);
+      $("verifyErr").textContent = "会員照合に失敗しました。電話番号を確認してやり直してください。";
       setOutVerify({ where:"resolve_member_error", url, picked_rowIndex: rowIndex, r });
       setVerifyStatus("失敗");
       setVerifyNotice("ng","照会に失敗","もう一度やり直してください。");
 
     } catch(err){
-      $("verifyErr").textContent = "通信失敗: " + String(err?.message || err);
+      $("verifyErr").textContent = "通信に失敗しました。電波状況を確認してやり直してください。";
       setOutVerify({ where:"resolve_member_exception", error:String(err?.message || err) });
       setVerifyStatus("失敗");
       setVerifyNotice("ng","通信失敗","通信に失敗しました。電波状況を確認してやり直してください。");
