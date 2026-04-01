@@ -432,6 +432,18 @@
       box-shadow: 0 0 0 1px rgba(124,92,255,.18) inset;
     }
     .planTabIcon{ font-size: 15px; }
+    .switchMemberBtn{
+      appearance: none;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 20px;
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 7px 18px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .switchMemberBtn:hover{ background: rgba(255,255,255,.10); color: var(--fg); }
     .planPanel{ animation: fadeIn .18s ease; }
     @keyframes fadeIn{ from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
 
@@ -549,6 +561,13 @@
     </div>
 
 
+    <!-- ★別の会員で支払うボタン：member_id確定済み時のみJS側で表示 -->
+    <div id="switchMemberArea" style="display:none; margin-bottom:12px; text-align:center;">
+      <button class="switchMemberBtn" onclick="switchToOtherMember()">
+        別の会員として支払う
+      </button>
+    </div>
+
     <div class="sectionTitle">プランを選択</div>
 
     <!-- ★タブ切り替え -->
@@ -558,6 +577,9 @@
       </button>
       <button class="planTab" id="tabManual" onclick="switchPlanTab('manual')">
         <span class="planTabIcon">🏪</span>コンビニ・PayPay
+      </button>
+      <button class="planTab" id="tabUpgrade" onclick="switchPlanTab('upgrade')">
+        <span class="planTabIcon">⬆️</span>当月アップグレード
       </button>
     </div>
 
@@ -758,6 +780,118 @@
             </div>
             <button class="btn btnManual" data-plan="unlimited_manual" onclick="startPay('unlimited_manual')">
               <span>このプランで支払う</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- タブ3：当月アップグレード差額 -->
+    <div id="planPanelUpgrade" class="planPanel" style="display:none;">
+      <div class="manualNote">
+        <span class="manualNoteIcon">ℹ️</span>
+        <div>
+          <div class="manualNoteTitle">当月のみ有効なアップグレード差額決済です</div>
+          <div class="manualNoteDesc">
+            現在のプランの差額をお支払いいただくことで、<strong>今月中に限り上位プラン相当</strong>での受講が可能になります。<br>
+            翌月以降も継続して上位プランにしたい場合は、「プラン変更」ボタンから会員ポータルで変更してください（次回請求サイクルから反映）。
+          </div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <!-- 月4→月8 -->
+        <div class="plan">
+          <div class="top">
+            <div>
+              <h3>月4回 → 月8回</h3>
+              <div class="meta">当月アップグレード差額</div>
+            </div>
+            <div class="price">¥3,900<span class="per">（税抜）</span></div>
+          </div>
+          <div class="bottom">
+            <button class="btn" data-plan="upgrade_4_to_8" onclick="startPay('upgrade_4_to_8')">
+              <span>差額を支払う</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 月4→月12 -->
+        <div class="plan">
+          <div class="top">
+            <div>
+              <h3>月4回 → 月12回</h3>
+              <div class="meta">当月アップグレード差額</div>
+            </div>
+            <div class="price">¥9,000<span class="per">（税抜）</span></div>
+          </div>
+          <div class="bottom">
+            <button class="btn" data-plan="upgrade_4_to_12" onclick="startPay('upgrade_4_to_12')">
+              <span>差額を支払う</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 月4→受け放題 -->
+        <div class="plan">
+          <div class="top">
+            <div>
+              <h3>月4回 → 受け放題</h3>
+              <div class="meta">当月アップグレード差額</div>
+            </div>
+            <div class="price">¥13,800<span class="per">（税抜）</span></div>
+          </div>
+          <div class="bottom">
+            <button class="btn" data-plan="upgrade_4_to_unlimited" onclick="startPay('upgrade_4_to_unlimited')">
+              <span>差額を支払う</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 月8→月12 -->
+        <div class="plan">
+          <div class="top">
+            <div>
+              <h3>月8回 → 月12回</h3>
+              <div class="meta">当月アップグレード差額</div>
+            </div>
+            <div class="price">¥5,100<span class="per">（税抜）</span></div>
+          </div>
+          <div class="bottom">
+            <button class="btn" data-plan="upgrade_8_to_12" onclick="startPay('upgrade_8_to_12')">
+              <span>差額を支払う</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 月8→受け放題 -->
+        <div class="plan">
+          <div class="top">
+            <div>
+              <h3>月8回 → 受け放題</h3>
+              <div class="meta">当月アップグレード差額</div>
+            </div>
+            <div class="price">¥9,900<span class="per">（税抜）</span></div>
+          </div>
+          <div class="bottom">
+            <button class="btn" data-plan="upgrade_8_to_unlimited" onclick="startPay('upgrade_8_to_unlimited')">
+              <span>差額を支払う</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 月12→受け放題 -->
+        <div class="plan">
+          <div class="top">
+            <div>
+              <h3>月12回 → 受け放題</h3>
+              <div class="meta">当月アップグレード差額</div>
+            </div>
+            <div class="price">¥4,800<span class="per">（税抜）</span></div>
+          </div>
+          <div class="bottom">
+            <button class="btn" data-plan="upgrade_12_to_unlimited" onclick="startPay('upgrade_12_to_unlimited')">
+              <span>差額を支払う</span>
             </button>
           </div>
         </div>
@@ -1190,6 +1324,9 @@ function withTimeout(p, ms, label){
     setPill("ok","準備OK");
     setButtonsEnabled(true);
     booted = true;
+    // ★同一端末で別の家族会員に切り替えられるボタンを表示
+    const sma = document.getElementById("switchMemberArea");
+    if (sma) sma.style.display = "";
 
     const btnPortal = document.getElementById('btnPortal');
     if (btnPortal) btnPortal.disabled = false;
@@ -1399,12 +1536,24 @@ async function onClickPortal_(){
 /** ==========================
  *  タブ切り替え（月謝選択）
  *  ========================== */
+function switchToOtherMember() {
+  // member_id をURLから除去して再読み込み → boot が電話番号入力に戻る
+  const u = new URL(location.href);
+  u.searchParams.delete('member_id');
+  u.searchParams.delete('memberId');
+  location.replace(u.toString());
+}
+
 function switchPlanTab(tab) {
-  const isCard = (tab === 'card');
-  document.getElementById('planPanelCard').style.display   = isCard ? '' : 'none';
-  document.getElementById('planPanelManual').style.display = isCard ? 'none' : '';
+  const isCard    = (tab === 'card');
+  const isManual  = (tab === 'manual');
+  const isUpgrade = (tab === 'upgrade');
+  document.getElementById('planPanelCard').style.display    = isCard    ? '' : 'none';
+  document.getElementById('planPanelManual').style.display  = isManual  ? '' : 'none';
+  document.getElementById('planPanelUpgrade').style.display = isUpgrade ? '' : 'none';
   document.getElementById('tabCard').classList.toggle('active', isCard);
-  document.getElementById('tabManual').classList.toggle('active', !isCard);
+  document.getElementById('tabManual').classList.toggle('active', isManual);
+  document.getElementById('tabUpgrade').classList.toggle('active', isUpgrade);
 }
 </script>
 </body>
