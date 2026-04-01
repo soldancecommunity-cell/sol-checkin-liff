@@ -108,17 +108,38 @@
       padding: 14px 14px;
       box-shadow: var(--shadow);
     }
-    .hero .row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .hero .row{ display:flex; flex-direction:column; gap:10px; }
     .hero .title{ font-size: 14px; margin:0; color: var(--text); }
     .hero .desc{ margin:6px 0 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
 
+    /* ★ 対象会員情報エリア：横並びカード */
     .kv{
-      display:flex; flex-direction:column; align-items:flex-end; gap:4px;
-      min-width: 120px;
-      text-align:right;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px;
+      background: rgba(255,255,255,.03);
     }
-    .kv .label{ font-size: 11px; color: var(--muted); }
-    .kv .value{ font-size: 16px; font-weight: 700; letter-spacing:.02em; }
+    .kv .label{
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .kv .value{
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing:.02em;
+      white-space: nowrap;
+    }
+    .kv-divider{
+      width: 1px; height: 16px;
+      background: rgba(255,255,255,.12);
+      flex-shrink: 0;
+    }
 
     .chip{
       display:inline-flex;
@@ -365,27 +386,13 @@
     .phoneLinkBtn:hover{ opacity: .85; }
     .phoneLinkBtn:active{ opacity: .70; }
 
-    /* ★ 選択済み会員名表示 */
-    .memberNameBadge{
+    /* ★ 選択済み会員名：kvカード内インライン表示 */
+    .memberNameInline{
       display: none;
       align-items: center;
-      gap: 8px;
-      margin-top: 8px;
-      padding: 10px 14px;
-      border-radius: 12px;
-      background: rgba(124,92,255,.15);
-      border: 1px solid rgba(124,92,255,.35);
-      font-size: 14px;
-      font-weight: 700;
+      gap: 5px;
       color: var(--text);
     }
-    .memberNameBadge .badge-label{
-      font-size: 11px;
-      color: var(--muted);
-      font-weight: 400;
-      margin-right: 2px;
-    }
-    .memberNameBadge .badge-icon{ font-size: 16px; }
 
     .actionCard{
       margin-top: 14px;
@@ -604,15 +611,19 @@
           </p>
         </div>
 
+        <!-- ★ 対象会員情報：横並びカード -->
         <div class="kv">
           <div class="label">対象</div>
           <div class="value" id="targetName">未選択</div>
+          <div class="kv-divider" id="memberChipDivider" style="display:none;"></div>
           <div class="chip" id="memberChip" style="display:none;">
-            member_id <b id="memberIdShort"></b>
+            <span style="color:var(--muted);font-size:10px;">ID</span>
+            <b id="memberIdShort"></b>
           </div>
-          <div class="memberNameBadge" id="memberNameBadge">
-            <span class="badge-icon">👤</span>
-            <span><span class="badge-label">決済対象：</span><span id="memberNameText"></span></span>
+          <div class="kv-divider" id="memberNameDivider" style="display:none;"></div>
+          <div class="memberNameInline" id="memberNameBadge" style="display:none;">
+            <span style="font-size:13px;">👤</span>
+            <span id="memberNameText" style="font-size:13px;font-weight:700;"></span>
           </div>
         </div>
       </div>
@@ -1336,13 +1347,22 @@ function withTimeout(p, ms, label){
     let cachedName = "";
     try { cachedName = sessionStorage.getItem('sol_pay_mname_' + memberId) || ""; } catch(_){}
     document.getElementById("targetName").textContent = cachedName || "指定あり";
-    document.getElementById("memberChip").style.display = "inline-flex";
+    // chip表示（ID）
+    const chipEl = document.getElementById("memberChip");
+    const chipDiv = document.getElementById("memberChipDivider");
+    if (chipEl) chipEl.style.display = "inline-flex";
+    if (chipDiv) chipDiv.style.display = "";
     document.getElementById("memberIdShort").textContent = shortId(memberId);
-    // ★会員名バッジを表示
+    // ★会員名インライン表示
     if (cachedName){
       const badge = document.getElementById("memberNameBadge");
+      const nameDiv = document.getElementById("memberNameDivider");
       const nameEl = document.getElementById("memberNameText");
-      if (badge && nameEl){ nameEl.textContent = cachedName; badge.style.display = "flex"; }
+      if (badge && nameEl){
+        nameEl.textContent = cachedName;
+        badge.style.display = "flex";
+        if (nameDiv) nameDiv.style.display = "";
+      }
     }
   } else {
     document.getElementById("targetName").textContent = "未指定";
@@ -1578,7 +1598,13 @@ async function startPay(plan){
         "stripe_create_session_failed"    : "決済ページの作成に失敗しました。しばらくしてから再試行してください。",
         "STRIPE_PM_CONFIG_ONETIME 未設定"  : "システムエラーが発生しました。受付にお問い合わせください。",
       };
-      const friendlyMsg = msgMap[code] || msgMap[res && res.message] || "決済ページの作成に失敗しました。しばらくしてから再試行してください。";
+      // ★ codeがstripe_create_session_failedで始まる場合、Stripeの生エラーも補足表示
+      const baseCode = code ? code.split(':')[0].trim() : '';
+      const friendlyMsg = msgMap[baseCode] || msgMap[code] || msgMap[res && res.message] || "決済ページの作成に失敗しました。しばらくしてから再試行してください。";
+      // ★ Stripeエラーの詳細をコンソールに出力（デバッグ用）
+      if (baseCode === 'stripe_create_session_failed') {
+        console.error('[startPay] Stripe error:', code, res);
+      }
       showToast(friendlyMsg, "bad");
       throw new Error(code || "create_checkout failed");
     }
