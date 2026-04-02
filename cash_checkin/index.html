@@ -492,8 +492,8 @@
 
       function cleanup(){
         clearTimeout(timer);
-        try { delete window[cb]; } catch(_){}
-        script.remove();
+        window[cb] = function(){}; // no-op（タイムアウト後の遅延レスポンスでReferenceErrorが出るのを防ぐ）
+        try { script.remove(); } catch(_){}
       }
       window[cb] = (data)=>{ cleanup(); resolve(data); };
 
@@ -1069,7 +1069,14 @@
     okBtn.addEventListener("click", (e)=>{
       e.preventDefault();
       e.stopPropagation();
-      doResolveMember_();
+      doResolveMember_().catch((err)=>{
+        // 予期しないrejectionをwindow.onerrorに漏らさない
+        $("verifyErr").textContent = "予期しないエラーが発生しました。やり直してください。";
+        RESOLVE_IN_FLIGHT = false;
+        $("btnVerifyOk").disabled = false;
+        $("btnVerifyCancel").disabled = false;
+        $("btnVerifyRetry").disabled = false;
+      });
     }, true);
 
     phone.addEventListener("keydown", (e)=>{
