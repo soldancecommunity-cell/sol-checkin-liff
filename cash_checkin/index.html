@@ -960,7 +960,8 @@
         + `&token=${encodeURIComponent(API_TOKEN)}`
         + `&userId=${encodeURIComponent(gUserId)}`
         + `&phone=${encodeURIComponent(phone)}`
-        + (rowIndex ? `&rowIndex=${encodeURIComponent(String(rowIndex))}` : "");
+        + (rowIndex ? `&rowIndex=${encodeURIComponent(String(rowIndex))}` : "")
+        + `&readonly=1`; // ★ members(B)へのLINE ID書き込みをスキップ（他LINEアカウントの汚染防止）
 
       const r = await jsonp(url);
 
