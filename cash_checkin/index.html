@@ -218,10 +218,55 @@
       font-size:12px;
       white-space:pre-wrap;
     }
+  
+    /* ★★ SoLローディングオーバーレイ */
+    .solOverlay{
+      position:fixed; inset:0; z-index:9999;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:20px;
+      background:rgba(6,7,10,0.82);
+      backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+      opacity:0; pointer-events:none;
+      transition:opacity 0.2s ease;
+    }
+    .solOverlay.active{ opacity:1; pointer-events:all; }
+    .solOverlay-logo{
+      font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;
+      font-size:38px; font-weight:900; letter-spacing:.08em;
+      background:linear-gradient(135deg,#a78bfa 0%,#2dd4bf 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      background-clip:text;
+    }
+    .solOverlay-spinner{ position:relative; width:52px; height:52px; }
+    .solOverlay-ring{
+      position:absolute; inset:0; border-radius:50%;
+      border:3px solid transparent;
+      animation:solSpin 1.2s cubic-bezier(0.4,0,0.2,1) infinite;
+    }
+    .solOverlay-ring:nth-child(1){ border-top-color:#7c5cff; animation-delay:0s; }
+    .solOverlay-ring:nth-child(2){ border-right-color:#2dd4bf; animation-delay:-0.4s; inset:6px; }
+    .solOverlay-ring:nth-child(3){ border-bottom-color:rgba(124,92,255,0.4); animation-delay:-0.8s; inset:12px; }
+    @keyframes solSpin{ to{ transform:rotate(360deg); } }
+    .solOverlay-label{
+      font-size:13px; color:rgba(255,255,255,0.55); letter-spacing:.1em;
+      animation:solPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes solPulse{ 0%,100%{opacity:0.4} 50%{opacity:1} }
   </style>
 </head>
 
 <body>
+
+    <div id="solOverlay" class="solOverlay" aria-live="polite">
+      <div class="solOverlay-logo">SoL</div>
+      <div class="solOverlay-spinner">
+        <div class="solOverlay-ring"></div>
+        <div class="solOverlay-ring"></div>
+        <div class="solOverlay-ring"></div>
+      </div>
+      <div class="solOverlay-label">読み込み中</div>
+    </div>
+
   <!-- BUILD: 2026-02-09_cash_checkin_member_gate_v8_hold_until_me_cash_success__ui_notice_hide_logs -->
   <div class="wrap">
 
@@ -338,6 +383,9 @@
   </div>
 
 <script>
+
+  function showOverlay(){ var e=document.getElementById('solOverlay'); if(e) e.classList.add('active'); }
+  function hideOverlay(){ var e=document.getElementById('solOverlay'); if(e) e.classList.remove('active'); }
   /* ====== 設定（必ず差し替え） ====== */
   const LIFF_ID   = "2008938862-M5N6CXP3";
   const API_URL   = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
@@ -715,6 +763,7 @@
     setMemberUiLocked_();
 
     setCheckinNotice("ok","準備中","会員情報とクラス一覧を読み込みます。");
+    showOverlay();
 
     // ★並列化：会員情報とクラス一覧を同時取得（直列→並列で約1リクエスト分短縮）
     const [meState, clsOk] = await Promise.all([
@@ -724,6 +773,7 @@
 
     // 失敗なら終了
     if (!meState.ok || !clsOk){
+      hideOverlay();
       $("btnCheckin").disabled = true;
       $("btnCheckin").textContent = "読み込み失敗";
       setOut(!meState.ok ? "会員情報取得に失敗" : "クラス取得に失敗");
@@ -739,6 +789,7 @@
       const lim = Number(meState.me?.plan_limit || 0);
 
       // ポップアップは“最後の安全装置”として残す
+      hideOverlay();
       const msg =
         `月謝内のため現地精算はできません。\n` +
         `今月の受講数：${mc}${lim ? ` / ${lim}` : ""}\n\n` +
@@ -750,6 +801,7 @@
     }
 
     // allow のときだけ押せる
+    hideOverlay();
     $("btnCheckin").disabled = false;
     $("btnCheckin").textContent = "現地精算でチェックイン（PENDING）";
     setOut("準備OK。");
@@ -768,6 +820,7 @@
 
       $("btnCheckin").disabled = true;
       setStatus("チェックイン送信中…");
+      showOverlay();
       setCheckinNotice("ok","送信中…","チェックインを送信しています。");
 
       try{
@@ -836,6 +889,7 @@
         setStatus("通信失敗");
         setCheckinNotice("ng","通信失敗","通信に失敗しました。電波状況を確認してやり直してください。");
       } finally {
+        hideOverlay();
         RUNNING = false;
 
         // ★注意：ここで無条件に戻さない（現地精算不可の時に戻ってしまう事故防止）
@@ -1032,6 +1086,7 @@
   }
 
   async function main(){
+    showOverlay();
     showVerifyScreen_();
     setOutVerify({ where:"boot_ok", at:new Date().toISOString() });
     setVerifyStatus("LIFF初期化中…");
@@ -1046,9 +1101,11 @@
 
     bindVerifyUI_();
     setVerifyStatus("電話番号入力が必要");
+    hideOverlay();
   }
 
   main().catch(e=>{
+    hideOverlay();
     setOutVerify("FATAL: " + String(e && e.message ? e.message : e));
     setVerifyStatus("起動失敗");
     setVerifyNotice("ng","起動失敗","ページを閉じて、もう一度QRから開いてください。");
