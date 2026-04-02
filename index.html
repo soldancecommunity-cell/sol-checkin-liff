@@ -100,6 +100,21 @@
     }
     .switchMemberBtn:active{ background:rgba(255,255,255,.12); color:var(--text); }
 
+    .lookupMemberBtn{
+      width:100%; margin-top:10px;
+      -webkit-appearance:none; appearance:none;
+      border:1px solid rgba(124,92,255,.55);
+      border-radius:14px;
+      background:rgba(124,92,255,.12);
+      color:var(--text);
+      font-size:14px; font-weight:700;
+      padding:12px;
+      cursor:pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .lookupMemberBtn:active{ background:rgba(124,92,255,.25); }
+    .lookupMemberBtn:disabled{ opacity:.5; cursor:not-allowed; }
+
     .sectionTag{
       margin-top: 12px;
       padding-top: 8px;
@@ -516,12 +531,16 @@
           <div id="classGrid" class="grid"></div>
 
           <div id="phoneWrap" style="display:none; margin-top: 14px;">
-            <label>電話番号（初回のみ）</label>
+            <label id="phoneLabel">電話番号（初回のみ）</label>
             <div class="field">
               <input id="phoneInput" type="tel" inputmode="numeric" placeholder="090xxxxxxxx"
                      autocomplete="off" autocorrect="off" autocapitalize="off" />
             </div>
             <div class="hint">会員登録時の「緊急連絡先」と一致する必要があります。</div>
+            <!-- ★ 別会員モード時のみ表示する会員確認ボタン -->
+            <button id="lookupMemberBtn" class="lookupMemberBtn" onclick="lookupMember_()" style="display:none;">
+              この番号で会員を確認する
+            </button>
           </div>
 
           <button id="checkinBtn" class="btn" onclick="checkin()" disabled>チェックイン</button>
@@ -711,8 +730,13 @@
   $("linkModalOk").onclick = async () => {
     hideLinkModal();
     if (!PENDING_CONFIRM || !PENDING_ROW_INDEX) return;
-    // OK押下後：confirm=1 で再度 checkin を叩く
-    await checkin(true);
+
+    // ★ クラスが選択済みならすぐにチェックイン、未選択なら案内だけ（PENDINGは保持）
+    if (SELECTED_CLASS && SELECTED_CLASS.id) {
+      await checkin(true);
+    } else {
+      showBanner("会員を確認しました。クラスを選んで「チェックイン」を押してください。", "info");
+    }
   };
 
 
@@ -1123,11 +1147,73 @@
 
   // ★ 別の会員としてチェックイン
   function switchMember() {
+    $("phoneLabel").textContent = "別の会員の電話番号（ハイフンなし）";
     $("phoneWrap").style.display = "block";
+    $("lookupMemberBtn").style.display = "block";
     $("phoneInput").value = "";
     $("phoneInput").focus();
     $("switchMemberBtn").style.display = "none";
-    showBanner("別の会員の電話番号（ハイフンなし）を入力してチェックインしてください。", "info");
+    showBanner("別の会員の電話番号（ハイフンなし）を入力して「会員を確認する」を押してください。", "info");
+  }
+
+  // ★ 別会員モード：電話番号から会員を検索して確認モーダルを表示
+  let LOOKUP_IN_FLIGHT = false;
+  async function lookupMember_() {
+    if (LOOKUP_IN_FLIGHT) return;
+
+    const phone = normalizePhone($("phoneInput").value);
+    if (!phone) {
+      showBanner("電話番号を入力してください（ハイフンなし）。", "danger");
+      return;
+    }
+
+    LOOKUP_IN_FLIGHT = true;
+    const btn = $("lookupMemberBtn");
+    btn.disabled = true;
+    btn.textContent = "照会中…";
+    hideBanner();
+    showOverlay();
+
+    try {
+      const url =
+        `${API_URL}?api=resolve_member`
+        + `&token=${encodeURIComponent(API_TOKEN)}`
+        + `&userId=${encodeURIComponent(LINE_USER_ID)}`
+        + `&phone=${encodeURIComponent(phone)}`;
+
+      const r = await jsonp(url);
+
+      if (r && r.status === "need_member_select") {
+        openLinkSelect(r.candidates || []);
+        showBanner("該当する会員を選択してください。", "info");
+        return;
+      }
+
+      if (r && r.status === "need_link_confirm") {
+        openLinkConfirm(r.candidate);
+        return;
+      }
+
+      if (r && r.status === "success") {
+        // 既に紐付け済み → 対象を更新してそのままチェックインへ
+        const name = String(r.member_name || "").trim();
+        const type = String(r.member_type || "").trim();
+        if (name) updateTargetDisplay_(name, type);
+        showBanner("会員を確認しました。クラスを選んで「チェックイン」を押してください。", "info");
+        $("lookupMemberBtn").style.display = "none";
+        return;
+      }
+
+      showBanner("会員が見つかりませんでした。電話番号を確認してください。", "danger");
+
+    } catch (err) {
+      showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
+    } finally {
+      LOOKUP_IN_FLIGHT = false;
+      btn.disabled = false;
+      btn.textContent = "この番号で会員を確認する";
+      hideOverlay();
+    }
   }
 
   async function init(){
@@ -1257,7 +1343,8 @@ async function checkin(isConfirm){
       `&classId=${encodeURIComponent(SELECTED_CLASS.id)}` +
       `&className=${encodeURIComponent(SELECTED_CLASS.name)}` +
       (phone ? `&phone=${encodeURIComponent(phone)}` : "") +
-      ((isConfirm && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "");
+      // ★ isConfirmがfalseでもPENDING済みなら confirm=1 を送る（別会員モード対応）
+      ((( isConfirm || (PENDING_CONFIRM && PENDING_ROW_INDEX) ) && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "");
 
 
     const res = await jsonp(url);
@@ -1302,6 +1389,9 @@ async function checkin(isConfirm){
 
     // 5) 成功（ここで初めて “済” を付ける）
     markDoneToday_(SELECTED_CLASS.id);
+    // ★ 別会員モードのPENDINGをリセット
+    PENDING_CONFIRM = false;
+    PENDING_ROW_INDEX = 0;
     hideOverlay(); // ★ チェックイン完了でオーバーレイ解除
     // ==========================================================
     // ★B案：初回電話が入っているときだけ、連携コードを送る
