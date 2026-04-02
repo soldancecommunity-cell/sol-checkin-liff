@@ -392,10 +392,55 @@
   cursor: pointer;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
 }
+  
+    /* ★★ SoLローディングオーバーレイ */
+    .solOverlay{
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
+      background: rgba(6,7,10,0.82);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .solOverlay.active{ opacity: 1; pointer-events: all; }
+    .solOverlay-logo{
+      font-family: system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;
+      font-size: 38px; font-weight: 900; letter-spacing: .08em;
+      background: linear-gradient(135deg,#a78bfa 0%,#2dd4bf 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .solOverlay-spinner{ position:relative; width:52px; height:52px; }
+    .solOverlay-ring{
+      position:absolute; inset:0; border-radius:50%;
+      border:3px solid transparent;
+      animation: solSpin 1.2s cubic-bezier(0.4,0,0.2,1) infinite;
+    }
+    .solOverlay-ring:nth-child(1){ border-top-color:#7c5cff; animation-delay:0s; }
+    .solOverlay-ring:nth-child(2){ border-right-color:#2dd4bf; animation-delay:-0.4s; inset:6px; }
+    .solOverlay-ring:nth-child(3){ border-bottom-color:rgba(124,92,255,0.4); animation-delay:-0.8s; inset:12px; }
+    @keyframes solSpin{ to{ transform:rotate(360deg); } }
+    .solOverlay-label{
+      font-size:13px; color:rgba(255,255,255,0.55); letter-spacing:.1em;
+      animation: solPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes solPulse{ 0%,100%{opacity:0.4} 50%{opacity:1} }
   </style>
 </head>
 
 <body>
+
+    <div id="solOverlay" class="solOverlay" aria-live="polite">
+      <div class="solOverlay-logo">SoL</div>
+      <div class="solOverlay-spinner">
+        <div class="solOverlay-ring"></div>
+        <div class="solOverlay-ring"></div>
+        <div class="solOverlay-ring"></div>
+      </div>
+      <div class="solOverlay-label">読み込み中</div>
+    </div>
+
   <div class="wrap">
     <div class="brand">
       <div class="brandLeft">
@@ -494,6 +539,9 @@
   </div>
 
 <script>
+
+  function showOverlay(){ var e=document.getElementById('solOverlay'); if(e) e.classList.add('active'); }
+  function hideOverlay(){ var e=document.getElementById('solOverlay'); if(e) e.classList.remove('active'); }
  
 
 /**
@@ -1020,6 +1068,7 @@
   }
 
   async function init(){
+    showOverlay();
     hideBanner();
     applyTodayHeader_();
     wireDevReset_();
@@ -1084,6 +1133,7 @@
     }
 
     hideMiniLoading();
+    hideOverlay();
     $("checkinBtn").disabled = true;
   }
 
@@ -1117,6 +1167,7 @@ async function checkin(isConfirm){
   const phone = normalizePhone($("phoneInput").value);
 
   setBusy(true);
+  showOverlay();
   showMiniLoading("チェックイン送信中…");
 
   try {
@@ -1137,18 +1188,21 @@ async function checkin(isConfirm){
     if (res && res.status === "need_phone") {
       $("phoneWrap").style.display = "block";
       showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "info");
+      hideOverlay();
       return;
     }
 
     // 2.5) 会員選択が必要
     if (res && res.status === "need_member_select") {
       openLinkSelect(res.candidates || []);
+      hideOverlay();
       return;
     }
     
     // 2.6) 会員確認（1件ヒット）
     if (res && res.status === "need_link_confirm") {
       openLinkConfirm(res.candidate);
+      hideOverlay();
       return;
     }
 
@@ -1157,17 +1211,20 @@ async function checkin(isConfirm){
     if (res && res.status === "already") {
       showBanner(res.message || "本日はすでにチェックイン済みです。", "info");
       markDoneToday_(SELECTED_CLASS.id);
+      hideOverlay();
       return;
     }
 
     // 4) 失敗
     if (!res || res.status !== "success") {
       showBanner("チェックインに失敗しました。受付へお声がけください。", "danger");
+      hideOverlay();
       return;
     }
 
     // 5) 成功（ここで初めて “済” を付ける）
     markDoneToday_(SELECTED_CLASS.id);
+    hideOverlay(); // ★ チェックイン完了でオーバーレイ解除
     // ==========================================================
     // ★B案：初回電話が入っているときだけ、連携コードを送る
     // （webhookが受けて member_line_links を送信用IDで確定させる）
