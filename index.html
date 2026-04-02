@@ -1208,7 +1208,8 @@
         `${API_URL}?api=resolve_member`
         + `&token=${encodeURIComponent(API_TOKEN)}`
         + `&userId=${encodeURIComponent(LINE_USER_ID)}`
-        + `&phone=${encodeURIComponent(phone)}`;
+        + `&phone=${encodeURIComponent(phone)}`
+        + `&readonly=1`; // ★ 書き込みなしで検索のみ（別会員のLINE IDを汚染しない）
 
       const r = await jsonp(url);
 
