@@ -657,6 +657,7 @@
   let TODAY_WD = "";
   let PENDING_ROW_INDEX = 0;
   let PENDING_CONFIRM = false;
+  let SWITCH_MEMBER_ID = ""; // ★ 別会員モード：確定したB側member_id
 
   const $ = (id) => document.getElementById(id);
 
@@ -690,12 +691,15 @@
     PENDING_ROW_INDEX = Number(candidate && candidate.rowIndex ? candidate.rowIndex : 0);
     PENDING_CONFIRM = true;
 
-    // ★ 対象会員表示を確認候補で更新
+    // ★ 対象会員表示を確認候補で更新 & member_id を保存（B側フォールバック防止）
     if (candidate) {
       updateTargetDisplay_(
         String(candidate.member_name || "").trim(),
         String(candidate.member_type || "").trim()
       );
+      if (candidate.member_id) {
+        SWITCH_MEMBER_ID = String(candidate.member_id).trim();
+      }
     }
   
     showLinkModal();
@@ -1147,6 +1151,10 @@
 
   // ★ 別の会員としてチェックイン
   function switchMember() {
+    // ★ 前の別会員確定状態をリセット
+    SWITCH_MEMBER_ID = "";
+    PENDING_CONFIRM = false;
+    PENDING_ROW_INDEX = 0;
     $("phoneLabel").textContent = "別の会員の電話番号（ハイフンなし）";
     $("phoneWrap").style.display = "block";
     $("lookupMemberBtn").style.display = "block";
@@ -1199,6 +1207,13 @@
         const name = String(r.member_name || "").trim();
         const type = String(r.member_type || "").trim();
         if (name) updateTargetDisplay_(name, type);
+        // ★ member_id を保存（GASのLINEユーザーIDフォールバックで別会員が返るのを防ぐ）
+        if (r.member_id) {
+          SWITCH_MEMBER_ID = String(r.member_id).trim();
+        } else {
+          showBanner("会員IDが取得できませんでした。スタッフにお声がけください。", "danger");
+          return;
+        }
         showBanner("会員を確認しました。クラスを選んで「チェックイン」を押してください。", "info");
         $("lookupMemberBtn").style.display = "none";
         return;
@@ -1343,6 +1358,8 @@ async function checkin(isConfirm){
       `&classId=${encodeURIComponent(SELECTED_CLASS.id)}` +
       `&className=${encodeURIComponent(SELECTED_CLASS.name)}` +
       (phone ? `&phone=${encodeURIComponent(phone)}` : "") +
+      // ★ 別会員モード：GASのLINEユーザーIDフォールバックで別会員が返るのを防ぐ
+      (SWITCH_MEMBER_ID ? `&member_id=${encodeURIComponent(SWITCH_MEMBER_ID)}` : "") +
       // ★ isConfirmがfalseでもPENDING済みなら confirm=1 を送る（別会員モード対応）
       ((( isConfirm || (PENDING_CONFIRM && PENDING_ROW_INDEX) ) && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "");
 
@@ -1392,6 +1409,7 @@ async function checkin(isConfirm){
     // ★ 別会員モードのPENDINGをリセット
     PENDING_CONFIRM = false;
     PENDING_ROW_INDEX = 0;
+    SWITCH_MEMBER_ID = "";
     hideOverlay(); // ★ チェックイン完了でオーバーレイ解除
     // ==========================================================
     // ★B案：初回電話が入っているときだけ、連携コードを送る
