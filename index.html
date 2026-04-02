@@ -1097,6 +1097,7 @@
     if (!liff.isInClient()) $("externalHint").classList.add("show");
 
     if (!liff.isLoggedIn()) {
+      hideOverlay();
       liff.login();
       return;
     }
@@ -1331,6 +1332,7 @@ async function checkin(isConfirm){
 
   init().catch(err => {
     hideMiniLoading();
+    hideOverlay();
     showBanner("読み込みに失敗しました。ページを閉じてQRコードから再度開いてください。", "danger");
     console.error(err);
   });
