@@ -698,7 +698,10 @@
         String(candidate.member_type || "").trim()
       );
       if (candidate.member_id) {
+        const prev = SWITCH_MEMBER_ID;
         SWITCH_MEMBER_ID = String(candidate.member_id).trim();
+        // ★ member_id が変わったらdone状態を新しい会員キーで再評価
+        if (prev !== SWITCH_MEMBER_ID) reRenderClassesForCurrentMember_();
       }
     }
   
@@ -895,8 +898,13 @@
   }
 
   // ===== done cache =====
+  // ★ 会員ごとにキーを分ける（同一LINEで別会員のチェックイン済み状態が混ざらないよう）
+  function currentCheckinMemberKey_() {
+    return SWITCH_MEMBER_ID || LINE_USER_ID;
+  }
   function doneKeyToday_(){
-    return DONE_CACHE_PREFIX + formatJstYmdCompact_();
+    const mk = currentCheckinMemberKey_();
+    return DONE_CACHE_PREFIX + formatJstYmdCompact_() + (mk ? "_" + mk : "");
   }
   function loadDoneToday_(){
     try{
@@ -1139,6 +1147,17 @@
     $("todayJst").textContent = formatJstYmdHm_();
   }
 
+  // ★ 会員切り替え後にクラス一覧を再描画（done状態を新しい会員のキーで再評価）
+  function reRenderClassesForCurrentMember_() {
+    const cached = loadClassesCache();
+    if (!cached || !cached.length) return;
+    const sorted = sortClassesByToday_(cached);
+    renderClasses(sorted, "タップして選択");
+    // 選択状態・チェックインボタンもリセット
+    SELECTED_CLASS = null;
+    $("checkinBtn").disabled = true;
+  }
+
   // ★ 対象会員表示ヘルパー
   function updateTargetDisplay_(name, type) {
     const displayText = name
@@ -1155,6 +1174,8 @@
     SWITCH_MEMBER_ID = "";
     PENDING_CONFIRM = false;
     PENDING_ROW_INDEX = 0;
+    // ★ Aのdone状態（LINE_USER_IDキー）で再描画してクラス一覧を元に戻す
+    reRenderClassesForCurrentMember_();
     $("phoneLabel").textContent = "別の会員の電話番号（ハイフンなし）";
     $("phoneWrap").style.display = "block";
     $("lookupMemberBtn").style.display = "block";
@@ -1214,6 +1235,8 @@
           showBanner("会員IDが取得できませんでした。スタッフにお声がけください。", "danger");
           return;
         }
+        // ★ done状態を新しい会員のキーで再評価してクラス一覧を再描画
+        reRenderClassesForCurrentMember_();
         showBanner("会員を確認しました。クラスを選んで「チェックイン」を押してください。", "info");
         $("lookupMemberBtn").style.display = "none";
         return;
