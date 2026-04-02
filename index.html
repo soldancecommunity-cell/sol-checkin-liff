@@ -72,6 +72,34 @@
     .grid{ display:grid; grid-template-columns: 1fr; gap:10px; margin-top:8px; }
     @media (min-width: 420px){ .grid{ grid-template-columns: 1fr 1fr; } }
 
+    /* ★ 対象会員表示 */
+    .memberTarget{
+      display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+      padding:10px 12px;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:12px;
+      background:rgba(255,255,255,.03);
+      margin-bottom:12px;
+    }
+    .memberTargetLabel{
+      font-size:11px; color:var(--muted); white-space:nowrap;
+    }
+    .memberTargetName{
+      font-size:14px; font-weight:700; flex:1; min-width:0;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .switchMemberBtn{
+      -webkit-appearance:none; appearance:none;
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:20px;
+      background:rgba(255,255,255,.05);
+      color:var(--muted);
+      font-size:12px; padding:6px 14px;
+      cursor:pointer; white-space:nowrap;
+      transition: background .2s, color .2s;
+    }
+    .switchMemberBtn:active{ background:rgba(255,255,255,.12); color:var(--text); }
+
     .sectionTag{
       margin-top: 12px;
       padding-top: 8px;
@@ -472,6 +500,14 @@
         </div>
 
         <div id="formBox" style="display:none;">
+
+          <!-- ★ 対象会員表示 -->
+          <div id="memberTargetRow" class="memberTarget" style="display:none;">
+            <div class="memberTargetLabel">対象</div>
+            <div id="memberTargetName" class="memberTargetName">—</div>
+            <button id="switchMemberBtn" class="switchMemberBtn" onclick="switchMember()" style="display:none;">別の会員としてチェックイン</button>
+          </div>
+
           <div class="sectionTag">
             <div class="left" id="todayLabel">受講クラス（タップで選択）</div>
             <div class="right" id="todayJst"></div>
@@ -634,6 +670,14 @@
   
     PENDING_ROW_INDEX = Number(candidate && candidate.rowIndex ? candidate.rowIndex : 0);
     PENDING_CONFIRM = true;
+
+    // ★ 対象会員表示を確認候補で更新
+    if (candidate) {
+      updateTargetDisplay_(
+        String(candidate.member_name || "").trim(),
+        String(candidate.member_type || "").trim()
+      );
+    }
   
     showLinkModal();
   }
@@ -702,7 +746,7 @@
 
       function cleanup(){
         clearTimeout(timer);
-        try { delete window[cb]; } catch(e) {}
+        window[cb] = function(){}; // no-op（タイムアウト後の遅延レスポンスでReferenceErrorが出るのを防ぐ）
         if (script && script.parentNode) script.parentNode.removeChild(script);
       }
 
@@ -1067,6 +1111,25 @@
     $("todayJst").textContent = formatJstYmdHm_();
   }
 
+  // ★ 対象会員表示ヘルパー
+  function updateTargetDisplay_(name, type) {
+    const displayText = name
+      ? (name + (type ? ` / ${type}` : ""))
+      : "（名前未設定）";
+    $("memberTargetName").textContent = displayText;
+    $("memberTargetRow").style.display = "flex";
+    $("switchMemberBtn").style.display = "";
+  }
+
+  // ★ 別の会員としてチェックイン
+  function switchMember() {
+    $("phoneWrap").style.display = "block";
+    $("phoneInput").value = "";
+    $("phoneInput").focus();
+    $("switchMemberBtn").style.display = "none";
+    showBanner("別の会員の電話番号（ハイフンなし）を入力してチェックインしてください。", "info");
+  }
+
   async function init(){
     showOverlay();
     hideBanner();
@@ -1110,6 +1173,9 @@
     LINE_DISPLAY_NAME = profile.displayName || "";
     $("subInfo").textContent = LINE_DISPLAY_NAME ? `@${LINE_DISPLAY_NAME}` : "";
 
+    // ★ 並列：api=me で既存の会員リンク取得（対象表示用）
+    const mePromise = jsonp(`${API_URL}?api=me&userId=${encodeURIComponent(LINE_USER_ID)}&token=${encodeURIComponent(API_TOKEN)}`);
+
     const clsRes = await classesPromise;
     if (!clsRes || clsRes.status !== "success") {
       throw new Error(clsRes && clsRes.message ? clsRes.message : "classes load failed");
@@ -1130,8 +1196,19 @@
     if (FORCE_PHONE) {
       $("phoneWrap").style.display = "block";
       $("phoneInput").value = "";
-      showBanner("開発モード：電話番号入力を強制しています（force_phone=1）。会員登録時の電話番号を入力してください。", "info");
+      showBanner("別の会員の電話番号（ハイフンなし）を入力してチェックインしてください。", "info");
     }
+
+    // ★ 対象会員表示（api=me の結果を受け取る）
+    try {
+      const meRes = await mePromise;
+      if (meRes && meRes.status === "success" && meRes.linked && meRes.member) {
+        updateTargetDisplay_(
+          String(meRes.member.member_name || "").trim(),
+          String(meRes.member.member_type || "").trim()
+        );
+      }
+    } catch(_) {}
 
     hideMiniLoading();
     hideOverlay();
