@@ -811,7 +811,9 @@
       if (!gMemberId){
         setOut({ where:"checkin_blocked", reason:"member_id_empty_after_me_cash" });
         setStatus("会員未確定");
-        setCheckinNotice("ng","会員未確定","会員情報が確定できませんでした。会員確認に戻ってやり直してください。");
+        setCheckinNotice("ng","会員未確定",
+          "会員IDが取得できていません。会員確認に戻り、スプレッドシートの members シートで member_id 列を確認してください。"
+        );
         return;
       }
 
@@ -974,11 +976,20 @@
         clearVerifyCandidates_();
         if (r.member_id) gMemberId = String(r.member_id).trim();
 
+        // ★ member_id が取得できない場合は進めない（別会員の受講回数混入防止）
+        if (!gMemberId) {
+          $("verifyErr").textContent = "会員IDが取得できませんでした。この会員のmember_idがスプレッドシートに設定されているか確認してください。";
+          setVerifyStatus("会員ID未設定");
+          setVerifyNotice("ng","会員IDが未設定","スプレッドシートの members シートで member_id 列が入力されているか確認してください。");
+          setOutVerify({ where:"resolve_member_no_member_id", url, r });
+          return;
+        }
+
         setOutVerify({ where:"resolve_member_success", url, picked_rowIndex: rowIndex, r });
         setVerifyStatus("紐付けOK → me_cash確認中…");
         setVerifyNotice("ok","紐付けOK","会員情報を確認しています…");
 
-        // ★ここが修正点：me_cashがsuccessになるまで「チェックインへ進ませない」
+        // ★ me_cashがsuccessになるまで「チェックインへ進ませない」
         const ok = await verifyMeCashOrStayOnVerify_();
         if (!ok) return;
 
