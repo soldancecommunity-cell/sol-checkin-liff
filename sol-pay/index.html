@@ -551,6 +551,83 @@
     }
     .historyBtn:hover{ border-color: rgba(255,255,255,.35); color: var(--text); }
 
+    /* ★★ ローディングオーバーレイ */
+    .solOverlay{
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background: rgba(6, 7, 10, 0.82);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .solOverlay.active{
+      opacity: 1;
+      pointer-events: all;
+    }
+    /* SoL ロゴ */
+    .solOverlay-logo{
+      font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      color: #fff;
+      /* グラデーション文字 */
+      background: linear-gradient(135deg, #a78bfa 0%, #2dd4bf 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    /* スピナーリング */
+    .solOverlay-spinner{
+      position: relative;
+      width: 52px;
+      height: 52px;
+    }
+    .solOverlay-ring{
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      animation: solSpin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    .solOverlay-ring:nth-child(1){
+      border-top-color: #7c5cff;
+      animation-delay: 0s;
+    }
+    .solOverlay-ring:nth-child(2){
+      border-right-color: #2dd4bf;
+      animation-delay: -0.4s;
+      inset: 6px;
+    }
+    .solOverlay-ring:nth-child(3){
+      border-bottom-color: rgba(124,92,255,0.4);
+      animation-delay: -0.8s;
+      inset: 12px;
+    }
+    @keyframes solSpin{
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    /* 読み込み中テキスト */
+    .solOverlay-label{
+      font-size: 13px;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: .1em;
+      animation: solPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes solPulse{
+      0%, 100% { opacity: 0.4; }
+      50%       { opacity: 1;   }
+    }
+
     /* ★ モーダル */
     .historyModal{
       position: fixed; inset: 0; z-index: 100;
@@ -679,6 +756,18 @@
 </head>
 
 <body>
+
+    <!-- ★★ ローディングオーバーレイ -->
+    <div id="solOverlay" class="solOverlay" aria-live="polite" aria-label="読み込み中">
+      <div class="solOverlay-logo">SoL</div>
+      <div class="solOverlay-spinner">
+        <div class="solOverlay-ring"></div>
+        <div class="solOverlay-ring"></div>
+        <div class="solOverlay-ring"></div>
+      </div>
+      <div class="solOverlay-label">読み込み中</div>
+    </div>
+
   <div class="wrap">
     <header>
       <div class="brand">
@@ -1647,6 +1736,7 @@ async function startPay(plan){
   }
 
   paying = true;
+  showOverlay(); // ★ ローディング表示
 
   const btn = document.querySelector(`.btn[data-plan="${plan}"]`);
   const original = btn ? btn.innerHTML : "";
@@ -1729,10 +1819,12 @@ async function startPay(plan){
       btn.disabled = false;
     }
   }finally{
+    hideOverlay(); // ★ ローディング解除
     paying = false;
   }
 }
 async function onClickPortal_(){
+  showOverlay();
   try {
     hideToast();
 
@@ -1777,6 +1869,18 @@ async function onClickPortal_(){
   }
 }
 
+
+/** ==========================
+ *  ローディングオーバーレイ
+ *  ========================== */
+function showOverlay() {
+  const el = document.getElementById('solOverlay');
+  if (el) el.classList.add('active');
+}
+function hideOverlay() {
+  const el = document.getElementById('solOverlay');
+  if (el) el.classList.remove('active');
+}
 
 /** ==========================
  *  決済履歴
@@ -1851,6 +1955,7 @@ async function loadPaymentHistory_() {
 async function fetchReceipt_(btn, sessionId) {
   btn.disabled = true;
   btn.textContent = '取得中…';
+  showOverlay(); // ★ ローディング表示
   try {
     const url = new URL(GAS_EXEC);
     url.searchParams.set('api', 'get_receipt_url');
@@ -1860,12 +1965,15 @@ async function fetchReceipt_(btn, sessionId) {
     url.searchParams.set('sessionId', sessionId);
 
     const res = await jsonp(url.toString());
+    // デバッグ用（GASのレスポンスをコンソールで確認できる）
+    console.log('[receipt] response:', JSON.stringify(res));
     if (res && res.status === 'success') {
       // PDF優先、なければWeb領収書
       const target = res.pdf_url || res.receipt_url;
       if (target) {
         // LIFFブラウザ（LINE内タブ）では window.open がブロックされるため
         // liff.openWindow を使う（外部ブラウザで開く）
+        hideOverlay();
         if (typeof liff !== 'undefined' && liff.isInClient && liff.isInClient()) {
           liff.openWindow({ url: target, external: true });
         } else {
@@ -1876,9 +1984,14 @@ async function fetchReceipt_(btn, sessionId) {
         return;
       }
     }
-    btn.textContent = '取得不可';
-    setTimeout(() => { btn.textContent = '領収書'; btn.disabled = false; }, 2000);
+    // エラー詳細をコンソールに出す
+    console.warn('[receipt] failed:', res && res.status, res && (res.message || res.debug));
+    hideOverlay();
+    showToast('領収書を取得できませんでした。しばらくして再試行してください。', 'warn');
+    btn.textContent = '領収書';
+    btn.disabled = false;
   } catch(e) {
+    hideOverlay();
     btn.textContent = '領収書';
     btn.disabled = false;
   }
