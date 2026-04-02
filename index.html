@@ -733,7 +733,18 @@
   }
   
   // モーダルボタン
-  $("linkModalCancel").onclick = () => { hideLinkModal(); PENDING_CONFIRM = false; };
+  $("linkModalCancel").onclick = () => {
+    hideLinkModal();
+    PENDING_CONFIRM = false;
+    // ★ 別会員モードのキャンセル：SWITCH_MEMBER_IDをリセットしてAの状態に戻す
+    if (SWITCH_MEMBER_ID) {
+      SWITCH_MEMBER_ID = "";
+      PENDING_ROW_INDEX = 0;
+      reRenderClassesForCurrentMember_();
+      $("switchMemberBtn").style.display = "";
+      showBanner("会員選択をキャンセルしました。もう一度「別の会員としてチェックイン」から操作してください。", "info");
+    }
+  };
   $("linkModalOk").onclick = async () => {
     hideLinkModal();
     if (!PENDING_CONFIRM || !PENDING_ROW_INDEX) return;
@@ -1321,7 +1332,7 @@
     if (FORCE_PHONE) {
       $("phoneWrap").style.display = "block";
       $("phoneInput").value = "";
-      showBanner("別の会員の電話番号（ハイフンなし）を入力してチェックインしてください。", "info");
+      showBanner("開発モード（force_phone=1）：電話番号を入力してチェックインしてください。", "info");
     }
 
     // ★ 対象会員表示（api=me の結果を受け取る）
