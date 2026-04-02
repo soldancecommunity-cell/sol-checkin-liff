@@ -611,11 +611,13 @@
       border-radius: 999px;
       background: rgba(45,212,191,.08);
       color: #2dd4bf;
-      font-size: 11px;
-      padding: 3px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 18px;
       cursor: pointer;
       touch-action: manipulation;
       transition: background .15s;
+      min-height: 36px;
     }
     .receiptBtn:hover{ background: rgba(45,212,191,.18); }
     .receiptBtn:disabled{ opacity: .5; cursor: default; }
@@ -748,16 +750,12 @@
     </div>
 
 
-    <!-- ★別の会員で支払うボタン：member_id確定済み時のみJS側で表示 -->
-    <div id="switchMemberArea" style="display:none; margin-top:10px; margin-bottom:12px; text-align:center;">
-      <button class="switchMemberBtn" onclick="switchToOtherMember()">
+    <!-- ★ 別の会員 / 決済履歴 ボタン（横並び） -->
+    <div id="memberActionArea" style="display:none; margin-top:10px; margin-bottom:14px; display:none; flex-direction:row; justify-content:center; gap:10px; flex-wrap:wrap;">
+      <button class="switchMemberBtn" id="switchMemberArea" onclick="switchToOtherMember()">
         別の会員として支払う
       </button>
-    </div>
-
-    <!-- ★ 決済履歴ボタン -->
-    <div id="historyBtnArea" style="display:none; margin-bottom:14px; text-align:center;">
-      <button class="historyBtn" onclick="openPaymentHistory()">
+      <button class="historyBtn" id="historyBtnArea" onclick="openPaymentHistory()">
         🧾 決済履歴を確認する
       </button>
     </div>
@@ -1564,13 +1562,9 @@ function withTimeout(p, ms, label){
     setPill("ok","準備OK");
     setButtonsEnabled(true);
     booted = true;
-    // ★同一端末で別の家族会員に切り替えられるボタンを表示
-    const sma = document.getElementById("switchMemberArea");
-    if (sma) sma.style.display = "";
-
-    // ★ 決済履歴ボタンを表示
-    const hba = document.getElementById("historyBtnArea");
-    if (hba) hba.style.display = "";
+    // ★ 別の会員 / 決済履歴ボタンを横並びで表示
+    const maa = document.getElementById("memberActionArea");
+    if (maa) maa.style.display = "flex";
 
     const btnPortal = document.getElementById('btnPortal');
     if (btnPortal) btnPortal.disabled = false;
@@ -1870,7 +1864,13 @@ async function fetchReceipt_(btn, sessionId) {
       // PDF優先、なければWeb領収書
       const target = res.pdf_url || res.receipt_url;
       if (target) {
-        window.open(target, '_blank', 'noopener');
+        // LIFFブラウザ（LINE内タブ）では window.open がブロックされるため
+        // liff.openWindow を使う（外部ブラウザで開く）
+        if (typeof liff !== 'undefined' && liff.isInClient && liff.isInClient()) {
+          liff.openWindow({ url: target, external: true });
+        } else {
+          window.open(target, '_blank', 'noopener');
+        }
         btn.textContent = '領収書';
         btn.disabled = false;
         return;
