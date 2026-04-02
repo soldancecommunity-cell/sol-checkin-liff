@@ -535,6 +535,94 @@
       transition: all .2s;
     }
     .switchMemberBtn:hover{ background: rgba(255,255,255,.10); color: var(--fg); }
+
+    /* ★ 決済履歴ボタン */
+    .historyBtn{
+      appearance: none; -webkit-appearance: none;
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 6px 16px;
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+      touch-action: manipulation;
+    }
+    .historyBtn:hover{ border-color: rgba(255,255,255,.35); color: var(--text); }
+
+    /* ★ モーダル */
+    .historyModal{
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; flex-direction: column;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(6px);
+    }
+    .historySheet{
+      margin-top: auto;
+      background: #0e1017;
+      border-top: 1px solid rgba(255,255,255,.10);
+      border-radius: 24px 24px 0 0;
+      max-height: 80svh;
+      display: flex; flex-direction: column;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .historyHeader{
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+    .historyHeader h2{ margin: 0; font-size: 16px; font-weight: 800; }
+    .historyClose{
+      appearance: none; -webkit-appearance: none;
+      border: none; background: rgba(255,255,255,.08);
+      color: var(--text); border-radius: 50%;
+      width: 30px; height: 30px;
+      font-size: 16px; cursor: pointer; line-height: 30px; text-align: center;
+    }
+    .historyBody{
+      overflow-y: auto; flex: 1;
+      padding: 8px 16px 24px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .historyEmpty{
+      text-align: center; color: var(--muted);
+      padding: 40px 0; font-size: 13px;
+    }
+    .historyItem{
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      padding: 14px 2px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .historyItem:last-child{ border-bottom: none; }
+    .historyItemTop{
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .historyItemName{ font-size: 14px; font-weight: 700; flex: 1; }
+    .historyItemAmount{ font-size: 14px; font-weight: 800; white-space: nowrap; }
+    .historyItemMeta{
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .historyItemDate{ font-size: 11px; color: var(--muted); }
+    .historyItemMethod{ font-size: 11px; color: var(--muted); }
+    .receiptBtn{
+      appearance: none; -webkit-appearance: none;
+      border: 1px solid rgba(45,212,191,.4);
+      border-radius: 999px;
+      background: rgba(45,212,191,.08);
+      color: #2dd4bf;
+      font-size: 11px;
+      padding: 3px 10px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background .15s;
+    }
+    .receiptBtn:hover{ background: rgba(45,212,191,.18); }
+    .receiptBtn:disabled{ opacity: .5; cursor: default; }
+    .historyLoading{
+      text-align: center; color: var(--muted);
+      padding: 40px 0; font-size: 13px;
+    }
     .planPanel{ animation: fadeIn .18s ease; }
     @keyframes fadeIn{ from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
 
@@ -665,6 +753,26 @@
       <button class="switchMemberBtn" onclick="switchToOtherMember()">
         別の会員として支払う
       </button>
+    </div>
+
+    <!-- ★ 決済履歴ボタン -->
+    <div id="historyBtnArea" style="display:none; margin-bottom:14px; text-align:center;">
+      <button class="historyBtn" onclick="openPaymentHistory()">
+        🧾 決済履歴を確認する
+      </button>
+    </div>
+
+    <!-- ★ 決済履歴モーダル -->
+    <div id="historyModal" class="historyModal" style="display:none;" onclick="onHistoryModalBgClick(event)">
+      <div class="historySheet" onclick="event.stopPropagation()">
+        <div class="historyHeader">
+          <h2>決済履歴</h2>
+          <button class="historyClose" onclick="closePaymentHistory()">✕</button>
+        </div>
+        <div class="historyBody" id="historyBody">
+          <div class="historyLoading">読み込み中…</div>
+        </div>
+      </div>
     </div>
 
     <div class="sectionTitle">プランを選択</div>
@@ -1460,6 +1568,10 @@ function withTimeout(p, ms, label){
     const sma = document.getElementById("switchMemberArea");
     if (sma) sma.style.display = "";
 
+    // ★ 決済履歴ボタンを表示
+    const hba = document.getElementById("historyBtnArea");
+    if (hba) hba.style.display = "";
+
     const btnPortal = document.getElementById('btnPortal');
     if (btnPortal) btnPortal.disabled = false;
 
@@ -1671,6 +1783,152 @@ async function onClickPortal_(){
   }
 }
 
+
+/** ==========================
+ *  決済履歴
+ *  ========================== */
+function openPaymentHistory() {
+  const modal = document.getElementById('historyModal');
+  const body  = document.getElementById('historyBody');
+  if (!modal || !body) return;
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  body.innerHTML = '<div class="historyLoading">読み込み中…</div>';
+  loadPaymentHistory_();
+}
+
+function closePaymentHistory() {
+  const modal = document.getElementById('historyModal');
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function onHistoryModalBgClick(e) {
+  if (e.target === document.getElementById('historyModal')) closePaymentHistory();
+}
+
+async function loadPaymentHistory_() {
+  const body = document.getElementById('historyBody');
+  try {
+    const url = new URL(GAS_EXEC);
+    url.searchParams.set('api', 'get_payment_history');
+    url.searchParams.set('token', API_TOKEN_PAY);
+    url.searchParams.set('lineUserId', lineUserId);
+    url.searchParams.set('member_id', memberId);
+
+    const res = await jsonp(url.toString());
+    if (!res || res.status !== 'success' || !Array.isArray(res.payments)) {
+      body.innerHTML = '<div class="historyEmpty">履歴を取得できませんでした。</div>';
+      return;
+    }
+    if (res.payments.length === 0) {
+      body.innerHTML = '<div class="historyEmpty">決済履歴がありません。</div>';
+      return;
+    }
+
+    body.innerHTML = res.payments.map((p, i) => {
+      const name   = buildItemName_(p);
+      const amount = p.amount != null ? '¥' + Number(p.amount).toLocaleString() : '—';
+      const date   = buildDateLabel_(p);
+      const method = buildMethodLabel_(p.method);
+      const rcptId = 'rcpt_' + i;
+
+      const receiptHtml = p.has_receipt
+        ? `<button class="receiptBtn" id="${rcptId}" onclick="fetchReceipt_(this,'${escapeAttr_(p.session_id)}')">領収書</button>`
+        : '';
+
+      return `<div class="historyItem">
+        <div class="historyItemTop">
+          <div class="historyItemName">${escapeHtml(name)}</div>
+          <div class="historyItemAmount">${escapeHtml(amount)}</div>
+        </div>
+        <div class="historyItemMeta">
+          <span class="historyItemDate">${escapeHtml(date)}</span>
+          <span class="historyItemMethod">${escapeHtml(method)}</span>
+          ${receiptHtml}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = '<div class="historyEmpty">エラーが発生しました。</div>';
+  }
+}
+
+async function fetchReceipt_(btn, sessionId) {
+  btn.disabled = true;
+  btn.textContent = '取得中…';
+  try {
+    const url = new URL(GAS_EXEC);
+    url.searchParams.set('api', 'get_receipt_url');
+    url.searchParams.set('token', API_TOKEN_PAY);
+    url.searchParams.set('lineUserId', lineUserId);
+    url.searchParams.set('member_id', memberId);
+    url.searchParams.set('sessionId', sessionId);
+
+    const res = await jsonp(url.toString());
+    if (res && res.status === 'success') {
+      // PDF優先、なければWeb領収書
+      const target = res.pdf_url || res.receipt_url;
+      if (target) {
+        window.open(target, '_blank', 'noopener');
+        btn.textContent = '領収書';
+        btn.disabled = false;
+        return;
+      }
+    }
+    btn.textContent = '取得不可';
+    setTimeout(() => { btn.textContent = '領収書'; btn.disabled = false; }, 2000);
+  } catch(e) {
+    btn.textContent = '領収書';
+    btn.disabled = false;
+  }
+}
+
+// ---- ヘルパー ----
+function buildItemName_(p) {
+  if (p.item_name) return p.item_name;
+  const methodMap = {
+    'stripe_subscription_initial': '月謝（初回）',
+    'stripe_subscription_renewal': '月謝（継続）',
+    'stripe_monthly_manual':       '月謝（振込）',
+    'stripe_onetime':              '単発商品',
+    'stripe_payment':              '決済',
+    'cash':                        '現金支払い',
+  };
+  const base = methodMap[p.method] || p.method || '—';
+  const ym = p.yyyymm || '';
+  if (ym.length === 6) return base + '（' + ym.slice(0,4) + '年' + ym.slice(4) + '月）';
+  return base;
+}
+
+function buildDateLabel_(p) {
+  if (p.paid_at) {
+    const d = new Date(p.paid_at);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric' });
+    }
+  }
+  if (p.yyyymm && p.yyyymm.length === 6) {
+    return p.yyyymm.slice(0,4) + '年' + p.yyyymm.slice(4) + '月';
+  }
+  return '—';
+}
+
+function buildMethodLabel_(method) {
+  const map = {
+    'stripe_subscription_initial': 'カード/Apple Pay',
+    'stripe_subscription_renewal': '定期課金',
+    'stripe_monthly_manual':       '振込・コンビニ',
+    'stripe_onetime':              'カード/Apple Pay',
+    'stripe_payment':              'カード/Apple Pay',
+    'cash':                        '現金',
+  };
+  return map[method] || method || '';
+}
+
+function escapeAttr_(s) {
+  return String(s).replace(/'/g, "\'");
+}
 
 /** ==========================
  *  タブ切り替え（月謝選択）
