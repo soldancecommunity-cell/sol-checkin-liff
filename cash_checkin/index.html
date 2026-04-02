@@ -679,7 +679,7 @@
       setOutVerify({ where:"me_cash_exception_after_resolve", error:String(e?.message||e) });
       $("verifyErr").textContent =
         "会員情報の取得に失敗しました。電波状況を確認してやり直してください。"
-        String(e?.message || e);
+        + String(e?.message || e);
       setVerifyStatus("会員情報取得失敗");
       setVerifyNotice("ng","通信失敗","通信に失敗しました。もう一度「会員確認して続行」を押してください。");
       return false;
