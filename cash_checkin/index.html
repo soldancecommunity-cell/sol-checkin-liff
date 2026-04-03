@@ -503,6 +503,37 @@
     });
   }
 
+  // ★ 自動リトライ付きJSONP（busy/タイムアウト時に最大maxRetry回リトライ）
+  // 指数バックオフ + ジッター：50人同時アクセスでも順次さばける
+  async function jsonpWithRetry(url, maxRetry) {
+    maxRetry = (maxRetry == null) ? 5 : maxRetry;
+    // ★ 初回ジッター：0〜300msのランダム遅延で同時アクセスを自然に分散
+    await new Promise(function(r){ setTimeout(r, Math.random() * 300); });
+    var lastErr;
+    for (var attempt = 0; attempt <= maxRetry; attempt++) {
+      if (attempt > 0) {
+        // 指数バックオフ：1s, 2s, 4s, 8s, 16s + ランダム0〜1s
+        var base = Math.min(Math.pow(2, attempt - 1) * 1000, 16000);
+        var wait = base + Math.random() * 1000;
+        await new Promise(function(r){ setTimeout(r, wait); });
+      }
+      try {
+        var res = await jsonp(url);
+        if (res && res.status === "busy") {
+          var retryAfter = (Number(res.retry_after || 2) * 1000) + Math.random() * 500;
+          await new Promise(function(r){ setTimeout(r, retryAfter); });
+          lastErr = new Error("busy");
+          continue;
+        }
+        return res;
+      } catch(e) {
+        lastErr = e;
+        // タイムアウト・ネットワークエラーもリトライ対象
+      }
+    }
+    throw lastErr || new Error("max retry exceeded");
+  }
+
   function yyyymmNowJst(){
     const now = new Date();
     const utc = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -842,7 +873,8 @@
           + (gVerifiedPhone ? `&phone=${encodeURIComponent(gVerifiedPhone)}` : "")
           + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
 
-        const res = await jsonp(url);
+        // ★ 同時実行エラー(busy)/タイムアウト時は自動リトライ（最大3回）
+        const res = await jsonpWithRetry(url);
         setCheckinNotice("ng","チェックイン失敗", "チェックインに失敗しました。受付へお声がけください。");
         setOut({ where:"checkin_result", url, res });
 
