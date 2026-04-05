@@ -503,37 +503,6 @@
     });
   }
 
-  // ★ 自動リトライ付きJSONP（busy/タイムアウト時に最大maxRetry回リトライ）
-  // 指数バックオフ + ジッター：50人同時アクセスでも順次さばける
-  async function jsonpWithRetry(url, maxRetry) {
-    maxRetry = (maxRetry == null) ? 5 : maxRetry;
-    // ★ 初回ジッター：0〜300msのランダム遅延で同時アクセスを自然に分散
-    await new Promise(function(r){ setTimeout(r, Math.random() * 300); });
-    var lastErr;
-    for (var attempt = 0; attempt <= maxRetry; attempt++) {
-      if (attempt > 0) {
-        // 指数バックオフ：1s, 2s, 4s, 8s, 16s + ランダム0〜1s
-        var base = Math.min(Math.pow(2, attempt - 1) * 1000, 16000);
-        var wait = base + Math.random() * 1000;
-        await new Promise(function(r){ setTimeout(r, wait); });
-      }
-      try {
-        var res = await jsonp(url);
-        if (res && res.status === "busy") {
-          var retryAfter = (Number(res.retry_after || 2) * 1000) + Math.random() * 500;
-          await new Promise(function(r){ setTimeout(r, retryAfter); });
-          lastErr = new Error("busy");
-          continue;
-        }
-        return res;
-      } catch(e) {
-        lastErr = e;
-        // タイムアウト・ネットワークエラーもリトライ対象
-      }
-    }
-    throw lastErr || new Error("max retry exceeded");
-  }
-
   function yyyymmNowJst(){
     const now = new Date();
     const utc = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -856,72 +825,121 @@
       showOverlay();
       setCheckinNotice("ok","送信中…","チェックインを送信しています。");
 
+      // ★ busy/タイムアウト時の自動リトライ設定
+      // GASのwriteLockは0.2〜0.5秒で解放されるため、3〜5秒待てばほぼ必ず通る
+      const CHECKIN_MAX_RETRY = 6;
+      const CHECKIN_BASE_WAIT_MS = 3000; // GASのretry_afterに合わせたベース待機
+
+      const sel = $("classSel");
+      const classId = sel.value;
+      const className = sel.options[sel.selectedIndex]?.textContent || "";
+
+      const url =
+        `${API_URL}?api=checkin`
+        + `&token=${encodeURIComponent(API_TOKEN)}`
+        + `&cash=1`
+        + `&member_id=${encodeURIComponent(gMemberId)}`
+        + `&userId=${encodeURIComponent(gUserId)}`
+        + `&displayName=${encodeURIComponent(gDisplayName)}`
+        + `&classId=${encodeURIComponent(classId)}`
+        + `&className=${encodeURIComponent(className)}`
+        + (gVerifiedPhone ? `&phone=${encodeURIComponent(gVerifiedPhone)}` : "")
+        + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
+
       try{
-        const sel = $("classSel");
-        const classId = sel.value;
-        const className = sel.options[sel.selectedIndex]?.textContent || "";
-
-        const url =
-          `${API_URL}?api=checkin`
-          + `&token=${encodeURIComponent(API_TOKEN)}`
-          + `&cash=1`
-          + `&member_id=${encodeURIComponent(gMemberId)}`
-          + `&userId=${encodeURIComponent(gUserId)}`
-          + `&displayName=${encodeURIComponent(gDisplayName)}`
-          + `&classId=${encodeURIComponent(classId)}`
-          + `&className=${encodeURIComponent(className)}`
-          + (gVerifiedPhone ? `&phone=${encodeURIComponent(gVerifiedPhone)}` : "")
-          + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
-
-        // ★ 同時実行エラー(busy)/タイムアウト時は自動リトライ（最大3回）
-        const res = await jsonpWithRetry(url);
-        setCheckinNotice("ng","チェックイン失敗", "チェックインに失敗しました。受付へお声がけください。");
-        setOut({ where:"checkin_result", url, res });
-
-        if (res && res.status === "success") {
-          const lines = [];
-          if (res.pending === true) lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
-          if (res.over_limit === true && res.over_message) lines.push(res.over_message);
-          else if (res.month_count) lines.push(`今月の受講は ${res.month_count} 回目です。`);
-          if (lines.length === 0) lines.push("チェックインが完了しました。");
-
-          const text = lines.join("\n\n") + "\n\nOKでスタンプ付与へ移動します。";
-          setStatus("確認待ち");
-          setCheckinNotice("ok","完了","チェックインが完了しました。画面の案内に従ってください。");
-
-          const ok = confirm(text);
-          if (ok) {
-            setStatus("スタンプへ移動中…");
-            setCheckinNotice("ok","移動中…","スタンプ付与画面へ移動します。");
-            try { liff.openWindow({ url: STAMP_URL, external: false }); }
-            catch(e1){
-              try { liff.openWindow({ url: STAMP_URL, external: true }); }
-              catch(e2){ window.location.href = STAMP_URL; }
-            }
-          } else {
-            setStatus("キャンセル");
-            setCheckinNotice("warn","キャンセル","スタンプ付与への移動をキャンセルしました。");
+        for (let attempt = 1; attempt <= CHECKIN_MAX_RETRY; attempt++) {
+          if (attempt > 1) {
+            setStatus(`再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
           }
+
+          let res;
+          try {
+            res = await jsonp(url);
+          } catch(err) {
+            // ★ タイムアウト・通信エラー時もリトライ（GAS一時的過負荷の可能性）
+            setOut({ where:"checkin_exception", attempt, error:String(err?.message || err) });
+            if (attempt < CHECKIN_MAX_RETRY) {
+              const waitMs = Math.min(CHECKIN_BASE_WAIT_MS * attempt, 15000)
+                           + Math.floor(Math.random() * 2000); // jitter 0〜2s
+              setCheckinNotice("ok","通信エラー・再試行中",
+                `通信に失敗しました。${Math.round(waitMs/1000)}秒後に自動で再試行します… (${attempt}/${CHECKIN_MAX_RETRY})`);
+              await new Promise(r => setTimeout(r, waitMs));
+              continue;
+            }
+            setStatus("通信失敗");
+            setCheckinNotice("ng","通信失敗","通信に失敗しました。電波状況を確認してやり直してください。");
+            return;
+          }
+
+          setOut({ where:"checkin_result", attempt, url, res });
+
+          if (res && res.status === "success") {
+            const lines = [];
+            if (res.pending === true) lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
+            if (res.over_limit === true && res.over_message) lines.push(res.over_message);
+            else if (res.month_count) lines.push(`今月の受講は ${res.month_count} 回目です。`);
+            if (lines.length === 0) lines.push("チェックインが完了しました。");
+
+            const text = lines.join("\n\n") + "\n\nOKでスタンプ付与へ移動します。";
+            setStatus("確認待ち");
+            setCheckinNotice("ok","完了","チェックインが完了しました。画面の案内に従ってください。");
+
+            const ok = confirm(text);
+            if (ok) {
+              setStatus("スタンプへ移動中…");
+              setCheckinNotice("ok","移動中…","スタンプ付与画面へ移動します。");
+              try { liff.openWindow({ url: STAMP_URL, external: false }); }
+              catch(e1){
+                try { liff.openWindow({ url: STAMP_URL, external: true }); }
+                catch(e2){ window.location.href = STAMP_URL; }
+              }
+            } else {
+              setStatus("キャンセル");
+              setCheckinNotice("warn","キャンセル","スタンプ付与への移動をキャンセルしました。");
+            }
+            return;
+          }
+
+          // ★ busy：GASのwriteLock待ちによる一時的な混雑。自動リトライ
+          if (res && res.status === "busy") {
+            if (attempt < CHECKIN_MAX_RETRY) {
+              const retryAfter = Number(res.retry_after || 3);
+              const jitter = Math.floor(Math.random() * 2000); // 0〜2秒のjitter（同時リトライを分散）
+              const waitMs = retryAfter * 1000 + jitter;
+              setCheckinNotice("ok","混み合っています",
+                `サーバーが混み合っています。まもなく自動で再試行します… (${attempt}/${CHECKIN_MAX_RETRY})`);
+              setStatus(`混み合い中・再試行待ち (${attempt}/${CHECKIN_MAX_RETRY})`);
+              await new Promise(r => setTimeout(r, waitMs));
+              continue;
+            }
+            setStatus("エラー");
+            setCheckinNotice("ng","エラー","チェックインに失敗しました。受付へお声がけください。");
+            return;
+          }
+
+          // ★ already：同日同クラスでチェックイン済み（二重タップ等）
+          if (res && res.status === "already") {
+            setStatus("チェックイン済み");
+            setCheckinNotice("ok","チェックイン済み","本日はこのクラスのチェックインは完了しています。");
+            return;
+          }
+
+          // blocked などもここで案内
+          if (res && res.status === "blocked"){
+            setStatus("現地精算不可");
+            const mc  = Number(res.month_count || 0);
+            const lim = Number(res.plan_limit || 0);
+            setCheckinNotice("warn","現地精算はできません", String(res.message || "月謝内のため現地精算不可"), `今月の受講数：${mc}${lim ? ` / ${lim}` : ""}`);
+            alert(String(res.message || "月謝内のため現地精算不可"));
+            return;
+          }
+
+          // その他エラー（リトライ不要な確定エラー）
+          setStatus("エラー");
+          setCheckinNotice("ng","エラー","チェックインに失敗しました。受付へお声がけください。");
           return;
         }
 
-        // blocked などもここで案内
-        if (res && res.status === "blocked"){
-          setStatus("現地精算不可");
-          const mc  = Number(res.month_count || 0);
-          const lim = Number(res.plan_limit || 0);
-          setCheckinNotice("warn","現地精算はできません", String(res.message || "月謝内のため現地精算不可"), `今月の受講数：${mc}${lim ? ` / ${lim}` : ""}`);
-          alert(String(res.message || "月謝内のため現地精算不可"));
-          return;
-        }
-
-        setStatus("エラー");
-        setCheckinNotice("ng","エラー","チェックインに失敗しました。受付へお声がけください。");
-
-      } catch(err){
-        setOut({ where:"checkin_exception", error:String(err?.message || err) });
-        setStatus("通信失敗");
-        setCheckinNotice("ng","通信失敗","通信に失敗しました。電波状況を確認してやり直してください。");
       } finally {
         hideOverlay();
         RUNNING = false;
