@@ -800,37 +800,6 @@
       document.body.appendChild(script);
     });
   }
-
-  // ★ 自動リトライ付きJSONP（busy/タイムアウト時に最大maxRetry回リトライ）
-  // 指数バックオフ + ジッター：50人同時アクセスでも順次さばける
-  async function jsonpWithRetry(url, maxRetry) {
-    maxRetry = (maxRetry == null) ? 5 : maxRetry;
-    // ★ 初回ジッター：0〜300msのランダム遅延で同時アクセスを自然に分散
-    await new Promise(function(r){ setTimeout(r, Math.random() * 300); });
-    var lastErr;
-    for (var attempt = 0; attempt <= maxRetry; attempt++) {
-      if (attempt > 0) {
-        // 指数バックオフ：1s, 2s, 4s, 8s, 16s + ランダム0〜1s
-        var base = Math.min(Math.pow(2, attempt - 1) * 1000, 16000);
-        var wait = base + Math.random() * 1000;
-        await new Promise(function(r){ setTimeout(r, wait); });
-      }
-      try {
-        var res = await jsonp(url);
-        if (res && res.status === "busy") {
-          var retryAfter = (Number(res.retry_after || 2) * 1000) + Math.random() * 500;
-          await new Promise(function(r){ setTimeout(r, retryAfter); });
-          lastErr = new Error("busy");
-          continue;
-        }
-        return res;
-      } catch(e) {
-        lastErr = e;
-        // タイムアウト・ネットワークエラーもリトライ対象
-      }
-    }
-    throw lastErr || new Error("max retry exceeded");
-  }
     // ==========================================================
     // ★B案：連携コードを発行して、ユーザー本人に送信（webhookで送信用IDと紐付け）
     //  - GAS側に api=issue_link_code が存在する前提
@@ -1298,66 +1267,59 @@
   }
 
   async function init(){
+    showOverlay();
     hideBanner();
     applyTodayHeader_();
     wireDevReset_();
+
     $("netInfo").textContent = navigator.onLine ? "online" : "offline";
 
-    // ★【最適化1】classes取得をLIFF初期化と並列で即座に開始（LINE_USER_IDは不要）
-    const classesPromise = jsonp(`${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`);
-
-    // ★【最適化2】キャッシュがあれば即座にUIを表示しオーバーレイを外す
     const cached = loadClassesCache();
-    if (cached && cached.length) {
+    if (cached && cached.length){
       $("formBox").style.display = "block";
-      renderClasses(sortClassesByToday_(cached), "前回の一覧（同期中）");
-      showMiniLoading("最新データを取得中…");
-      hideOverlay(); // ← キャッシュUIを即座に使えるようにする
+      const sortedCached = sortClassesByToday_(cached);
+      renderClasses(sortedCached, "前回の一覧（同期中）");
+      showMiniLoading("最新のクラス一覧を同期中…");
+
       const todayCountCached = countTodayClasses_(cached);
       if (todayCountCached === 0) {
         showBanner("本日のクラスはありません。次回のクラスから選択できます。", "info");
         $("todayLabel").textContent = `受講クラス（本日のクラスはありません）`;
       }
-    } else {
-      showOverlay(); // キャッシュなし（初回）のみフルオーバーレイ
+    }else{
       $("formBox").style.display = "block";
       showMiniLoading("起動中…");
     }
 
-    // ★【最適化3】sessionStorageにキャッシュされたUIDでme取得を並列開始
-    const cachedUid = (() => { try { return sessionStorage.getItem("sol_line_uid") || ""; } catch(_){ return ""; } })();
-    const earlyMePromise = cachedUid
-      ? jsonp(`${API_URL}?api=me&userId=${encodeURIComponent(cachedUid)}&token=${encodeURIComponent(API_TOKEN)}`)
-      : null;
-
-    // LIFF初期化（classesPromise・earlyMePromiseと並列実行中）
     await liff.init({ liffId: LIFF_ID });
+
     if (!liff.isInClient()) $("externalHint").classList.add("show");
+
     if (!liff.isLoggedIn()) {
       hideOverlay();
       liff.login();
       return;
     }
 
-    const profile = await liff.getProfile();
+    const profilePromise = liff.getProfile();
+    const classesPromise = jsonp(`${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`);
+
+    const profile = await profilePromise;
     LINE_USER_ID = profile.userId;
     LINE_DISPLAY_NAME = profile.displayName || "";
-    try { sessionStorage.setItem("sol_line_uid", LINE_USER_ID); } catch(_) {}
     $("subInfo").textContent = LINE_DISPLAY_NAME ? `@${LINE_DISPLAY_NAME}` : "";
 
-    // ★ UIDが一致していれば早期取得結果を再利用、変わっていれば再取得
-    const mePromise = (earlyMePromise && cachedUid === LINE_USER_ID)
-      ? earlyMePromise
-      : jsonp(`${API_URL}?api=me&userId=${encodeURIComponent(LINE_USER_ID)}&token=${encodeURIComponent(API_TOKEN)}`);
+    // ★ 並列：api=me で既存の会員リンク取得（対象表示用）
+    const mePromise = jsonp(`${API_URL}?api=me&userId=${encodeURIComponent(LINE_USER_ID)}&token=${encodeURIComponent(API_TOKEN)}`);
 
-    // classesが取得できたらUIを更新（LIFFと並列で処理済みのはず）
     const clsRes = await classesPromise;
     if (!clsRes || clsRes.status !== "success") {
       throw new Error(clsRes && clsRes.message ? clsRes.message : "classes load failed");
     }
 
     const classes = clsRes.classes || [];
-    renderClasses(sortClassesByToday_(classes), "タップして選択");
+    const sorted = sortClassesByToday_(classes);
+    renderClasses(sorted, "タップして選択");
     saveClassesCache(classes);
 
     const todayCount = countTodayClasses_(classes);
@@ -1366,26 +1328,27 @@
       $("todayLabel").textContent = `受講クラス（本日のクラスはありません）`;
     }
 
+    // ★ 追加：force_phone の時は phone入力UIを強制表示
     if (FORCE_PHONE) {
       $("phoneWrap").style.display = "block";
       $("phoneInput").value = "";
       showBanner("開発モード（force_phone=1）：電話番号を入力してチェックインしてください。", "info");
     }
 
-    // ★ クラス一覧が揃った時点でUIを解放（meを待たない）
-    hideMiniLoading();
-    hideOverlay();
-    $("checkinBtn").disabled = true;
-
-    // ★ 対象会員表示はバックグラウンドで（UIをブロックしない）
-    mePromise.then(meRes => {
+    // ★ 対象会員表示（api=me の結果を受け取る）
+    try {
+      const meRes = await mePromise;
       if (meRes && meRes.status === "success" && meRes.linked && meRes.member) {
         updateTargetDisplay_(
           String(meRes.member.member_name || "").trim(),
           String(meRes.member.member_type || "").trim()
         );
       }
-    }).catch(() => {});
+    } catch(_) {}
+
+    hideMiniLoading();
+    hideOverlay();
+    $("checkinBtn").disabled = true;
   }
 
   // ===== checkin (DEBUGなし／重複遷移なし) =====
@@ -1436,8 +1399,7 @@ async function checkin(isConfirm){
       ((( isConfirm || (PENDING_CONFIRM && PENDING_ROW_INDEX) ) && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "");
 
 
-    // ★ 同時実行エラー(busy)/タイムアウト時は自動リトライ（最大3回）
-    const res = await jsonpWithRetry(url);
+    const res = await jsonp(url);
 
     // 2) 初回電話要求
     if (res && res.status === "need_phone") {
