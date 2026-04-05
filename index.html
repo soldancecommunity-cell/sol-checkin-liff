@@ -636,6 +636,7 @@
   const API_URL   = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
   const API_TOKEN = "sol_checkin_2026_144025036146";
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
+  const STAMP_URL_2 = "https://u.lin.ee/Ysw7ViX"; // ★ 2スタンプ獲得用
   /* =================================== */
 
   // ★ 追加：force_phone 判定
@@ -867,8 +868,8 @@
     cards.forEach(c => c.style.pointerEvents = busy ? "none" : "auto");
   }
 
-  function setSelectedClass(id, name){
-    SELECTED_CLASS = { id, name };
+  function setSelectedClass(id, name, stampCount){
+    SELECTED_CLASS = { id, name, stampCount: Number(stampCount) || 1 };
 
     document.querySelectorAll(".classCard").forEach(el => {
       el.classList.toggle("selected", el.dataset.classId === id);
@@ -1113,10 +1114,18 @@
       if (!isDone) {
         card.addEventListener("click", () => {
           hideBanner();
-          setSelectedClass(String(c.id), String(c.name));
+          setSelectedClass(String(c.id), String(c.name), c.stamp_count);
         });
       } else {
         card.style.pointerEvents = "none";
+      }
+
+      // ★ 2スタンプクラスにはバッジ表示
+      if (Number(c.stamp_count) >= 2 && !isDone) {
+        const stampBadge = document.createElement("div");
+        stampBadge.style.cssText = "display:inline-block;background:#ff9800;color:#fff;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:8px;margin-left:6px;";
+        stampBadge.textContent = "×2 stamp";
+        name.appendChild(stampBadge);
       }
 
       grid.appendChild(card);
@@ -1131,10 +1140,12 @@
   }
 
   function openStamp(){
+    // ★ 2スタンプクラスなら STAMP_URL_2 を使う
+    const url = (SELECTED_CLASS && SELECTED_CLASS.stampCount >= 2) ? STAMP_URL_2 : STAMP_URL;
     try {
-      liff.openWindow({ url: STAMP_URL, external: false });
+      liff.openWindow({ url, external: false });
     } catch(e) {
-      window.location.href = STAMP_URL;
+      window.location.href = url;
     }
   }
 
@@ -1520,7 +1531,10 @@ async function checkin(isConfirm){
 
 
     const goStamp = () => {
-      showSuccess("スタンプを付与します…");
+      const stampMsg = (SELECTED_CLASS && SELECTED_CLASS.stampCount >= 2)
+        ? "スタンプを2個付与します…"
+        : "スタンプを付与します…";
+      showSuccess(stampMsg);
       startCountdown(REDIRECT_DELAY_MS);
       setTimeout(openStamp, REDIRECT_DELAY_MS);
     };
