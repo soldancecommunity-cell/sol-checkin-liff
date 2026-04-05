@@ -827,7 +827,7 @@
 
       // ★ busy/タイムアウト時の自動リトライ設定
       // GASのwriteLockは0.2〜0.5秒で解放されるため、3〜5秒待てばほぼ必ず通る
-      const CHECKIN_MAX_RETRY = 6;
+      const CHECKIN_MAX_RETRY = 10;
       const CHECKIN_BASE_WAIT_MS = 3000; // GASのretry_afterに合わせたベース待機
 
       const sel = $("classSel");
