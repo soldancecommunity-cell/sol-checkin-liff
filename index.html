@@ -1398,8 +1398,49 @@ async function checkin(isConfirm){
       // ★ isConfirmがfalseでもPENDING済みなら confirm=1 を送る（別会員モード対応）
       ((( isConfirm || (PENDING_CONFIRM && PENDING_ROW_INDEX) ) && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "");
 
+    // ★ busy / 通信エラー時の自動リトライ（50人同時対応）
+    const CHECKIN_MAX_RETRY = 8;
+    let res = null;
 
-    const res = await jsonp(url);
+    for (let attempt = 1; attempt <= CHECKIN_MAX_RETRY; attempt++) {
+      if (attempt > 1) {
+        showMiniLoading(`再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
+      }
+
+      try {
+        res = await jsonp(url);
+      } catch (netErr) {
+        // ★ 通信エラー（タイムアウト等）→ リトライ
+        console.error("checkin network error attempt=" + attempt, netErr);
+        if (attempt < CHECKIN_MAX_RETRY) {
+          const waitMs = Math.min(3000 * attempt, 15000) + Math.floor(Math.random() * 2000);
+          showMiniLoading(`通信エラー・${Math.round(waitMs/1000)}秒後に再試行… (${attempt}/${CHECKIN_MAX_RETRY})`);
+          await new Promise(r => setTimeout(r, waitMs));
+          continue;
+        }
+        showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
+        hideOverlay();
+        return;
+      }
+
+      // ★ busy：サーバーのロック混雑 → 自動リトライ（ユーザー操作不要）
+      if (res && res.status === "busy") {
+        if (attempt < CHECKIN_MAX_RETRY) {
+          const retryAfter = Number(res.retry_after || 3);
+          const jitter = Math.floor(Math.random() * 2000);
+          const waitMs = retryAfter * 1000 + jitter;
+          showMiniLoading(`混み合っています・まもなく再試行… (${attempt}/${CHECKIN_MAX_RETRY})`);
+          await new Promise(r => setTimeout(r, waitMs));
+          continue;
+        }
+        showBanner("サーバーが混み合っています。少し待ってから再度お試しください。", "danger");
+        hideOverlay();
+        return;
+      }
+
+      // busy/通信エラー以外のレスポンスが来た → ループを抜けて通常処理へ
+      break;
+    }
 
     // 2) 初回電話要求
     if (res && res.status === "need_phone") {
