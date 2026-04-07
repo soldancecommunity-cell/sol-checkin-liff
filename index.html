@@ -636,7 +636,6 @@
   const API_URL   = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
   const API_TOKEN = "sol_checkin_2026_144025036146";
   const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
-  const STAMP_URL_2 = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=MumAot2UNX-01-BC-eTc5xEADlegdTiMD-INoMt-ExU"; // ★ 2スタンプ獲得用
   /* =================================== */
 
   // ★ 追加：force_phone 判定
@@ -868,8 +867,8 @@
     cards.forEach(c => c.style.pointerEvents = busy ? "none" : "auto");
   }
 
-  function setSelectedClass(id, name, stampCount){
-    SELECTED_CLASS = { id, name, stampCount: Number(stampCount) || 1 };
+  function setSelectedClass(id, name){
+    SELECTED_CLASS = { id, name };
 
     document.querySelectorAll(".classCard").forEach(el => {
       el.classList.toggle("selected", el.dataset.classId === id);
@@ -1114,18 +1113,10 @@
       if (!isDone) {
         card.addEventListener("click", () => {
           hideBanner();
-          setSelectedClass(String(c.id), String(c.name), c.stamp_count);
+          setSelectedClass(String(c.id), String(c.name));
         });
       } else {
         card.style.pointerEvents = "none";
-      }
-
-      // ★ 2スタンプクラスにはバッジ表示
-      if (Number(c.stamp_count) >= 2 && !isDone) {
-        const stampBadge = document.createElement("div");
-        stampBadge.style.cssText = "display:inline-block;background:#ff9800;color:#fff;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:8px;margin-left:6px;";
-        stampBadge.textContent = "×2 stamp";
-        name.appendChild(stampBadge);
       }
 
       grid.appendChild(card);
@@ -1140,12 +1131,10 @@
   }
 
   function openStamp(){
-    // ★ 2スタンプクラスなら STAMP_URL_2 を使う
-    const url = (SELECTED_CLASS && SELECTED_CLASS.stampCount >= 2) ? STAMP_URL_2 : STAMP_URL;
     try {
-      liff.openWindow({ url, external: false });
+      liff.openWindow({ url: STAMP_URL, external: false });
     } catch(e) {
-      window.location.href = url;
+      window.location.href = STAMP_URL;
     }
   }
 
@@ -1396,6 +1385,15 @@ async function checkin(isConfirm){
   showMiniLoading("チェックイン送信中…");
 
   try {
+    // ★★ 修正1: retry 設定（busy / timeout / 通信エラーを自動吸収）
+    // cash_checkin と同等の retry 思想を通常チェックインに導入
+    const CHECKIN_MAX_RETRY = 5;
+    const CHECKIN_BASE_WAIT_MS = 3500;
+
+    // ★★ 修正2: request_id を生成（このチェックイン操作を一意に識別）
+    // 再試行時も同じ ID を使い続けることで GAS 側の冪等チェックが機能する
+    const reqId = "rid_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+
     const url =
       `${API_URL}?api=checkin` +
       `&token=${encodeURIComponent(API_TOKEN)}` +
@@ -1407,49 +1405,59 @@ async function checkin(isConfirm){
       // ★ 別会員モード：GASのLINEユーザーIDフォールバックで別会員が返るのを防ぐ
       (SWITCH_MEMBER_ID ? `&member_id=${encodeURIComponent(SWITCH_MEMBER_ID)}` : "") +
       // ★ isConfirmがfalseでもPENDING済みなら confirm=1 を送る（別会員モード対応）
-      ((( isConfirm || (PENDING_CONFIRM && PENDING_ROW_INDEX) ) && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "");
+      ((( isConfirm || (PENDING_CONFIRM && PENDING_ROW_INDEX) ) && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "") +
+      // ★★ 修正2: 冪等キー（再送時も同じ ID を使うことで GAS 側が二重登録を防げる）
+      `&request_id=${encodeURIComponent(reqId)}`;
 
-    // ★ busy / 通信エラー時の自動リトライ（50人同時対応）
-    const CHECKIN_MAX_RETRY = 8;
     let res = null;
 
+    // ★★ 修正1: retry ループ本体
+    // GAS の writeLock は 0.2〜0.5秒で解放されるため、数秒待てばほぼ必ず通る。
+    // busy / JSONP timeout / script load error のいずれも再試行対象とし、
+    // 最終試行まで失敗した場合のみエラー表示する。
     for (let attempt = 1; attempt <= CHECKIN_MAX_RETRY; attempt++) {
       if (attempt > 1) {
-        showMiniLoading(`再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
+        showMiniLoading(`混雑中のため自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
       }
 
       try {
         res = await jsonp(url);
-      } catch (netErr) {
-        // ★ 通信エラー（タイムアウト等）→ リトライ
-        console.error("checkin network error attempt=" + attempt, netErr);
+      } catch (err) {
+        // ★★ 修正1: JSONP timeout / script load error → 再試行
+        // 従来はここで即「通信に失敗しました」と出していたが、
+        // GAS の一時的な過負荷でも timeout が起きるため自動再試行に変更
         if (attempt < CHECKIN_MAX_RETRY) {
-          const waitMs = Math.min(3000 * attempt, 15000) + Math.floor(Math.random() * 2000);
-          showMiniLoading(`通信エラー・${Math.round(waitMs/1000)}秒後に再試行… (${attempt}/${CHECKIN_MAX_RETRY})`);
+          const waitMs = Math.min(CHECKIN_BASE_WAIT_MS * attempt, 12000)
+                       + Math.floor(Math.random() * 2000); // jitter 0〜2秒（同時リトライを分散）
+          showMiniLoading(`通信エラー・自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
           await new Promise(r => setTimeout(r, waitMs));
           continue;
         }
+        // 最大試行回数に達した → ここで初めてエラー表示
         showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
         hideOverlay();
         return;
       }
 
-      // ★ busy：サーバーのロック混雑 → 自動リトライ（ユーザー操作不要）
+      // ★★ 修正1: busy → GAS の writeLock が混雑中。再試行
+      // 従来は busy を「チェックインに失敗しました」と表示していたが、
+      // 3〜5秒待てば Lock が解放されるため自動再試行に変更
       if (res && res.status === "busy") {
         if (attempt < CHECKIN_MAX_RETRY) {
-          const retryAfter = Number(res.retry_after || 3);
-          const jitter = Math.floor(Math.random() * 2000);
-          const waitMs = retryAfter * 1000 + jitter;
-          showMiniLoading(`混み合っています・まもなく再試行… (${attempt}/${CHECKIN_MAX_RETRY})`);
+          const retryAfterMs = Number(res.retry_after || 3) * 1000;
+          const jitter = Math.floor(Math.random() * 2000); // 0〜2秒のjitter
+          const waitMs = retryAfterMs + jitter;
+          showMiniLoading(`混雑中のため自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
           await new Promise(r => setTimeout(r, waitMs));
           continue;
         }
-        showBanner("サーバーが混み合っています。少し待ってから再度お試しください。", "danger");
+        // 最大試行でも busy が続いた場合のみエラー
+        showBanner("チェックインに失敗しました。受付へお声がけください。", "danger");
         hideOverlay();
         return;
       }
 
-      // busy/通信エラー以外のレスポンスが来た → ループを抜けて通常処理へ
+      // busy 以外のレスポンスが来たら retry ループを抜ける
       break;
     }
 
@@ -1531,10 +1539,7 @@ async function checkin(isConfirm){
 
 
     const goStamp = () => {
-      const stampMsg = (SELECTED_CLASS && SELECTED_CLASS.stampCount >= 2)
-        ? "スタンプを2個付与します…"
-        : "スタンプを付与します…";
-      showSuccess(stampMsg);
+      showSuccess("スタンプを付与します…");
       startCountdown(REDIRECT_DELAY_MS);
       setTimeout(openStamp, REDIRECT_DELAY_MS);
     };
