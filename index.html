@@ -643,7 +643,7 @@
   const FORCE_PHONE = (QS.get('force_phone') === '1');
 
   const REDIRECT_DELAY_MS = 2500;
-  const JSONP_TIMEOUT_MS  = 16000;
+  const JSONP_TIMEOUT_MS  = 22000;  // ★ 16s→22s：GAS最悪処理時間(14s)に対する余裕を確保
 
   const CLASSES_CACHE_KEY = "sol_classes_cache_v1";
   const CLASSES_CACHE_TTL_MS = 10 * 60 * 1000;
