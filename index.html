@@ -647,7 +647,8 @@
   const LIFF_ID   = "2008938862-AlepUDEH";
   const API_URL   = "https://script.google.com/macros/s/AKfycby5I_79Y4b44ldbpM5tUBHtTF1hIOx9e0q1LMnA7K_bPzZ-VeYuDWkLo1nh4eQ82cNs/exec";
   const API_TOKEN = "sol_checkin_2026_144025036146";
-  const STAMP_URL = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
+  const STAMP_URL        = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
+  const STAMP_URL_DOUBLE = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=MumAot2UNX-01-BC-eTc5xEADlegdTiMD-INoMt-ExU";
   /* =================================== */
 
   // ★ 追加：force_phone 判定
@@ -879,8 +880,8 @@
     cards.forEach(c => c.style.pointerEvents = busy ? "none" : "auto");
   }
 
-  function setSelectedClass(id, name){
-    SELECTED_CLASS = { id, name };
+  function setSelectedClass(id, name, stampCount){
+    SELECTED_CLASS = { id, name, stamp_count: Number(stampCount) || 1 };
 
     document.querySelectorAll(".classCard").forEach(el => {
       el.classList.toggle("selected", el.dataset.classId === id);
@@ -1133,7 +1134,7 @@
       if (!isDone) {
         card.addEventListener("click", () => {
           hideBanner();
-          setSelectedClass(String(c.id), String(c.name));
+          setSelectedClass(String(c.id), String(c.name), c.stamp_count);
         });
       } else {
         card.style.pointerEvents = "none";
@@ -1151,10 +1152,13 @@
   }
 
   function openStamp(){
+    const url = (SELECTED_CLASS && Number(SELECTED_CLASS.stamp_count) >= 2)
+      ? STAMP_URL_DOUBLE
+      : STAMP_URL;
     try {
-      liff.openWindow({ url: STAMP_URL, external: false });
+      liff.openWindow({ url: url, external: false });
     } catch(e) {
-      window.location.href = STAMP_URL;
+      window.location.href = url;
     }
   }
 
