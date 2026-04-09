@@ -88,6 +88,10 @@
       font-size:14px; font-weight:700; flex:1; min-width:0;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
+    .memberTargetId{
+      font-size:10px; color:var(--muted); width:100%; margin-top:-4px;
+      padding-left: 4px; letter-spacing:.02em;
+    }
     .switchMemberBtn{
       -webkit-appearance:none; appearance:none;
       border:1px solid rgba(255,255,255,.18);
@@ -532,6 +536,7 @@
           <div id="memberTargetRow" class="memberTarget" style="display:none;">
             <div class="memberTargetLabel">対象</div>
             <div id="memberTargetName" class="memberTargetName">—</div>
+            <div id="memberTargetId" class="memberTargetId" style="display:none;"></div>
             <button id="switchMemberBtn" class="switchMemberBtn" onclick="switchMember()" style="display:none;">別の会員としてチェックイン</button>
           </div>
 
@@ -709,7 +714,8 @@
     if (candidate) {
       updateTargetDisplay_(
         String(candidate.member_name || "").trim(),
-        String(candidate.member_type || "").trim()
+        String(candidate.member_type || "").trim(),
+        String(candidate.member_id || "").trim()  // ★ member_id表示
       );
       if (candidate.member_id) {
         const prev = SWITCH_MEMBER_ID;
@@ -1195,13 +1201,24 @@
   }
 
   // ★ 対象会員表示ヘルパー
-  function updateTargetDisplay_(name, type) {
+  function updateTargetDisplay_(name, type, memberId) {
     const displayText = name
       ? (name + (type ? ` / ${type}` : ""))
       : "（名前未設定）";
     $("memberTargetName").textContent = displayText;
     $("memberTargetRow").style.display = "flex";
     $("switchMemberBtn").style.display = "";
+    // ★ member_id をデバッグ表示
+    const idEl = $("memberTargetId");
+    if (idEl) {
+      if (memberId) {
+        idEl.textContent = "member_id: " + memberId;
+        idEl.style.display = "";
+      } else {
+        idEl.textContent = "";
+        idEl.style.display = "none";
+      }
+    }
   }
 
   // ★ 別の会員としてチェックイン
@@ -1264,7 +1281,7 @@
         // 既に紐付け済み → 対象を更新してそのままチェックインへ
         const name = String(r.member_name || "").trim();
         const type = String(r.member_type || "").trim();
-        if (name) updateTargetDisplay_(name, type);
+        if (name) updateTargetDisplay_(name, type, String(r.member_id || "").trim()); // ★ member_id表示
         // ★ member_id を保存（GASのLINEユーザーIDフォールバックで別会員が返るのを防ぐ）
         if (r.member_id) {
           SWITCH_MEMBER_ID = String(r.member_id).trim();
@@ -1364,13 +1381,15 @@
     try {
       const meRes = await mePromise;
       if (meRes && meRes.status === "success" && meRes.linked && meRes.member) {
+        const myMid = String(meRes.member.member_id || "").trim();
         updateTargetDisplay_(
           String(meRes.member.member_name || "").trim(),
-          String(meRes.member.member_type || "").trim()
+          String(meRes.member.member_type || "").trim(),
+          myMid  // ★ member_id表示
         );
         // ★ B側 member_id を保存（チェックイン時に常時送信して記録対象を確定させる）
-        if (meRes.member.member_id) {
-          MY_MEMBER_ID = String(meRes.member.member_id).trim();
+        if (myMid) {
+          MY_MEMBER_ID = myMid;
         }
       }
     } catch(_) {}
