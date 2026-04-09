@@ -671,6 +671,7 @@
   let PENDING_ROW_INDEX = 0;
   let PENDING_CONFIRM = false;
   let SWITCH_MEMBER_ID = ""; // ★ 別会員モード：確定したB側member_id
+  let MY_MEMBER_ID = "";      // ★ 自分自身のB側member_id（api=meで取得・常時チェックインに使用）
 
   const $ = (id) => document.getElementById(id);
 
@@ -1367,6 +1368,10 @@
           String(meRes.member.member_name || "").trim(),
           String(meRes.member.member_type || "").trim()
         );
+        // ★ B側 member_id を保存（チェックイン時に常時送信して記録対象を確定させる）
+        if (meRes.member.member_id) {
+          MY_MEMBER_ID = String(meRes.member.member_id).trim();
+        }
       }
     } catch(_) {}
 
@@ -1427,7 +1432,9 @@ async function checkin(isConfirm){
       `&className=${encodeURIComponent(SELECTED_CLASS.name)}` +
       (phone ? `&phone=${encodeURIComponent(phone)}` : "") +
       // ★ 別会員モード：GASのLINEユーザーIDフォールバックで別会員が返るのを防ぐ
-      (SWITCH_MEMBER_ID ? `&member_id=${encodeURIComponent(SWITCH_MEMBER_ID)}` : "") +
+      // ★ member_id: 別会員切り替えならSWITCH優先、なければ自分のMY_MEMBER_IDを使用
+      //    どちらもなければ送らない（GASがline_user_idでフォールバック）
+      ((SWITCH_MEMBER_ID || MY_MEMBER_ID) ? `&member_id=${encodeURIComponent(SWITCH_MEMBER_ID || MY_MEMBER_ID)}` : "") +
       // ★ isConfirmがfalseでもPENDING済みなら confirm=1 を送る（別会員モード対応）
       ((( isConfirm || (PENDING_CONFIRM && PENDING_ROW_INDEX) ) && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "") +
       // ★★ 修正2: 冪等キー（再送時も同じ ID を使うことで GAS 側が二重登録を防げる）
