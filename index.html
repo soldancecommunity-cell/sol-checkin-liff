@@ -220,6 +220,18 @@
       white-space: nowrap;
     }
 
+    .doubleClassBadge{
+      font-size:11px;
+      font-weight:900;
+      padding:5px 8px;
+      border-radius:999px;
+      color:#fff;
+      background: linear-gradient(135deg, #f97316, #ef4444);
+      box-shadow: 0 10px 24px rgba(249,115,22,.25);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
     .classCard.done{
       opacity: .55;
       cursor: not-allowed;
@@ -1101,6 +1113,14 @@
         badge.className = "todayBadge";
         badge.textContent = "今日";
         right.appendChild(badge);
+      }
+
+      // ★ stamp_count >= 2 なら「2クラス」バッジを表示
+      if (Number(c.stamp_count) >= 2) {
+        const badge2 = document.createElement("div");
+        badge2.className = "doubleClassBadge";
+        badge2.textContent = "2クラス";
+        right.insertBefore(badge2, right.firstChild);
       }
 
       const dot = document.createElement("div");
