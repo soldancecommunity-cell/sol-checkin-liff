@@ -451,7 +451,41 @@
   cursor: pointer;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
 }
-  
+
+/* ===== クラス選択確認モーダル ===== */
+.classConfirmTitle{
+  font-size: 18px;
+  font-weight: 900;
+  text-align: center;
+  margin-bottom: 10px;
+  letter-spacing: .02em;
+}
+.classConfirmName{
+  font-size: 24px;
+  font-weight: 900;
+  text-align: center;
+  padding: 20px 14px;
+  margin: 6px 0 6px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(167,139,250,.18), rgba(45,212,191,.18));
+  border: 1px solid rgba(255,255,255,.14);
+  color: #fff;
+  word-break: break-word;
+  line-height: 1.3;
+}
+.classConfirmMeta{
+  text-align: center;
+  font-size: 13px;
+  color: rgba(234,240,255,.82);
+  margin-bottom: 2px;
+  min-height: 18px;
+}
+.modalBtnNo{
+  background: rgba(255,255,255,.10) !important;
+  color: #eaf0ff !important;
+  border: 1px solid rgba(255,255,255,.20);
+}
+
     /* ★★ SoLローディングオーバーレイ */
     .solOverlay{
       position: fixed; inset: 0; z-index: 9999;
@@ -587,6 +621,19 @@
             <div style="display:flex; gap:10px; margin-top:14px;">
               <button class="modalBtn" id="linkModalCancel">戻る</button>
               <button class="modalBtn" id="linkModalOk">OK</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ★ クラス選択確認モーダル -->
+        <div id="classConfirmModal" class="modal">
+          <div class="modalCard">
+            <div class="classConfirmTitle">このクラスの受講で<br>あってますか？</div>
+            <div id="classConfirmName" class="classConfirmName"></div>
+            <div id="classConfirmMeta" class="classConfirmMeta"></div>
+            <div style="display:flex; gap:10px; margin-top:16px;">
+              <button class="modalBtn modalBtnNo" id="classConfirmNo" type="button">いいえ</button>
+              <button class="modalBtn" id="classConfirmYes" type="button">はい</button>
             </div>
           </div>
         </div>
@@ -901,6 +948,42 @@
     $("checkinBtn").disabled = false;
   }
 
+  // ★ クラス選択確認モーダル（誤選択防止）
+  function confirmClassSelection_(id, name, stampCount, wd, isToday){
+    const modal = $("classConfirmModal");
+    if (!modal) {
+      // 念のためのフォールバック
+      setSelectedClass(String(id), String(name), stampCount);
+      return;
+    }
+
+    $("classConfirmName").textContent = String(name || "");
+
+    let metaText = "";
+    if (wd) metaText = `${wd}曜日` + (isToday ? "（今日）" : "");
+    if (Number(stampCount) >= 2) metaText = (metaText ? metaText + "｜" : "") + "2クラス";
+    $("classConfirmMeta").textContent = metaText;
+
+    const yesBtn = $("classConfirmYes");
+    const noBtn  = $("classConfirmNo");
+
+    // 既存ハンドラが残らないよう置換（cloneNode で確実に剥がす）
+    const newYes = yesBtn.cloneNode(true);
+    const newNo  = noBtn.cloneNode(true);
+    yesBtn.parentNode.replaceChild(newYes, yesBtn);
+    noBtn.parentNode.replaceChild(newNo, noBtn);
+
+    newYes.addEventListener("click", () => {
+      modal.classList.remove("show");
+      setSelectedClass(String(id), String(name), stampCount);
+    });
+    newNo.addEventListener("click", () => {
+      modal.classList.remove("show");
+    });
+
+    modal.classList.add("show");
+  }
+
   // ===== JST helpers =====
   function getJstNow_(){
     const now = new Date();
@@ -1141,7 +1224,8 @@
       if (!isDone) {
         card.addEventListener("click", () => {
           hideBanner();
-          setSelectedClass(String(c.id), String(c.name), c.stamp_count);
+          // ★ 誤選択防止のため、確認モーダルを挟む
+          confirmClassSelection_(String(c.id), String(c.name), c.stamp_count, wd, isToday);
         });
       } else {
         card.style.pointerEvents = "none";
