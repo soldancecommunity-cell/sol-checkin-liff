@@ -265,6 +265,169 @@
     .field input::placeholder{ color: rgba(169,180,208,.65); }
     .hint{ font-size:12px; color:rgba(169,180,208,.80); margin-top:6px; }
 
+    /* ===== 電話番号入力欄の強化（インライン） ===== */
+    .phoneWrap{
+      margin-top: 16px !important;
+      padding: 14px;
+      border: 1.5px solid rgba(124,92,255,.55);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(124,92,255,.10), rgba(124,92,255,.03));
+      box-shadow: 0 10px 32px rgba(124,92,255,.12);
+      position: relative;
+    }
+    .phoneWrap.attention{
+      animation: phonePulse 1.6s ease-in-out 0s 3;
+    }
+    @keyframes phonePulse{
+      0%,100%{ box-shadow: 0 10px 32px rgba(124,92,255,.12); border-color: rgba(124,92,255,.55); }
+      50%{ box-shadow: 0 14px 44px rgba(124,92,255,.40); border-color: rgba(124,92,255,.95); }
+    }
+    .phoneWrapHeader{
+      display:flex; align-items:center; gap:10px; margin-bottom: 4px;
+    }
+    .phoneWrapIcon{
+      width: 32px; height: 32px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      flex: 0 0 auto;
+      box-shadow: 0 6px 18px rgba(124,92,255,.32);
+    }
+    .phoneWrapIcon svg{ width: 18px; height: 18px; color: #0b0d12; }
+    .phoneWrapLabelGroup{
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      flex: 1; min-width: 0;
+    }
+    .phoneWrap .phoneWrapLabel{
+      margin: 0;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: .2px;
+    }
+    .phoneWrapBadge{
+      font-size: 10px; font-weight: 900;
+      padding: 3px 8px; border-radius: 999px;
+      background: linear-gradient(135deg, #ff4d6d, #ff7a8a);
+      color: #fff;
+      letter-spacing: .05em;
+      box-shadow: 0 4px 12px rgba(255,77,109,.35);
+    }
+    .phoneWrap .field{
+      background: rgba(255,255,255,.06);
+      border: 1.5px solid rgba(124,92,255,.45);
+      border-radius: 12px;
+      padding: 14px 14px;
+      margin-top: 10px;
+    }
+    .phoneWrap .field:focus-within{
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(124,92,255,.18);
+    }
+    .phoneWrap .field input{
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: .04em;
+    }
+    .phoneWrap .hint{
+      margin-top: 8px;
+      font-size: 12px;
+      color: rgba(234,240,255,.78);
+    }
+
+    /* ===== 電話番号入力モーダル ===== */
+    #phoneModal .modalCard{
+      max-width: 440px;
+      padding: 22px 20px 20px;
+    }
+    .phoneModalIcon{
+      width: 56px; height: 56px;
+      margin: 0 auto 14px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 14px 36px rgba(124,92,255,.32);
+    }
+    .phoneModalIcon svg{ width: 28px; height: 28px; color: #0b0d12; }
+    .phoneModalTitle{
+      text-align: center;
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .phoneModalText{
+      text-align: center;
+      font-size: 14px;
+      color: rgba(234,240,255,.92);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .phoneModalField{
+      background: rgba(255,255,255,.05);
+      border: 2px solid rgba(124,92,255,.55);
+      border-radius: 14px;
+      padding: 16px 14px;
+      margin-bottom: 8px;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .phoneModalField:focus-within{
+      border-color: var(--accent);
+      box-shadow: 0 0 0 5px rgba(124,92,255,.20);
+    }
+    .phoneModalField.error{
+      border-color: var(--danger);
+      box-shadow: 0 0 0 5px rgba(255,77,109,.22);
+      animation: phoneShake .35s ease-in-out;
+    }
+    @keyframes phoneShake{
+      0%,100%{ transform: translateX(0); }
+      25%{ transform: translateX(-6px); }
+      75%{ transform: translateX(6px); }
+    }
+    .phoneModalField input{
+      width: 100%;
+      border: 0; outline: none; background: transparent;
+      color: var(--text);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-align: center;
+    }
+    .phoneModalField input::placeholder{
+      color: rgba(169,180,208,.5);
+      font-weight: 400;
+      letter-spacing: .04em;
+    }
+    .phoneModalHint{
+      text-align: center;
+      font-size: 12px;
+      color: rgba(169,180,208,.85);
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .phoneModalErrorText{
+      display: none;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #ffd3dc;
+      margin: -4px 0 12px;
+    }
+    .phoneModalErrorText.show{ display: block; }
+    .phoneModalActions{
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 10px;
+    }
+    .phoneModalCancel{
+      background: rgba(255,255,255,.06) !important;
+      color: var(--text) !important;
+      border: 1px solid var(--line) !important;
+      font-weight: 700 !important;
+    }
+    .phoneModalOk{
+      /* 既存 .modalBtn のグラデーションを使用 */
+    }
+
     .btn{
       width:100%; margin-top:14px; border:0; border-radius:16px; padding:14px;
       font-size:16px; font-weight:900; color:#0b0d12; cursor:pointer;
@@ -451,41 +614,7 @@
   cursor: pointer;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
 }
-
-/* ===== クラス選択確認モーダル ===== */
-.classConfirmTitle{
-  font-size: 18px;
-  font-weight: 900;
-  text-align: center;
-  margin-bottom: 10px;
-  letter-spacing: .02em;
-}
-.classConfirmName{
-  font-size: 24px;
-  font-weight: 900;
-  text-align: center;
-  padding: 20px 14px;
-  margin: 6px 0 6px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(167,139,250,.18), rgba(45,212,191,.18));
-  border: 1px solid rgba(255,255,255,.14);
-  color: #fff;
-  word-break: break-word;
-  line-height: 1.3;
-}
-.classConfirmMeta{
-  text-align: center;
-  font-size: 13px;
-  color: rgba(234,240,255,.82);
-  margin-bottom: 2px;
-  min-height: 18px;
-}
-.modalBtnNo{
-  background: rgba(255,255,255,.10) !important;
-  color: #eaf0ff !important;
-  border: 1px solid rgba(255,255,255,.20);
-}
-
+  
     /* ★★ SoLローディングオーバーレイ */
     .solOverlay{
       position: fixed; inset: 0; z-index: 9999;
@@ -581,13 +710,23 @@
 
           <div id="classGrid" class="grid"></div>
 
-          <div id="phoneWrap" style="display:none; margin-top: 14px;">
-            <label id="phoneLabel">電話番号（初回のみ）</label>
+          <div id="phoneWrap" class="phoneWrap" style="display:none; margin-top: 14px;">
+            <div class="phoneWrapHeader">
+              <div class="phoneWrapIcon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+              </div>
+              <div class="phoneWrapLabelGroup">
+                <label id="phoneLabel" class="phoneWrapLabel" for="phoneInput">電話番号（ハイフンなし）</label>
+                <span class="phoneWrapBadge" id="phoneWrapBadge">初回必須</span>
+              </div>
+            </div>
             <div class="field">
               <input id="phoneInput" type="tel" inputmode="numeric" placeholder="090xxxxxxxx"
                      autocomplete="off" autocorrect="off" autocapitalize="off" />
             </div>
-            <div class="hint">会員登録時の「緊急連絡先」と一致する必要があります。</div>
+            <div class="hint">会員登録時の「緊急連絡先」と一致する番号を入力してください。</div>
             <!-- ★ 別会員モード時のみ表示する会員確認ボタン -->
             <button id="lookupMemberBtn" class="lookupMemberBtn" onclick="lookupMember_()" style="display:none;">
               この番号で会員を確認する
@@ -625,15 +764,29 @@
           </div>
         </div>
 
-        <!-- ★ クラス選択確認モーダル -->
-        <div id="classConfirmModal" class="modal">
+        <!-- ★ 電話番号入力モーダル（need_phone・FORCE_PHONE未入力時に開く） -->
+        <div id="phoneModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="phoneModalTitle">
           <div class="modalCard">
-            <div class="classConfirmTitle">このクラスの受講で<br>あってますか？</div>
-            <div id="classConfirmName" class="classConfirmName"></div>
-            <div id="classConfirmMeta" class="classConfirmMeta"></div>
-            <div style="display:flex; gap:10px; margin-top:16px;">
-              <button class="modalBtn modalBtnNo" id="classConfirmNo" type="button">いいえ</button>
-              <button class="modalBtn" id="classConfirmYes" type="button">はい</button>
+            <div class="phoneModalIcon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </div>
+            <div class="phoneModalTitle" id="phoneModalTitle">初回登録：電話番号</div>
+            <div class="phoneModalText" id="phoneModalText">
+              初めてのチェックインです。<br>
+              会員登録時の電話番号（ハイフンなし）を入力してください。
+            </div>
+            <div class="phoneModalField" id="phoneModalField">
+              <input id="phoneModalInput" type="tel" inputmode="numeric"
+                     placeholder="090xxxxxxxx"
+                     autocomplete="off" autocorrect="off" autocapitalize="off" />
+            </div>
+            <div class="phoneModalErrorText" id="phoneModalErrorText"></div>
+            <div class="phoneModalHint">緊急連絡先と同じ番号でないと会員特定できません。</div>
+            <div class="phoneModalActions">
+              <button class="modalBtn phoneModalCancel" id="phoneModalCancel" type="button">キャンセル</button>
+              <button class="modalBtn phoneModalOk" id="phoneModalOk" type="button">この番号で確認する</button>
             </div>
           </div>
         </div>
@@ -741,6 +894,73 @@
 
   function showLinkModal(){ $("linkModal").classList.add("show"); }
   function hideLinkModal(){ $("linkModal").classList.remove("show"); }
+
+  // ====== ★ 電話番号モーダル制御 ======
+  // 用途：need_phone を受け取った時、または FORCE_PHONE で未入力チェックインした時に開く
+  // 設計：モーダルとインライン入力欄は値を双方向同期。閉じてもインライン欄に値が残るので見落とし防止
+  let PHONE_MODAL_AFTER_OK = "checkin"; // "checkin" | "lookup" | "none"
+
+  function showPhoneModal(opts){
+    opts = opts || {};
+    PHONE_MODAL_AFTER_OK = opts.afterOk || "checkin";
+
+    // タイトル・説明文の差し替え
+    if (opts.title) $("phoneModalTitle").textContent = opts.title;
+    else $("phoneModalTitle").textContent = "初回登録：電話番号";
+
+    if (opts.text) $("phoneModalText").innerHTML = opts.text;
+    else $("phoneModalText").innerHTML = "初めてのチェックインです。<br>会員登録時の電話番号（ハイフンなし）を入力してください。";
+
+    if (opts.okLabel) $("phoneModalOk").textContent = opts.okLabel;
+    else $("phoneModalOk").textContent = "この番号で確認する";
+
+    // インライン欄の現在値をモーダルに同期
+    $("phoneModalInput").value = $("phoneInput").value || "";
+    hidePhoneModalError_();
+    $("phoneModalField").classList.remove("error");
+
+    $("phoneModal").classList.add("show");
+
+    // フォーカス（モーダル表示アニメーション後）
+    setTimeout(() => {
+      try { $("phoneModalInput").focus(); $("phoneModalInput").select && $("phoneModalInput").select(); } catch(_) {}
+    }, 180);
+  }
+
+  function hidePhoneModal(){
+    $("phoneModal").classList.remove("show");
+    $("phoneModalField").classList.remove("error");
+    hidePhoneModalError_();
+  }
+
+  function showPhoneModalError_(msg){
+    const el = $("phoneModalErrorText");
+    if (el) {
+      el.textContent = msg || "電話番号を確認してください。";
+      el.classList.add("show");
+    }
+    $("phoneModalField").classList.add("error");
+  }
+
+  function hidePhoneModalError_(){
+    const el = $("phoneModalErrorText");
+    if (el) el.classList.remove("show");
+  }
+
+  // インライン phoneWrap を強調表示（モーダルキャンセル時など）
+  function highlightInlinePhoneWrap_(){
+    const w = $("phoneWrap");
+    if (!w) return;
+    w.style.display = "block";
+    w.classList.remove("attention");
+    // 再アニメ用に1tick置く
+    void w.offsetWidth;
+    w.classList.add("attention");
+    setTimeout(() => {
+      try { w.scrollIntoView({ behavior: "smooth", block: "center" }); } catch(_) {}
+      try { $("phoneInput").focus(); } catch(_) {}
+    }, 80);
+  }
   
   function renderCandidateText(c){
     const name = (c && c.member_name) ? c.member_name : "";
@@ -823,6 +1043,69 @@
       showBanner("会員を確認しました。クラスを選んで「チェックイン」を押してください。", "info");
     }
   };
+
+  // ====== ★ 電話番号モーダル ボタン制御 ======
+  $("phoneModalCancel").onclick = () => {
+    hidePhoneModal();
+    // モーダルキャンセル後はインライン入力欄を強調表示して入力誘導
+    highlightInlinePhoneWrap_();
+    showBanner("画面下の電話番号入力欄から入力してください。", "info");
+  };
+
+  $("phoneModalOk").onclick = async () => {
+    const raw = $("phoneModalInput").value;
+    const v = normalizePhone(raw);
+    if (!v) {
+      showPhoneModalError_("電話番号を入力してください（ハイフンなし）。");
+      try { $("phoneModalInput").focus(); } catch(_) {}
+      return;
+    }
+    if (v.length < 10 || v.length > 11) {
+      showPhoneModalError_("電話番号の桁数を確認してください（10〜11桁）。");
+      try { $("phoneModalInput").focus(); } catch(_) {}
+      return;
+    }
+
+    // インライン入力欄に同期（以降の既存ロジックがそのまま動く）
+    $("phoneInput").value = v;
+    $("phoneWrap").style.display = "block";
+    hidePhoneModal();
+
+    // モーダルOK後の動作分岐
+    if (PHONE_MODAL_AFTER_OK === "lookup") {
+      // 別会員モード：会員確認API呼び出し
+      try { await lookupMember_(); } catch(_) {}
+    } else if (PHONE_MODAL_AFTER_OK === "checkin") {
+      // 通常チェックインフロー：再度checkin()でnedd_link_confirmへ進める
+      if (SELECTED_CLASS && SELECTED_CLASS.id) {
+        await checkin();
+      } else {
+        showBanner("クラスを選択してください。", "info");
+      }
+    }
+    // "none" の場合は何もしない（インライン欄に値だけセット）
+  };
+
+  // Enter キーでモーダル送信
+  $("phoneModalInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      $("phoneModalOk").click();
+    }
+  });
+
+  // モーダル背景クリックで閉じる（誤タップ防止のためキャンセル相当扱い）
+  $("phoneModal").addEventListener("click", (e) => {
+    if (e.target && e.target.id === "phoneModal") {
+      $("phoneModalCancel").click();
+    }
+  });
+
+  // 入力中はエラー表示を消す
+  $("phoneModalInput").addEventListener("input", () => {
+    hidePhoneModalError_();
+    $("phoneModalField").classList.remove("error");
+  });
 
 
   function showBanner(text, type){
@@ -946,42 +1229,6 @@
       return;
     }
     $("checkinBtn").disabled = false;
-  }
-
-  // ★ クラス選択確認モーダル（誤選択防止）
-  function confirmClassSelection_(id, name, stampCount, wd, isToday){
-    const modal = $("classConfirmModal");
-    if (!modal) {
-      // 念のためのフォールバック
-      setSelectedClass(String(id), String(name), stampCount);
-      return;
-    }
-
-    $("classConfirmName").textContent = String(name || "");
-
-    let metaText = "";
-    if (wd) metaText = `${wd}曜日` + (isToday ? "（今日）" : "");
-    if (Number(stampCount) >= 2) metaText = (metaText ? metaText + "｜" : "") + "2クラス";
-    $("classConfirmMeta").textContent = metaText;
-
-    const yesBtn = $("classConfirmYes");
-    const noBtn  = $("classConfirmNo");
-
-    // 既存ハンドラが残らないよう置換（cloneNode で確実に剥がす）
-    const newYes = yesBtn.cloneNode(true);
-    const newNo  = noBtn.cloneNode(true);
-    yesBtn.parentNode.replaceChild(newYes, yesBtn);
-    noBtn.parentNode.replaceChild(newNo, noBtn);
-
-    newYes.addEventListener("click", () => {
-      modal.classList.remove("show");
-      setSelectedClass(String(id), String(name), stampCount);
-    });
-    newNo.addEventListener("click", () => {
-      modal.classList.remove("show");
-    });
-
-    modal.classList.add("show");
   }
 
   // ===== JST helpers =====
@@ -1224,8 +1471,7 @@
       if (!isDone) {
         card.addEventListener("click", () => {
           hideBanner();
-          // ★ 誤選択防止のため、確認モーダルを挟む
-          confirmClassSelection_(String(c.id), String(c.name), c.stamp_count, wd, isToday);
+          setSelectedClass(String(c.id), String(c.name), c.stamp_count);
         });
       } else {
         card.style.pointerEvents = "none";
@@ -1505,7 +1751,12 @@ async function checkin(isConfirm){
     $("phoneWrap").style.display = "block";
     const p = normalizePhone($("phoneInput").value);
     if (!p) {
-      showBanner("開発モード：電話番号が未入力です。入力してください。", "info");
+      // ★ banner ではなくモーダルで強く促す
+      showPhoneModal({
+        title: "電話番号の入力が必要です",
+        text: "開発モード（force_phone）です。<br>電話番号（ハイフンなし）を入力してください。",
+        afterOk: "checkin"
+      });
       return;
     }
   }
@@ -1597,9 +1848,17 @@ async function checkin(isConfirm){
 
     // 2) 初回電話要求
     if (res && res.status === "need_phone") {
+      // ★ インライン欄も表示しつつ、モーダルで前面に出して見落とし防止
       $("phoneWrap").style.display = "block";
-      showBanner("初回のみ、会員登録時の電話番号（ハイフンなし）を入力してください。", "info");
+      hideBanner();
       hideOverlay();
+      hideMiniLoading();
+      setBusy(false);
+      showPhoneModal({
+        title: "初回登録：電話番号",
+        text: "初めてのチェックインです。<br>会員登録時の電話番号（ハイフンなし）を入力してください。",
+        afterOk: "checkin"
+      });
       return;
     }
 
