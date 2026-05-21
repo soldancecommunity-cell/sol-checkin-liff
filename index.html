@@ -1297,7 +1297,6 @@
     $("classConfirmName").textContent = name;
 
     const metaParts = [];
-    try { metaParts.push(getJstWeekdayJa_() + "曜日"); } catch(e){}
     if (sc >= 2) metaParts.push("2クラス分");
     $("classConfirmMeta").textContent = metaParts.join("　/　");
 
