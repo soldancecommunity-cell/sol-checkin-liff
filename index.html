@@ -614,6 +614,38 @@
   cursor: pointer;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
 }
+
+/* ★ クラス選択確認モーダル */
+.classConfirmTitle{
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.classConfirmName{
+  font-size: 26px;
+  font-weight: 900;
+  text-align: center;
+  line-height: 1.3;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+}
+.classConfirmMeta{
+  font-size: 13px;
+  color: rgba(234,240,255,.82);
+  text-align: center;
+  min-height: 18px;
+  margin-bottom: 2px;
+}
+.modalBtnNo{
+  background: rgba(255,255,255,.10) !important;
+  color: #eaf0ff !important;
+  border: 1px solid rgba(255,255,255,.20) !important;
+}
   
     /* ★★ SoLローディングオーバーレイ */
     .solOverlay{
@@ -760,6 +792,19 @@
             <div style="display:flex; gap:10px; margin-top:14px;">
               <button class="modalBtn" id="linkModalCancel">戻る</button>
               <button class="modalBtn" id="linkModalOk">OK</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ★ クラス選択確認モーダル -->
+        <div id="classConfirmModal" class="modal">
+          <div class="modalCard">
+            <div class="classConfirmTitle">このクラスの受講で<br>あってますか？</div>
+            <div id="classConfirmName" class="classConfirmName"></div>
+            <div id="classConfirmMeta" class="classConfirmMeta"></div>
+            <div style="display:flex; gap:10px; margin-top:16px;">
+              <button class="modalBtn modalBtnNo" id="classConfirmNo" type="button">いいえ</button>
+              <button class="modalBtn" id="classConfirmYes" type="button">はい</button>
             </div>
           </div>
         </div>
@@ -1231,6 +1276,39 @@
     $("checkinBtn").disabled = false;
   }
 
+  // ★ クラス選択確認モーダル：カードタップ時に「このクラスの受講であってますか？」を表示
+  function confirmClassSelection_(id, name, stampCount){
+    const modal = $("classConfirmModal");
+    // モーダル要素が無い環境では旧動作にフォールバック（安全装置）
+    if (!modal) { setSelectedClass(id, name, stampCount); return; }
+
+    const sc = Number(stampCount) || 1;
+    $("classConfirmName").textContent = name;
+
+    const metaParts = [];
+    try { metaParts.push(getJstWeekdayJa_() + "曜日"); } catch(e){}
+    if (sc >= 2) metaParts.push("2クラス分");
+    $("classConfirmMeta").textContent = metaParts.join("　/　");
+
+    // cloneNodeでリスナーを毎回剥がしてから付け直す（多重登録防止）
+    const yesOld = $("classConfirmYes");
+    const noOld  = $("classConfirmNo");
+    const yes = yesOld.cloneNode(true);
+    const no  = noOld.cloneNode(true);
+    yesOld.parentNode.replaceChild(yes, yesOld);
+    noOld.parentNode.replaceChild(no, noOld);
+
+    yes.addEventListener("click", () => {
+      modal.classList.remove("show");
+      setSelectedClass(id, name, sc);
+    });
+    no.addEventListener("click", () => {
+      modal.classList.remove("show");
+    });
+
+    modal.classList.add("show");
+  }
+
   // ===== JST helpers =====
   function getJstNow_(){
     const now = new Date();
@@ -1471,7 +1549,7 @@
       if (!isDone) {
         card.addEventListener("click", () => {
           hideBanner();
-          setSelectedClass(String(c.id), String(c.name), c.stamp_count);
+          confirmClassSelection_(String(c.id), String(c.name), c.stamp_count);
         });
       } else {
         card.style.pointerEvents = "none";
