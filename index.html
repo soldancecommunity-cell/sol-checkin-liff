@@ -646,6 +646,17 @@
   color: #eaf0ff !important;
   border: 1px solid rgba(255,255,255,.20) !important;
 }
+/* ★ 確認モーダルだけ背景を不透明にして読みやすく（他モーダルには影響なし） */
+#classConfirmModal{
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+#classConfirmModal .modalCard{
+  background: linear-gradient(180deg, #141821, #0d1016);
+  border: 1px solid rgba(255,255,255,.16);
+  box-shadow: 0 24px 80px rgba(0,0,0,.7);
+}
   
     /* ★★ SoLローディングオーバーレイ */
     .solOverlay{
