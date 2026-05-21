@@ -657,6 +657,28 @@
   border: 1px solid rgba(255,255,255,.16);
   box-shadow: 0 24px 80px rgba(0,0,0,.7);
 }
+/* ★ 未払い検知モーダル：控えめな注意喚起カラー（アンバー系） */
+#payModal{
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+#payModal .modalCard{
+  background: linear-gradient(180deg, #1c1812, #14110c);
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 24px 80px rgba(0,0,0,.7);
+}
+#payModal.payWarn .modalCard{
+  border: 1px solid rgba(245,180,90,.45);
+  border-left: 4px solid #f5b45a;
+  background: linear-gradient(180deg, #241c11, #18120a);
+}
+#payModal.payWarn #payModalTitle{
+  color: #f5c373;
+}
+#payModal.payWarn #payModalTitle::before{
+  content: "⚠ ";
+}
   
     /* ★★ SoLローディングオーバーレイ */
     .solOverlay{
@@ -936,9 +958,10 @@
 
   const $ = (id) => document.getElementById(id);
 
-  function showPayModal(title, text, onOk){
+  function showPayModal(title, text, onOk, warn){
     $("payModalTitle").textContent = title || "お支払いの確認";
     $("payModalText").textContent = text || "";
+    $("payModal").classList.toggle("payWarn", warn === true);
     $("payModal").classList.add("show");
 
     const btn = $("payModalOk");
@@ -2062,7 +2085,8 @@ async function checkin(isConfirm){
       showPayModal(
         "当月のお支払いが未確認です",
         unpaidMsg + "\n\n※チェックインは完了しています。受付でお声がけください。",
-        () => showInfoThenStamp()
+        () => showInfoThenStamp(),
+        true
       );
       return;
     }
