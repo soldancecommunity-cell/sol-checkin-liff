@@ -745,6 +745,26 @@
     });
   }
 
+  // ★ 修正R4: 再試行付きJSONP（resolve_member / me_cash 用）
+  //   GASコールドスタートや一時的過負荷でのタイムアウトを自動吸収する。
+  //   チェックイン送信には既に再試行があるが、会員照会だけ一発勝負だったため追加。
+  async function jsonpRetry(url, maxRetry, onRetry){
+    maxRetry = maxRetry || 3;
+    let lastErr = null;
+    for (let attempt = 1; attempt <= maxRetry; attempt++){
+      try { return await jsonp(url); }
+      catch(err){
+        lastErr = err;
+        if (attempt < maxRetry){
+          if (onRetry) { try { onRetry(attempt + 1, maxRetry); } catch(_){} }
+          const waitMs = Math.min(2500 * attempt, 8000) + Math.floor(Math.random()*1500);
+          await new Promise(r=>setTimeout(r, waitMs));
+        }
+      }
+    }
+    throw lastErr || new Error("jsonp failed");
+  }
+
   // ===== JST helpers =====
   function getJstNow_(){
     const now = new Date();
@@ -1067,7 +1087,8 @@
       + `&token=${encodeURIComponent(API_TOKEN)}`
       + `&userId=${encodeURIComponent(gUserId)}`
       + (gMemberId ? `&member_id=${encodeURIComponent(gMemberId)}` : "");
-    return await jsonp(meUrl);
+    // ★ 修正R4: me_cash もタイムアウト時に最大3回自動再試行
+    return await jsonpRetry(meUrl, 3);
   }
 
   function setVerifyCandidates_(cands){
@@ -1461,7 +1482,11 @@
         + (rowIndex ? `&rowIndex=${encodeURIComponent(String(rowIndex))}` : "")
         + `&readonly=1`;
 
-      const r = await jsonp(url);
+      // ★ 修正R4: タイムアウト時は自動で最大3回再試行（進捗を画面に表示）
+      const r = await jsonpRetry(url, 3, (next, max)=>{
+        setVerifyStatus(`照会中…自動再試行 (${next}/${max})`);
+        setVerifyNotice("ok","再試行中…",`通信がタイムアウトしました。自動で再試行しています… (${next}/${max})`);
+      });
 
       if (r && r.status === "need_member_select"){
         setVerifyCandidates_(r.candidates || []);
