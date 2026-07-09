@@ -873,6 +873,7 @@
           <div class="check">✓</div>
           <h3>チェックイン完了</h3>
           <p id="successMsg">スタンプを付与します…</p>
+          <button id="goStampBtn" type="button" style="display:none;margin:12px auto 0;padding:12px 18px;border-radius:12px;border:0;background:#22c55e;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">スタンプ付与へ進む</button>
           <div class="countdown" id="countdown"></div>
         </div>
       </div>
@@ -1993,6 +1994,12 @@ async function checkin(isConfirm){
       showBanner(res.message || "本日はすでにチェックイン済みです。", "info");
       markDoneToday_(SELECTED_CLASS.id);
       hideOverlay();
+      // ★チェックイン済みでもスタンプ導線を必ず出す
+      //   （初回送信タイムアウト→再送が already になった会員がスタンプ未取得のまま詰まるのを防ぐ）
+      //   confirm はユーザー操作扱いのため、外部ブラウザでもポップアップブロックされずに開ける。
+      if (confirm("本日は既にチェックイン済みです。\n\nスタンプが未取得の場合は「OK」でスタンプ付与へ移動できます。\n（取得済みの場合はキャンセル）")) {
+        openStamp();
+      }
       return;
     }
 
@@ -2044,8 +2051,17 @@ async function checkin(isConfirm){
 
     const goStamp = () => {
       showSuccess("スタンプを付与します…");
-      startCountdown(REDIRECT_DELAY_MS);
-      setTimeout(openStamp, REDIRECT_DELAY_MS);
+      // ★スタンプ導線の保険: 自動遷移が失敗しても手動で進めるボタンを常時表示
+      const gsBtn = $("goStampBtn");
+      if (gsBtn) { gsBtn.style.display = ""; gsBtn.onclick = openStamp; }
+      if (liff.isInClient && liff.isInClient()) {
+        startCountdown(REDIRECT_DELAY_MS);
+        setTimeout(openStamp, REDIRECT_DELAY_MS);
+      } else {
+        // 外部ブラウザ: setTimeout経由の自動遷移はポップアップブロックされるためボタン誘導（タップ=ユーザー操作なら開ける）
+        const cdEl = $("countdown");
+        if (cdEl) cdEl.textContent = "下のボタンからスタンプ付与へ進んでください";
+      }
     };
 
     // 6) 表示メッセージ（優先順位：未払い→現地精算→超過→回数）
