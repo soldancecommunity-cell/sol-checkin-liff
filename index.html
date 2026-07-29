@@ -250,6 +250,29 @@
       border-color: rgba(34,197,94,.30);
     }
 
+    /* ★ 自動判別クラス表示カード（自動チェックイン用） */
+    .autoClassCard{
+      margin-top:8px; padding:14px 16px;
+      border:1px solid rgba(124,92,255,.35); border-radius:14px;
+      background: linear-gradient(135deg, rgba(124,92,255,.10), rgba(45,212,191,.06));
+    }
+    .autoClassLabel{ font-size:11px; letter-spacing:.14em; color:rgba(169,180,208,.85); text-transform:uppercase; }
+    .autoClassName{ font-size:18px; font-weight:900; margin-top:4px; line-height:1.25; }
+    .autoClassMeta{ font-size:12px; color:rgba(169,180,208,.9); margin-top:4px; }
+    .autoClassCard.unresolved{
+      border-color: rgba(255,196,0,.45);
+      background: linear-gradient(135deg, rgba(255,196,0,.10), rgba(255,255,255,.02));
+    }
+
+    /* ★ 完了画面：続けて別会員チェックインボタン */
+    .nextMemberBtn{
+      margin-top:14px; width:100%;
+      background:rgba(255,255,255,.05); color:var(--text);
+      border:1px solid var(--line); border-radius:12px;
+      padding:12px 14px; font-size:14px; font-weight:700; cursor:pointer;
+    }
+    .nextMemberBtn:active{ background:rgba(255,255,255,.10); }
+
     .field{
       background: rgba(255,255,255,.03);
       border:1px solid var(--line);
@@ -743,7 +766,7 @@
     <div class="card">
       <div class="cardHeader">
         <h2>チェックイン</h2>
-        <p>受講クラスを選んでチェックイン。<br>初回のみ電話番号（ハイフンなし）で会員連携します。</p>
+        <p>QRを読み込むと時間からクラスを自動判別してチェックインします。<br>初回のみ電話番号（ハイフンなし）で会員連携します。</p>
       </div>
 
       <div class="content">
@@ -765,15 +788,20 @@
             <div class="memberTargetLabel">対象</div>
             <div id="memberTargetName" class="memberTargetName">—</div>
             <div id="memberTargetId" class="memberTargetId" style="display:none;"></div>
-            <button id="switchMemberBtn" class="switchMemberBtn" onclick="switchMember()" style="display:none;">別の会員としてチェックイン</button>
+            <button id="switchMemberBtn" class="switchMemberBtn" onclick="startNextMemberFlow_()" style="display:none;">別の会員としてチェックイン</button>
           </div>
 
           <div class="sectionTag">
-            <div class="left" id="todayLabel">受講クラス（タップで選択）</div>
+            <div class="left" id="todayLabel">本日のクラス（自動判別）</div>
             <div class="right" id="todayJst"></div>
           </div>
 
-          <div id="classGrid" class="grid"></div>
+          <!-- ★ 自動判別されたクラスの表示（旧クラス選択グリッドの置き換え） -->
+          <div id="autoClassCard" class="autoClassCard" style="display:none;">
+            <div class="autoClassLabel">判別されたクラス</div>
+            <div id="autoClassName" class="autoClassName">判別中…</div>
+            <div id="autoClassMeta" class="autoClassMeta"></div>
+          </div>
 
           <div id="phoneWrap" class="phoneWrap" style="display:none; margin-top: 14px;">
             <div class="phoneWrapHeader">
@@ -792,13 +820,14 @@
                      autocomplete="off" autocorrect="off" autocapitalize="off" />
             </div>
             <div class="hint">会員登録時の「緊急連絡先」と一致する番号を入力してください。</div>
-            <!-- ★ 別会員モード時のみ表示する会員確認ボタン -->
-            <button id="lookupMemberBtn" class="lookupMemberBtn" onclick="lookupMember_()" style="display:none;">
-              この番号で会員を確認する
+            <!-- ★ 電話番号NG時のお名前検索ボタン -->
+            <button id="nameSearchBtn" class="lookupMemberBtn" onclick="openNameModal()" style="display:none;">
+              お名前で会員を検索する
             </button>
           </div>
 
-          <button id="checkinBtn" class="btn" onclick="checkin()" disabled>チェックイン</button>
+          <!-- ★ 自動フロー停止時の手動リトライ用（通常は非表示） -->
+          <button id="checkinBtn" class="btn" onclick="retryCheckin()" style="display:none;">もう一度チェックインする</button>
 
           <div class="metaRow">
             <div class="mini" id="subInfo"></div>
@@ -829,15 +858,36 @@
           </div>
         </div>
 
-        <!-- ★ クラス選択確認モーダル -->
+        <!-- ★ 確認モーダル（クラス未判別時のチェックイン確認に使用） -->
         <div id="classConfirmModal" class="modal">
           <div class="modalCard">
-            <div class="classConfirmTitle">このクラスの受講で<br>あってますか？</div>
+            <div class="classConfirmTitle" id="classConfirmTitle">確認</div>
             <div id="classConfirmName" class="classConfirmName"></div>
             <div id="classConfirmMeta" class="classConfirmMeta"></div>
             <div style="display:flex; gap:10px; margin-top:16px;">
               <button class="modalBtn modalBtnNo" id="classConfirmNo" type="button">いいえ</button>
               <button class="modalBtn" id="classConfirmYes" type="button">はい</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ★ お名前検索モーダル（電話番号で会員が見つからない場合の救済） -->
+        <div id="nameModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
+          <div class="modalCard">
+            <div class="phoneModalTitle" id="nameModalTitle">お名前で会員を検索</div>
+            <div class="phoneModalText" id="nameModalText">
+              会員登録時のお名前を入力してください。<br>（姓のみ・名のみでも検索できます）
+            </div>
+            <div class="phoneModalField" id="nameModalField">
+              <input id="nameModalInput" type="text"
+                     placeholder="例）佐藤 / さとう / Sato"
+                     autocomplete="off" autocorrect="off" autocapitalize="off" />
+            </div>
+            <div class="phoneModalErrorText" id="nameModalErrorText"></div>
+            <div class="phoneModalHint">2文字以上で入力してください。</div>
+            <div class="phoneModalActions">
+              <button class="modalBtn phoneModalCancel" id="nameModalCancel" type="button">戻る</button>
+              <button class="modalBtn phoneModalOk" id="nameModalOk" type="button">この名前で検索する</button>
             </div>
           </div>
         </div>
@@ -871,10 +921,13 @@
 
         <div id="successView" class="successView">
           <div class="check">✓</div>
-          <h3>チェックイン完了</h3>
+          <h3 id="successTitle">チェックイン完了</h3>
           <p id="successMsg">スタンプを付与します…</p>
-          <button id="goStampBtn" type="button" style="display:none;margin:12px auto 0;padding:12px 18px;border-radius:12px;border:0;background:#22c55e;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">スタンプ付与へ進む</button>
           <div class="countdown" id="countdown"></div>
+          <!-- ★ 兄弟・親子など同一LINEで複数会員をチェックインする場合 -->
+          <button id="nextMemberBtn" class="nextMemberBtn" style="display:none;" type="button">
+            続けて別の会員をチェックイン
+          </button>
         </div>
       </div>
     </div>
@@ -935,30 +988,43 @@
   const STAMP_URL_DOUBLE = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=MumAot2UNX-01-BC-eTc5xEADlegdTiMD-INoMt-ExU";
   /* =================================== */
 
-  // ★ 追加：force_phone 判定
+  // ★ force_phone 判定（開発・受付テスト用：電話番号入力を強制）
   const QS = new URLSearchParams(window.location.search);
   const FORCE_PHONE = (QS.get('force_phone') === '1');
 
   const REDIRECT_DELAY_MS = 2500;
-  const JSONP_TIMEOUT_MS  = 22000;  // ★ 16s→22s：GAS最悪処理時間(14s)に対する余裕を確保
+  const JSONP_TIMEOUT_MS  = 22000;  // GAS最悪処理時間(14s)に対する余裕を確保
 
-  const CLASSES_CACHE_KEY = "sol_classes_cache_v1";
-  const CLASSES_CACHE_TTL_MS = 10 * 60 * 1000;
-
-  /* ===== 本日チェックイン済み（端末側） ===== */
+  /* ===== 本日チェックイン済み（端末側・表示用） ===== */
   const DONE_CACHE_PREFIX = "sol_checkin_done_"; // + YYYYMMDD
 
+  // ==========================================================
+  // ★ 自動チェックイン フロー状態
+  //   QR読込 → LIFF起動 → auto_checkin API → 状態に応じてUI分岐
+  // ==========================================================
   let LINE_USER_ID = "";
   let LINE_DISPLAY_NAME = "";
-  let SELECTED_CLASS = null;
   let TODAY_WD = "";
-  let PENDING_ROW_INDEX = 0;
-  let PENDING_CONFIRM = false;
-  let SWITCH_MEMBER_ID = ""; // ★ 別会員モード：確定したB側member_id
-  let MY_MEMBER_ID = "";      // ★ 自分自身のB側member_id（api=meで取得・常時チェックインに使用）
+
+  let TARGET_MEMBER_ID   = "";     // このチェックインの対象member_id（複数会員LINE・候補確定時にセット）
+  let PENDING_ROW_INDEX  = 0;      // 初回紐付け候補のA側行番号（confirm=1で確定）
+  let PENDING_CONFIRM    = false;  // 候補確定フラグ
+  let FORCE_UNRESOLVED   = false;  // クラス未判別を承知でチェックインするフラグ
+  let CHECKIN_REQ_ID     = newReqId_();  // 冪等キー（対象会員が変わるたびに再生成）
+  let LINKED_MEMBERS     = [];     // 成功時にサーバーから返る「このLINEに紐付く会員一覧」
+  let CURRENT_CLASS      = { class_id:"", class_name:"", class_resolved:false, stamp_count:1 };
+  let AUTO_IN_FLIGHT     = false;  // 二重送信防止
+  let STAMP_TIMER        = null;   // スタンプ遷移タイマー（「別の会員」押下でキャンセル可能に）
+
+  function newReqId_(){
+    return "rid_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+  }
 
   const $ = (id) => document.getElementById(id);
 
+  // ==========================================================
+  // 共通モーダル：支払い/回数
+  // ==========================================================
   function showPayModal(title, text, onOk, warn){
     $("payModalTitle").textContent = title || "お支払いの確認";
     $("payModalText").textContent = text || "";
@@ -975,16 +1041,12 @@
   function showLinkModal(){ $("linkModal").classList.add("show"); }
   function hideLinkModal(){ $("linkModal").classList.remove("show"); }
 
-  // ====== ★ 電話番号モーダル制御 ======
-  // 用途：need_phone を受け取った時、または FORCE_PHONE で未入力チェックインした時に開く
-  // 設計：モーダルとインライン入力欄は値を双方向同期。閉じてもインライン欄に値が残るので見落とし防止
-  let PHONE_MODAL_AFTER_OK = "checkin"; // "checkin" | "lookup" | "none"
-
+  // ==========================================================
+  // ★ 電話番号モーダル
+  // ==========================================================
   function showPhoneModal(opts){
     opts = opts || {};
-    PHONE_MODAL_AFTER_OK = opts.afterOk || "checkin";
 
-    // タイトル・説明文の差し替え
     if (opts.title) $("phoneModalTitle").textContent = opts.title;
     else $("phoneModalTitle").textContent = "初回登録：電話番号";
 
@@ -1001,7 +1063,6 @@
 
     $("phoneModal").classList.add("show");
 
-    // フォーカス（モーダル表示アニメーション後）
     setTimeout(() => {
       try { $("phoneModalInput").focus(); $("phoneModalInput").select && $("phoneModalInput").select(); } catch(_) {}
     }, 180);
@@ -1027,13 +1088,11 @@
     if (el) el.classList.remove("show");
   }
 
-  // インライン phoneWrap を強調表示（モーダルキャンセル時など）
   function highlightInlinePhoneWrap_(){
     const w = $("phoneWrap");
     if (!w) return;
     w.style.display = "block";
     w.classList.remove("attention");
-    // 再アニメ用に1tick置く
     void w.offsetWidth;
     w.classList.add("attention");
     setTimeout(() => {
@@ -1041,48 +1100,81 @@
       try { $("phoneInput").focus(); } catch(_) {}
     }, 80);
   }
-  
+
+  // ==========================================================
+  // ★ お名前検索モーダル（電話番号NG時の救済）
+  // ==========================================================
+  function openNameModal(msg){
+    hidePhoneModal();
+    // ★ 見つからなかった電話番号を送信し続けないようクリア（お名前検索経路）
+    $("phoneInput").value = "";
+    $("nameModalText").innerHTML = msg
+      || "会員登録時のお名前を入力してください。<br>（姓のみ・名のみでも検索できます）";
+    $("nameModalInput").value = "";
+    hideNameModalError_();
+    $("nameModal").classList.add("show");
+    setTimeout(() => { try { $("nameModalInput").focus(); } catch(_) {} }, 180);
+  }
+  function hideNameModal(){
+    $("nameModal").classList.remove("show");
+    hideNameModalError_();
+  }
+  function showNameModalError_(msg){
+    const el = $("nameModalErrorText");
+    if (el) { el.textContent = msg || "お名前を確認してください。"; el.classList.add("show"); }
+    $("nameModalField").classList.add("error");
+  }
+  function hideNameModalError_(){
+    const el = $("nameModalErrorText");
+    if (el) el.classList.remove("show");
+    $("nameModalField").classList.remove("error");
+  }
+
+  // ==========================================================
+  // 会員候補モーダル（電話/名前検索の候補・複数会員LINEの選択）
+  // ==========================================================
   function renderCandidateText(c){
     const name = (c && c.member_name) ? c.member_name : "";
     const type = (c && c.member_type) ? ` / ${c.member_type}` : "";
     return `${name}${type}`.trim() || "会員";
   }
-  
+
   function openLinkConfirm(candidate){
     $("linkModalTitle").textContent = "会員確認";
     $("linkModalText").textContent = `この会員で間違いありませんか？\n${renderCandidateText(candidate)}`;
     $("linkModalList").style.display = "none";
     $("linkModalList").innerHTML = "";
-  
-    PENDING_ROW_INDEX = Number(candidate && candidate.rowIndex ? candidate.rowIndex : 0);
-    PENDING_CONFIRM = true;
 
-    // ★ 対象会員表示を確認候補で更新 & member_id を保存（B側フォールバック防止）
+    const newMemberId = String(candidate && candidate.member_id ? candidate.member_id : "").trim();
+    PENDING_ROW_INDEX = Number(candidate && candidate.rowIndex ? candidate.rowIndex : 0);
+    PENDING_CONFIRM = PENDING_ROW_INDEX > 1;  // rowIndexがある候補（初回紐付け）のみconfirm対象
+
+    // ★ 対象会員が変わったら冪等キーを再生成（別会員のチェックインが前回のキャッシュに吸われるのを防ぐ）
+    if (newMemberId && newMemberId !== TARGET_MEMBER_ID) {
+      TARGET_MEMBER_ID = newMemberId;
+      CHECKIN_REQ_ID = newReqId_();
+    }
+
     if (candidate) {
       updateTargetDisplay_(
         String(candidate.member_name || "").trim(),
         String(candidate.member_type || "").trim(),
-        String(candidate.member_id || "").trim()  // ★ member_id表示
+        newMemberId
       );
-      if (candidate.member_id) {
-        const prev = SWITCH_MEMBER_ID;
-        SWITCH_MEMBER_ID = String(candidate.member_id).trim();
-        // ★ member_id が変わったらdone状態を新しい会員キーで再評価
-        if (prev !== SWITCH_MEMBER_ID) reRenderClassesForCurrentMember_();
-      }
     }
-  
+
     showLinkModal();
   }
-  
-  function openLinkSelect(candidates){
-    $("linkModalTitle").textContent = "会員選択";
-    $("linkModalText").textContent = "該当する会員を選択してください。";
-  
+
+  function openLinkSelect(candidates, opts){
+    opts = opts || {};
+    $("linkModalTitle").textContent = opts.title || "会員選択";
+    $("linkModalText").textContent = opts.text || "該当する会員を選択してください。";
+
     const box = $("linkModalList");
     box.style.display = "block";
     box.innerHTML = "";
-  
+
     (candidates || []).forEach(c => {
       const btn = document.createElement("button");
       btn.className = "btn";
@@ -1092,44 +1184,49 @@
       btn.onclick = () => openLinkConfirm(c);
       box.appendChild(btn);
     });
-  
+
+    // ★ 「別の会員をチェックイン」から来た場合は電話番号検索の導線も出す
+    if (opts.withPhoneSearch) {
+      const btnP = document.createElement("button");
+      btnP.className = "btn";
+      btnP.style.width = "100%";
+      btnP.style.marginTop = "8px";
+      btnP.style.background = "rgba(255,255,255,.06)";
+      btnP.textContent = "上記以外の会員（電話番号で検索）";
+      btnP.onclick = () => {
+        hideLinkModal();
+        showPhoneModal({
+          title: "会員の電話番号",
+          text: "チェックインする会員の登録電話番号（ハイフンなし）を入力してください。"
+        });
+      };
+      box.appendChild(btnP);
+    }
+
     PENDING_ROW_INDEX = 0;
     PENDING_CONFIRM = false;
-  
+
     showLinkModal();
   }
-  
+
   // モーダルボタン
   $("linkModalCancel").onclick = () => {
     hideLinkModal();
     PENDING_CONFIRM = false;
-    // ★ 別会員モードのキャンセル：SWITCH_MEMBER_IDをリセットしてAの状態に戻す
-    if (SWITCH_MEMBER_ID) {
-      SWITCH_MEMBER_ID = "";
-      PENDING_ROW_INDEX = 0;
-      reRenderClassesForCurrentMember_();
-      $("switchMemberBtn").style.display = "";
-      showBanner("会員選択をキャンセルしました。もう一度「別の会員としてチェックイン」から操作してください。", "info");
-    }
+    PENDING_ROW_INDEX = 0;
+    showRetryButton_("会員選択をキャンセルしました。");
   };
   $("linkModalOk").onclick = async () => {
     hideLinkModal();
-    if (!PENDING_CONFIRM || !PENDING_ROW_INDEX) return;
-
-    // ★ クラスが選択済みならすぐにチェックイン、未選択なら案内だけ（PENDINGは保持）
-    if (SELECTED_CLASS && SELECTED_CLASS.id) {
-      await checkin(true);
-    } else {
-      showBanner("会員を確認しました。クラスを選んで「チェックイン」を押してください。", "info");
-    }
+    // 候補確定（confirmあり）or 会員選択のみ（member_idのみ）→ そのままチェックイン続行
+    await runAutoCheckin();
   };
 
-  // ====== ★ 電話番号モーダル ボタン制御 ======
+  // ====== 電話番号モーダル ボタン制御 ======
   $("phoneModalCancel").onclick = () => {
     hidePhoneModal();
-    // モーダルキャンセル後はインライン入力欄を強調表示して入力誘導
     highlightInlinePhoneWrap_();
-    showBanner("画面下の電話番号入力欄から入力してください。", "info");
+    showRetryButton_("画面下の電話番号入力欄から入力し、「もう一度チェックインする」を押してください。");
   };
 
   $("phoneModalOk").onclick = async () => {
@@ -1146,48 +1243,72 @@
       return;
     }
 
-    // インライン入力欄に同期（以降の既存ロジックがそのまま動く）
+    // インライン入力欄に同期して自動チェックイン再実行
     $("phoneInput").value = v;
     $("phoneWrap").style.display = "block";
     hidePhoneModal();
-
-    // モーダルOK後の動作分岐
-    if (PHONE_MODAL_AFTER_OK === "lookup") {
-      // 別会員モード：会員確認API呼び出し
-      try { await lookupMember_(); } catch(_) {}
-    } else if (PHONE_MODAL_AFTER_OK === "checkin") {
-      // 通常チェックインフロー：再度checkin()でnedd_link_confirmへ進める
-      if (SELECTED_CLASS && SELECTED_CLASS.id) {
-        await checkin();
-      } else {
-        showBanner("クラスを選択してください。", "info");
-      }
-    }
-    // "none" の場合は何もしない（インライン欄に値だけセット）
+    await runAutoCheckin();
   };
 
-  // Enter キーでモーダル送信
   $("phoneModalInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      $("phoneModalOk").click();
-    }
+    if (e.key === "Enter") { e.preventDefault(); $("phoneModalOk").click(); }
   });
-
-  // モーダル背景クリックで閉じる（誤タップ防止のためキャンセル相当扱い）
   $("phoneModal").addEventListener("click", (e) => {
-    if (e.target && e.target.id === "phoneModal") {
-      $("phoneModalCancel").click();
-    }
+    if (e.target && e.target.id === "phoneModal") $("phoneModalCancel").click();
   });
-
-  // 入力中はエラー表示を消す
   $("phoneModalInput").addEventListener("input", () => {
     hidePhoneModalError_();
     $("phoneModalField").classList.remove("error");
   });
 
+  // ====== お名前検索モーダル ボタン制御 ======
+  $("nameModalCancel").onclick = () => {
+    hideNameModal();
+    showPhoneModal();  // 電話番号入力に戻る
+  };
+  $("nameModalOk").onclick = async () => {
+    const q = String($("nameModalInput").value || "").trim();
+    if (q.replace(/[\s\u3000]/g, "").length < 2) {
+      showNameModalError_("お名前は2文字以上で入力してください。");
+      return;
+    }
+    $("nameModalOk").disabled = true;
+    $("nameModalOk").textContent = "検索中…";
+    try {
+      const url =
+        `${API_URL}?api=member_name_lookup` +
+        `&token=${encodeURIComponent(API_TOKEN)}` +
+        `&q=${encodeURIComponent(q)}`;
+      const r = await jsonp(url);
 
+      if (r && r.status === "need_member_select" && Array.isArray(r.candidates) && r.candidates.length) {
+        hideNameModal();
+        openLinkSelect(r.candidates, {
+          title: "会員選択",
+          text: "該当する会員を選択してください。"
+        });
+        return;
+      }
+      if (r && r.status === "not_found") {
+        showNameModalError_("該当する会員が見つかりませんでした。表記を変えて再検索するか、受付へお越しください。");
+        return;
+      }
+      showNameModalError_((r && r.message) ? r.message : "検索に失敗しました。受付へお越しください。");
+    } catch (e) {
+      showNameModalError_("通信に失敗しました。電波の良い場所で再度お試しください。");
+    } finally {
+      $("nameModalOk").disabled = false;
+      $("nameModalOk").textContent = "この名前で検索する";
+    }
+  };
+  $("nameModalInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); $("nameModalOk").click(); }
+  });
+  $("nameModalInput").addEventListener("input", () => hideNameModalError_());
+
+  // ==========================================================
+  // 表示系ユーティリティ
+  // ==========================================================
   function showBanner(text, type){
     const el = $("banner");
     el.className = "banner show" + (type ? " " + type : "");
@@ -1205,6 +1326,16 @@
   }
   function hideMiniLoading(){
     $("miniLoading").style.display = "none";
+  }
+
+  function showRetryButton_(msg){
+    if (msg) showBanner(msg, "info");
+    $("checkinBtn").style.display = "block";
+    hideOverlay();
+    hideMiniLoading();
+  }
+  function hideRetryButton_(){
+    $("checkinBtn").style.display = "none";
   }
 
   function jsonp(url){
@@ -1230,117 +1361,49 @@
       document.body.appendChild(script);
     });
   }
-    // ==========================================================
-    // ★B案：連携コードを発行して、ユーザー本人に送信（webhookで送信用IDと紐付け）
-    //  - GAS側に api=issue_link_code が存在する前提
-    //  - 成功すると { status:"success", code:"123456", expires_at:"..." } 等が返る想定
-    // ==========================================================
-    async function issueLinkCodeAndSend_(phone){
-      phone = normalizePhone(phone);
-      if (!phone) return { ok:false, reason:'no_phone' };
-  
-      // 連携コードの多重送信を防止（端末単位）
-      const key = `sol_linkcode_sent_${phone}`;
-      if (localStorage.getItem(key) === "1") {
-        return { ok:true, skipped:true, reason:'already_sent' };
-      }
-  
-      // LIFF外（ブラウザ）では sendMessages 不可
-      if (!liff.isInClient()) {
-        return { ok:false, reason:'not_in_client' };
-      }
-  
-      // ★GAS：連携コード発行（phoneでmember_id解決する前提）
-      // 必要なら userId も渡す（GAS側で使える）
-      const url =
-        `${API_URL}?api=issue_link_code` +
-        `&token=${encodeURIComponent(API_TOKEN)}` +
-        `&phone=${encodeURIComponent(phone)}` +
-        `&userId=${encodeURIComponent(LINE_USER_ID)}`;
-  
-      const r = await jsonp(url);
 
-      // レスポンス無し
-      if (!r) {
-        return { ok:false, reason:'issue_failed_no_response' };
-      }
-      
-      // 想定フォーマットでない
-      if (r.status !== "success" || !r.code) {
-        return { ok:false, reason:'issue_failed_bad_response', raw:r };
-      }
+  // ==========================================================
+  // ★B案：連携コードを発行して、ユーザー本人に送信（webhookで送信用IDと紐付け）
+  // ==========================================================
+  async function issueLinkCodeAndSend_(phone){
+    phone = normalizePhone(phone);
+    if (!phone) return { ok:false, reason:'no_phone' };
 
-  
-      const code = String(r.code).trim();
-  
-      // ★ユーザー本人のトークに送信（これが webhook の source.userId を確定させる）
-      try {
-        await liff.sendMessages([{ type:"text", text:`SoL連携コード:${code}` }]);
-      } catch (e) {
-        return { ok:false, reason:'sendMessages_failed', error: String(e && e.message ? e.message : e), code };
-      }
-
-  
-      // 送れたらフラグON
-      localStorage.setItem(key, "1");
-      return { ok:true, code, expires_at: r.expires_at || "" };
+    const key = `sol_linkcode_sent_${phone}`;
+    if (localStorage.getItem(key) === "1") {
+      return { ok:true, skipped:true, reason:'already_sent' };
     }
 
+    if (!liff.isInClient()) {
+      return { ok:false, reason:'not_in_client' };
+    }
+
+    const url =
+      `${API_URL}?api=issue_link_code` +
+      `&token=${encodeURIComponent(API_TOKEN)}` +
+      `&phone=${encodeURIComponent(phone)}` +
+      `&userId=${encodeURIComponent(LINE_USER_ID)}`;
+
+    const r = await jsonp(url);
+
+    if (!r) return { ok:false, reason:'issue_failed_no_response' };
+    if (r.status !== "success" || !r.code) {
+      return { ok:false, reason:'issue_failed_bad_response', raw:r };
+    }
+
+    const code = String(r.code).trim();
+    try {
+      await liff.sendMessages([{ type:"text", text:`SoL連携コード:${code}` }]);
+    } catch (e) {
+      return { ok:false, reason:'sendMessages_failed', error: String(e && e.message ? e.message : e), code };
+    }
+
+    localStorage.setItem(key, "1");
+    return { ok:true, code, expires_at: r.expires_at || "" };
+  }
 
   function normalizePhone(s){
     return String(s || "").replace(/[^\d]/g, "");
-  }
-
-  function setBusy(busy){
-    $("checkinBtn").disabled = !!busy;
-    const cards = document.querySelectorAll(".classCard");
-    cards.forEach(c => c.style.pointerEvents = busy ? "none" : "auto");
-  }
-
-  function setSelectedClass(id, name, stampCount){
-    SELECTED_CLASS = { id, name, stamp_count: Number(stampCount) || 1 };
-
-    document.querySelectorAll(".classCard").forEach(el => {
-      el.classList.toggle("selected", el.dataset.classId === id);
-    });
-
-    if (isDoneToday_(id)) {
-      $("checkinBtn").disabled = true;
-      return;
-    }
-    $("checkinBtn").disabled = false;
-  }
-
-  // ★ クラス選択確認モーダル：カードタップ時に「このクラスの受講であってますか？」を表示
-  function confirmClassSelection_(id, name, stampCount){
-    const modal = $("classConfirmModal");
-    // モーダル要素が無い環境では旧動作にフォールバック（安全装置）
-    if (!modal) { setSelectedClass(id, name, stampCount); return; }
-
-    const sc = Number(stampCount) || 1;
-    $("classConfirmName").textContent = name;
-
-    const metaParts = [];
-    if (sc >= 2) metaParts.push("2クラス分");
-    $("classConfirmMeta").textContent = metaParts.join("　/　");
-
-    // cloneNodeでリスナーを毎回剥がしてから付け直す（多重登録防止）
-    const yesOld = $("classConfirmYes");
-    const noOld  = $("classConfirmNo");
-    const yes = yesOld.cloneNode(true);
-    const no  = noOld.cloneNode(true);
-    yesOld.parentNode.replaceChild(yes, yesOld);
-    noOld.parentNode.replaceChild(no, noOld);
-
-    yes.addEventListener("click", () => {
-      modal.classList.remove("show");
-      setSelectedClass(id, name, sc);
-    });
-    no.addEventListener("click", () => {
-      modal.classList.remove("show");
-    });
-
-    modal.classList.add("show");
   }
 
   // ===== JST helpers =====
@@ -1364,47 +1427,26 @@
     const pad = (n) => String(n).padStart(2, "0");
     return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
   }
-  function normalizeWeekdayCell_(w){
-    w = String(w || "").trim();
-    w = w.replace(/曜日|曜/g, "");
-    return w;
-  }
 
-  // ===== done cache =====
-  // ★ 会員ごとにキーを分ける（同一LINEで別会員のチェックイン済み状態が混ざらないよう）
+  // ===== done cache（表示用。真の重複判定はサーバー側） =====
   function currentCheckinMemberKey_() {
-    return SWITCH_MEMBER_ID || LINE_USER_ID;
+    return TARGET_MEMBER_ID || LINE_USER_ID;
   }
   function doneKeyToday_(){
     const mk = currentCheckinMemberKey_();
     return DONE_CACHE_PREFIX + formatJstYmdCompact_() + (mk ? "_" + mk : "");
   }
-  function loadDoneToday_(){
+  function markDoneToday_(classId){
     try{
       const raw = localStorage.getItem(doneKeyToday_());
       const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr.map(String) : [];
-    }catch(e){
-      return [];
-    }
-  }
-  function saveDoneToday_(arr){
-    try{
-      const unique = Array.from(new Set((arr || []).map(String)));
-      localStorage.setItem(doneKeyToday_(), JSON.stringify(unique));
+      const list = Array.isArray(arr) ? arr.map(String) : [];
+      list.push(String(classId));
+      localStorage.setItem(doneKeyToday_(), JSON.stringify(Array.from(new Set(list))));
     }catch(e){}
   }
-  function markDoneToday_(classId){
-    const arr = loadDoneToday_();
-    arr.push(String(classId));
-    saveDoneToday_(arr);
-  }
-  function isDoneToday_(classId){
-    const arr = loadDoneToday_();
-    return arr.includes(String(classId));
-  }
 
-  // ===== Dev Reset =====
+  // ===== Dev Reset（フッター長押しで表示） =====
   function clearDoneToday_(){
     try{ localStorage.removeItem(doneKeyToday_()); }catch(e){}
   }
@@ -1437,171 +1479,77 @@
 
     btn.addEventListener("click", () => {
       if (!confirm("今日の「済」をリセットします。よろしいですか？")) return;
-
       clearDoneToday_();
-      SELECTED_CLASS = null;
-      $("checkinBtn").disabled = true;
-
-      const cached = loadClassesCache() || [];
-      const sorted = sortClassesByToday_(cached);
-      renderClasses(sorted, "タップして選択");
-
-      showBanner("今日の「済」をリセットしました（開発用）。", "info");
+      showBanner("今日の「済」をリセットしました（開発用）。ページを開き直すと再チェックインできます。", "info");
     });
   }
 
-  // ===== class list cache =====
-  function saveClassesCache(classes){
-    try{
-      localStorage.setItem(CLASSES_CACHE_KEY, JSON.stringify({
-        ts: Date.now(),
-        classes: classes || []
-      }));
-    }catch(e){}
-  }
-  function loadClassesCache(){
-    try{
-      const raw = localStorage.getItem(CLASSES_CACHE_KEY);
-      if(!raw) return null;
-      const obj = JSON.parse(raw);
-      if(!obj || !obj.ts || !Array.isArray(obj.classes)) return null;
-      if(Date.now() - obj.ts > CLASSES_CACHE_TTL_MS) return null;
-      return obj.classes;
-    }catch(e){
-      return null;
-    }
-  }
-
-  function sortClassesByToday_(classes){
-    const today = TODAY_WD || getJstWeekdayJa_();
-    const wdOrder = { "月":0, "火":1, "水":2, "木":3, "金":4, "土":5, "日":6 };
-
-    const orderKey = (c) => {
-      const wd = normalizeWeekdayCell_(c.weekday);
-      const isToday = (wd && wd === today) ? 0 : 1;
-      const dayRank = (wd in wdOrder) ? wdOrder[wd] : 999;
-      return { isToday, dayRank, wd };
+  // ==========================================================
+  // 判別クラス表示
+  // ==========================================================
+  function updateClassDisplay_(res){
+    if (!res || !res.class_id) return;
+    CURRENT_CLASS = {
+      class_id:       String(res.class_id || ""),
+      class_name:     String(res.class_name || ""),
+      class_resolved: res.class_resolved === true,
+      stamp_count:    Number(res.stamp_count) || 1
     };
 
-    return (classes || [])
-      .map((c, i) => ({...c, __i:i}))
-      .sort((a, b) => {
-        const ka = orderKey(a);
-        const kb = orderKey(b);
+    const card = $("autoClassCard");
+    card.style.display = "block";
+    card.classList.toggle("unresolved", !CURRENT_CLASS.class_resolved);
 
-        if (ka.isToday !== kb.isToday) return ka.isToday - kb.isToday;
-        if (ka.dayRank !== kb.dayRank) return ka.dayRank - kb.dayRank;
+    $("autoClassName").textContent = CURRENT_CLASS.class_resolved
+      ? CURRENT_CLASS.class_name
+      : "クラス未判別";
 
-        const an = String(a.name || "");
-        const bn = String(b.name || "");
-        if (an && bn) {
-          const cmp = an.localeCompare(bn, "ja");
-          if (cmp !== 0) return cmp;
-        } else if (an && !bn) return -1;
-        else if (!an && bn) return 1;
-
-        return a.__i - b.__i;
-      })
-      .map(({__i, ...c}) => c);
+    const metaParts = [];
+    if (CURRENT_CLASS.class_resolved && CURRENT_CLASS.stamp_count >= 2) metaParts.push("2クラス分");
+    if (!CURRENT_CLASS.class_resolved) metaParts.push("代講・振替の場合はそのままチェックインできます");
+    $("autoClassMeta").textContent = metaParts.join("　/　");
   }
 
-  function countTodayClasses_(classes){
-    const today = TODAY_WD || getJstWeekdayJa_();
-    return (classes || []).filter(c => normalizeWeekdayCell_(c.weekday) === today).length;
-  }
-
-  function renderClasses(classes, metaLabel){
-    const grid = $("classGrid");
-    grid.innerHTML = "";
-
-    if (!classes || classes.length === 0){
-      showBanner("現在選択できるクラスがありません。", "danger");
-      return;
+  function updateTargetDisplay_(name, type, memberId) {
+    const displayText = name
+      ? (name + (type ? ` / ${type}` : ""))
+      : "（名前未設定）";
+    $("memberTargetName").textContent = displayText;
+    $("memberTargetRow").style.display = "flex";
+    const idEl = $("memberTargetId");
+    if (idEl) {
+      if (memberId) {
+        idEl.textContent = "member_id: " + memberId;
+        idEl.style.display = "";
+      } else {
+        idEl.textContent = "";
+        idEl.style.display = "none";
+      }
     }
-
-    const doneSet = new Set(loadDoneToday_());
-
-    classes.forEach(c => {
-      const wd = normalizeWeekdayCell_(c.weekday);
-      const isToday = wd && (wd === TODAY_WD);
-      const isDone = doneSet.has(String(c.id));
-
-      const card = document.createElement("div");
-      card.className = "classCard"
-        + (isToday ? " today" : "")
-        + (isDone ? " done" : "");
-      card.dataset.classId = String(c.id);
-
-      const left = document.createElement("div");
-      const name = document.createElement("div");
-      name.className = "className";
-      name.textContent = c.name;
-
-      const meta = document.createElement("div");
-      meta.className = "classMeta";
-      if (wd) {
-        if (isDone) meta.textContent = `${wd}｜チェックイン済み`;
-        else if (isToday) meta.textContent = `${wd}｜今日`;
-        else meta.textContent = `${wd}｜${metaLabel || "タップして選択"}`;
-      } else {
-        meta.textContent = metaLabel || "タップして選択";
-      }
-
-      left.appendChild(name);
-      left.appendChild(meta);
-
-      const right = document.createElement("div");
-      right.className = "rightWrap";
-
-      if (isDone) {
-        const badge = document.createElement("div");
-        badge.className = "doneBadge";
-        badge.textContent = "済";
-        right.appendChild(badge);
-      } else if (isToday) {
-        const badge = document.createElement("div");
-        badge.className = "todayBadge";
-        badge.textContent = "今日";
-        right.appendChild(badge);
-      }
-
-      // ★ stamp_count >= 2 なら「2クラス」バッジを表示
-      if (Number(c.stamp_count) >= 2) {
-        const badge2 = document.createElement("div");
-        badge2.className = "doubleClassBadge";
-        badge2.textContent = "2クラス";
-        right.insertBefore(badge2, right.firstChild);
-      }
-
-      const dot = document.createElement("div");
-      dot.className = "dot";
-      right.appendChild(dot);
-
-      card.appendChild(left);
-      card.appendChild(right);
-
-      if (!isDone) {
-        card.addEventListener("click", () => {
-          hideBanner();
-          confirmClassSelection_(String(c.id), String(c.name), c.stamp_count);
-        });
-      } else {
-        card.style.pointerEvents = "none";
-      }
-
-      grid.appendChild(card);
-    });
+    // ★ 自動フローでは「別の会員として」ボタンは完了画面側に集約（誤操作防止）
+    $("switchMemberBtn").style.display = "none";
   }
 
-  function showSuccess(message){
+  // ==========================================================
+  // 完了画面・スタンプ
+  // ==========================================================
+  function showSuccess(message, title){
     $("formBox").style.display = "none";
     hideMiniLoading();
+    hideOverlay();
     $("successView").classList.add("show");
+    $("successTitle").textContent = title || "チェックイン完了";
     $("successMsg").textContent = message || "スタンプを付与します…";
+  }
+  function showForm_(){
+    $("successView").classList.remove("show");
+    $("nextMemberBtn").style.display = "none";
+    $("countdown").textContent = "";
+    $("formBox").style.display = "block";
   }
 
   function openStamp(){
-    const url = (SELECTED_CLASS && Number(SELECTED_CLASS.stamp_count) >= 2)
+    const url = (Number(CURRENT_CLASS.stamp_count) >= 2)
       ? STAMP_URL_DOUBLE
       : STAMP_URL;
     try {
@@ -1617,6 +1565,8 @@
 
     const start = Date.now();
     const tick = () => {
+      // ★ タイマーがキャンセルされたら表示更新も止める
+      if (STAMP_TIMER === null) { el.textContent = ""; return; }
       const remain = Math.max(0, ms - (Date.now() - start));
       const sec = Math.ceil(remain / 1000);
       el.textContent = sec > 0 ? `${sec}秒後にスタンプ付与へ` : "移動します…";
@@ -1625,421 +1575,246 @@
     tick();
   }
 
-  function applyTodayHeader_(){
-    TODAY_WD = getJstWeekdayJa_();
-    $("todayLabel").textContent = `受講クラス（${TODAY_WD}曜日 優先表示）`;
-    $("todayJst").textContent = formatJstYmdHm_();
+  function goStamp_(){
+    showSuccess("スタンプを付与します…");
+    if (STAMP_TIMER) clearTimeout(STAMP_TIMER);
+    STAMP_TIMER = setTimeout(() => { STAMP_TIMER = null; openStamp(); }, REDIRECT_DELAY_MS);
+    startCountdown(REDIRECT_DELAY_MS);
+    // ★ 兄弟・親子チェックイン用：遷移までの間「別の会員」ボタンを表示
+    maybeShowNextMemberButton_();
   }
 
-  // ★ 会員切り替え後にクラス一覧を再描画（done状態を新しい会員のキーで再評価）
-  function reRenderClassesForCurrentMember_() {
-    const cached = loadClassesCache();
-    if (!cached || !cached.length) return;
-    const sorted = sortClassesByToday_(cached);
-    renderClasses(sorted, "タップして選択");
-    // 選択状態・チェックインボタンもリセット
-    SELECTED_CLASS = null;
-    $("checkinBtn").disabled = true;
+  function maybeShowNextMemberButton_(){
+    const btn = $("nextMemberBtn");
+    btn.style.display = "block";
+    btn.onclick = () => {
+      // スタンプ遷移をキャンセルして別会員フローへ
+      if (STAMP_TIMER) { clearTimeout(STAMP_TIMER); STAMP_TIMER = null; }
+      startNextMemberFlow_();
+    };
   }
 
-  // ★ 対象会員表示ヘルパー
-  function updateTargetDisplay_(name, type, memberId) {
-    const displayText = name
-      ? (name + (type ? ` / ${type}` : ""))
-      : "（名前未設定）";
-    $("memberTargetName").textContent = displayText;
-    $("memberTargetRow").style.display = "flex";
-    $("switchMemberBtn").style.display = "";
-    // ★ member_id をデバッグ表示
-    const idEl = $("memberTargetId");
-    if (idEl) {
-      if (memberId) {
-        idEl.textContent = "member_id: " + memberId;
-        idEl.style.display = "";
-      } else {
-        idEl.textContent = "";
-        idEl.style.display = "none";
-      }
-    }
-  }
-
-  // ★ 別の会員としてチェックイン
-  function switchMember() {
-    // ★ 前の別会員確定状態をリセット
-    SWITCH_MEMBER_ID = "";
-    PENDING_CONFIRM = false;
+  function startNextMemberFlow_(){
+    // 状態リセット（冪等キーも必ず再生成）
+    TARGET_MEMBER_ID  = "";
     PENDING_ROW_INDEX = 0;
-    // ★ Aのdone状態（LINE_USER_IDキー）で再描画してクラス一覧を元に戻す
-    reRenderClassesForCurrentMember_();
-    $("phoneLabel").textContent = "別の会員の電話番号（ハイフンなし）";
-    $("phoneWrap").style.display = "block";
-    $("lookupMemberBtn").style.display = "block";
+    PENDING_CONFIRM   = false;
+    FORCE_UNRESOLVED  = false;
+    CHECKIN_REQ_ID    = newReqId_();
     $("phoneInput").value = "";
-    $("phoneInput").focus();
-    $("switchMemberBtn").style.display = "none";
-    showBanner("別の会員の電話番号（ハイフンなし）を入力して「会員を確認する」を押してください。", "info");
+    hideBanner();
+    showForm_();
+
+    const linked = Array.isArray(LINKED_MEMBERS) ? LINKED_MEMBERS : [];
+    if (linked.length > 0) {
+      openLinkSelect(linked, {
+        title: "会員選択",
+        text: "チェックインする会員を選択してください。",
+        withPhoneSearch: true
+      });
+    } else {
+      showPhoneModal({
+        title: "会員の電話番号",
+        text: "チェックインする会員の登録電話番号（ハイフンなし）を入力してください。"
+      });
+    }
   }
 
-  // ★ 別会員モード：電話番号から会員を検索して確認モーダルを表示
-  let LOOKUP_IN_FLIGHT = false;
-  async function lookupMember_() {
-    if (LOOKUP_IN_FLIGHT) return;
+  // ==========================================================
+  // クラス未判別の確認モーダル
+  // ==========================================================
+  function openUnresolvedConfirm_(message){
+    const modal = $("classConfirmModal");
+    $("classConfirmTitle").innerHTML = "クラスを判別できませんでした";
+    $("classConfirmName").textContent = "このままチェックインしますか？";
+    $("classConfirmMeta").textContent = "代講・振替などの場合はそのままチェックインできます（クラスは後ほどスタッフが確定します）。";
 
-    const phone = normalizePhone($("phoneInput").value);
-    if (!phone) {
-      showBanner("電話番号を入力してください（ハイフンなし）。", "danger");
-      return;
-    }
+    // cloneNodeでリスナーを毎回剥がしてから付け直す（多重登録防止）
+    const yesOld = $("classConfirmYes");
+    const noOld  = $("classConfirmNo");
+    const yes = yesOld.cloneNode(true);
+    const no  = noOld.cloneNode(true);
+    yesOld.parentNode.replaceChild(yes, yesOld);
+    noOld.parentNode.replaceChild(no, noOld);
 
-    LOOKUP_IN_FLIGHT = true;
-    const btn = $("lookupMemberBtn");
-    btn.disabled = true;
-    btn.textContent = "照会中…";
+    yes.addEventListener("click", async () => {
+      modal.classList.remove("show");
+      FORCE_UNRESOLVED = true;
+      await runAutoCheckin();
+    });
+    no.addEventListener("click", () => {
+      modal.classList.remove("show");
+      showRetryButton_("チェックインを中断しました。クラスの時間になってから再度QRを読み込んでください。");
+    });
+
+    modal.classList.add("show");
+  }
+
+  // ==========================================================
+  // ★ 自動チェックイン本体
+  // ==========================================================
+  async function runAutoCheckin(){
+    if (AUTO_IN_FLIGHT) return;
+    AUTO_IN_FLIGHT = true;
+
     hideBanner();
+    hideRetryButton_();
     showOverlay();
+    showMiniLoading("チェックイン処理中…");
 
     try {
+      const phone = normalizePhone($("phoneInput").value);
+
+      const CHECKIN_MAX_RETRY = 5;
+      const CHECKIN_BASE_WAIT_MS = 3500;
+
       const url =
-        `${API_URL}?api=resolve_member`
-        + `&token=${encodeURIComponent(API_TOKEN)}`
-        + `&userId=${encodeURIComponent(LINE_USER_ID)}`
-        + `&phone=${encodeURIComponent(phone)}`
-        + `&readonly=1`; // ★ 書き込みなしで検索のみ（別会員のLINE IDを汚染しない）
+        `${API_URL}?api=auto_checkin` +
+        `&token=${encodeURIComponent(API_TOKEN)}` +
+        `&userId=${encodeURIComponent(LINE_USER_ID)}` +
+        `&displayName=${encodeURIComponent(LINE_DISPLAY_NAME)}` +
+        (phone ? `&phone=${encodeURIComponent(phone)}` : "") +
+        (TARGET_MEMBER_ID ? `&member_id=${encodeURIComponent(TARGET_MEMBER_ID)}` : "") +
+        ((PENDING_CONFIRM && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "") +
+        (FORCE_UNRESOLVED ? `&force_unresolved=1` : "") +
+        `&request_id=${encodeURIComponent(CHECKIN_REQ_ID)}`;
 
-      const r = await jsonp(url);
+      let res = null;
 
-      if (r && r.status === "need_member_select") {
-        openLinkSelect(r.candidates || []);
-        showBanner("該当する会員を選択してください。", "info");
-        return;
-      }
-
-      if (r && r.status === "need_link_confirm") {
-        openLinkConfirm(r.candidate);
-        return;
-      }
-
-      if (r && r.status === "success") {
-        // 既に紐付け済み → 対象を更新してそのままチェックインへ
-        const name = String(r.member_name || "").trim();
-        const type = String(r.member_type || "").trim();
-        if (name) updateTargetDisplay_(name, type, String(r.member_id || "").trim()); // ★ member_id表示
-        // ★ member_id を保存（GASのLINEユーザーIDフォールバックで別会員が返るのを防ぐ）
-        if (r.member_id) {
-          SWITCH_MEMBER_ID = String(r.member_id).trim();
-        } else {
-          showBanner("会員IDが取得できませんでした。スタッフにお声がけください。", "danger");
+      // busy / timeout の自動再試行（同一request_idで再送→GAS側冪等チェックが機能）
+      for (let attempt = 1; attempt <= CHECKIN_MAX_RETRY; attempt++) {
+        if (attempt > 1) {
+          showMiniLoading(`混雑中のため自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
+        }
+        try {
+          res = await jsonp(url);
+        } catch (err) {
+          if (attempt < CHECKIN_MAX_RETRY) {
+            const waitMs = Math.min(CHECKIN_BASE_WAIT_MS * attempt, 12000)
+                         + Math.floor(Math.random() * 2000);
+            showMiniLoading(`通信エラー・自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
+            await new Promise(r => setTimeout(r, waitMs));
+            continue;
+          }
+          showRetryButton_("通信に失敗しました。電波の良い場所で「もう一度チェックインする」を押してください。");
+          showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
           return;
         }
-        // ★ done状態を新しい会員のキーで再評価してクラス一覧を再描画
-        reRenderClassesForCurrentMember_();
-        showBanner("会員を確認しました。クラスを選んで「チェックイン」を押してください。", "info");
-        $("lookupMemberBtn").style.display = "none";
-        return;
+
+        if (res && res.status === "busy") {
+          if (attempt < CHECKIN_MAX_RETRY) {
+            const retryAfterMs = Number(res.retry_after || 3) * 1000;
+            const jitter = Math.floor(Math.random() * 2000);
+            showMiniLoading(`混雑中のため自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
+            await new Promise(r => setTimeout(r, retryAfterMs + jitter));
+            continue;
+          }
+          showRetryButton_("混雑しています。少し待ってから「もう一度チェックインする」を押してください。");
+          showBanner("チェックインに失敗しました。受付へお声がけください。", "danger");
+          return;
+        }
+
+        break;
       }
 
-      showBanner("会員が見つかりませんでした。電話番号を確認してください。", "danger");
+      await dispatchAutoCheckinResponse_(res, phone);
 
-    } catch (err) {
-      showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
     } finally {
-      LOOKUP_IN_FLIGHT = false;
-      btn.disabled = false;
-      btn.textContent = "この番号で会員を確認する";
-      hideOverlay();
-    }
-  }
-
-  async function init(){
-    showOverlay();
-    hideBanner();
-    applyTodayHeader_();
-    wireDevReset_();
-
-    $("netInfo").textContent = navigator.onLine ? "online" : "offline";
-
-    const cached = loadClassesCache();
-    if (cached && cached.length){
-      $("formBox").style.display = "block";
-      const sortedCached = sortClassesByToday_(cached);
-      renderClasses(sortedCached, "前回の一覧（同期中）");
-      showMiniLoading("最新のクラス一覧を同期中…");
-
-      const todayCountCached = countTodayClasses_(cached);
-      if (todayCountCached === 0) {
-        showBanner("本日のクラスはありません。次回のクラスから選択できます。", "info");
-        $("todayLabel").textContent = `受講クラス（本日のクラスはありません）`;
-      }
-    }else{
-      $("formBox").style.display = "block";
-      showMiniLoading("起動中…");
-    }
-
-    await liff.init({ liffId: LIFF_ID });
-
-    if (!liff.isInClient()) $("externalHint").classList.add("show");
-
-    if (!liff.isLoggedIn()) {
-      hideOverlay();
-      liff.login();
-      return;
-    }
-
-    const profilePromise = liff.getProfile();
-    const classesPromise = jsonp(`${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`);
-
-    const profile = await profilePromise;
-    LINE_USER_ID = profile.userId;
-    LINE_DISPLAY_NAME = profile.displayName || "";
-    $("subInfo").textContent = LINE_DISPLAY_NAME ? `@${LINE_DISPLAY_NAME}` : "";
-
-    // ★ 並列：api=me で既存の会員リンク取得（対象表示用）
-    const mePromise = jsonp(`${API_URL}?api=me&userId=${encodeURIComponent(LINE_USER_ID)}&token=${encodeURIComponent(API_TOKEN)}`);
-
-    const clsRes = await classesPromise;
-    if (!clsRes || clsRes.status !== "success") {
-      throw new Error(clsRes && clsRes.message ? clsRes.message : "classes load failed");
-    }
-
-    const classes = clsRes.classes || [];
-    const sorted = sortClassesByToday_(classes);
-    renderClasses(sorted, "タップして選択");
-    saveClassesCache(classes);
-
-    const todayCount = countTodayClasses_(classes);
-    if (todayCount === 0) {
-      showBanner("本日のクラスはありません。次回のクラスから選択できます。", "info");
-      $("todayLabel").textContent = `受講クラス（本日のクラスはありません）`;
-    }
-
-    // ★ 追加：force_phone の時は phone入力UIを強制表示
-    if (FORCE_PHONE) {
-      $("phoneWrap").style.display = "block";
-      $("phoneInput").value = "";
-      showBanner("開発モード（force_phone=1）：電話番号を入力してチェックインしてください。", "info");
-    }
-
-    // ★ 対象会員表示（api=me の結果を受け取る）
-    try {
-      const meRes = await mePromise;
-      if (meRes && meRes.status === "success" && meRes.linked && meRes.member) {
-        const myMid = String(meRes.member.member_id || "").trim();
-        updateTargetDisplay_(
-          String(meRes.member.member_name || "").trim(),
-          String(meRes.member.member_type || "").trim(),
-          myMid  // ★ member_id表示
-        );
-        // ★ B側 member_id を保存（チェックイン時に常時送信して記録対象を確定させる）
-        if (myMid) {
-          MY_MEMBER_ID = myMid;
-        }
-      }
-    } catch(_) {}
-
-    hideMiniLoading();
-    hideOverlay();
-    $("checkinBtn").disabled = true;
-  }
-
-  // ===== checkin (DEBUGなし／重複遷移なし) =====
-  // ===== checkin (OKボタン付き表示：未払い/現地精算/回数) =====
-async function checkin(isConfirm){
-  hideBanner();
-
-  // 1) 必須チェック
-  if (!SELECTED_CLASS || !SELECTED_CLASS.id) {
-    showBanner("クラスを選択してください。", "danger");
-    return;
-  }
-
-  if (isDoneToday_(SELECTED_CLASS.id)) {
-    showBanner("このクラスは本日すでにチェックイン済みです。", "info");
-    $("checkinBtn").disabled = true;
-    return;
-  }
-
-  // force_phone のときは電話番号必須
-  if (FORCE_PHONE) {
-    $("phoneWrap").style.display = "block";
-    const p = normalizePhone($("phoneInput").value);
-    if (!p) {
-      // ★ banner ではなくモーダルで強く促す
-      showPhoneModal({
-        title: "電話番号の入力が必要です",
-        text: "開発モード（force_phone）です。<br>電話番号（ハイフンなし）を入力してください。",
-        afterOk: "checkin"
-      });
-      return;
-    }
-  }
-
-  const phone = normalizePhone($("phoneInput").value);
-
-  setBusy(true);
-  showOverlay();
-  showMiniLoading("チェックイン送信中…");
-
-  try {
-    // ★★ 修正1: retry 設定（busy / timeout / 通信エラーを自動吸収）
-    // cash_checkin と同等の retry 思想を通常チェックインに導入
-    const CHECKIN_MAX_RETRY = 5;
-    const CHECKIN_BASE_WAIT_MS = 3500;
-
-    // ★★ 修正2: request_id を生成（このチェックイン操作を一意に識別）
-    // 再試行時も同じ ID を使い続けることで GAS 側の冪等チェックが機能する
-    const reqId = "rid_" + Date.now() + "_" + Math.random().toString(36).slice(2);
-
-    const url =
-      `${API_URL}?api=checkin` +
-      `&token=${encodeURIComponent(API_TOKEN)}` +
-      `&userId=${encodeURIComponent(LINE_USER_ID)}` +
-      `&displayName=${encodeURIComponent(LINE_DISPLAY_NAME)}` +
-      `&classId=${encodeURIComponent(SELECTED_CLASS.id)}` +
-      `&className=${encodeURIComponent(SELECTED_CLASS.name)}` +
-      (phone ? `&phone=${encodeURIComponent(phone)}` : "") +
-      // ★ 別会員モード：GASのLINEユーザーIDフォールバックで別会員が返るのを防ぐ
-      // ★ member_id: 別会員切り替えならSWITCH優先、なければ自分のMY_MEMBER_IDを使用
-      //    どちらもなければ送らない（GASがline_user_idでフォールバック）
-      ((SWITCH_MEMBER_ID || MY_MEMBER_ID) ? `&member_id=${encodeURIComponent(SWITCH_MEMBER_ID || MY_MEMBER_ID)}` : "") +
-      // ★ isConfirmがfalseでもPENDING済みなら confirm=1 を送る（別会員モード対応）
-      ((( isConfirm || (PENDING_CONFIRM && PENDING_ROW_INDEX) ) && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "") +
-      // ★★ 修正2: 冪等キー（再送時も同じ ID を使うことで GAS 側が二重登録を防げる）
-      `&request_id=${encodeURIComponent(reqId)}`;
-
-    let res = null;
-
-    // ★★ 修正1: retry ループ本体
-    // GAS の writeLock は 0.2〜0.5秒で解放されるため、数秒待てばほぼ必ず通る。
-    // busy / JSONP timeout / script load error のいずれも再試行対象とし、
-    // 最終試行まで失敗した場合のみエラー表示する。
-    for (let attempt = 1; attempt <= CHECKIN_MAX_RETRY; attempt++) {
-      if (attempt > 1) {
-        showMiniLoading(`混雑中のため自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
-      }
-
-      try {
-        res = await jsonp(url);
-      } catch (err) {
-        // ★★ 修正1: JSONP timeout / script load error → 再試行
-        // 従来はここで即「通信に失敗しました」と出していたが、
-        // GAS の一時的な過負荷でも timeout が起きるため自動再試行に変更
-        if (attempt < CHECKIN_MAX_RETRY) {
-          const waitMs = Math.min(CHECKIN_BASE_WAIT_MS * attempt, 12000)
-                       + Math.floor(Math.random() * 2000); // jitter 0〜2秒（同時リトライを分散）
-          showMiniLoading(`通信エラー・自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
-          await new Promise(r => setTimeout(r, waitMs));
-          continue;
-        }
-        // 最大試行回数に達した → ここで初めてエラー表示
-        showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
-        hideOverlay();
-        return;
-      }
-
-      // ★★ 修正1: busy → GAS の writeLock が混雑中。再試行
-      // 従来は busy を「チェックインに失敗しました」と表示していたが、
-      // 3〜5秒待てば Lock が解放されるため自動再試行に変更
-      if (res && res.status === "busy") {
-        if (attempt < CHECKIN_MAX_RETRY) {
-          const retryAfterMs = Number(res.retry_after || 3) * 1000;
-          const jitter = Math.floor(Math.random() * 2000); // 0〜2秒のjitter
-          const waitMs = retryAfterMs + jitter;
-          showMiniLoading(`混雑中のため自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
-          await new Promise(r => setTimeout(r, waitMs));
-          continue;
-        }
-        // 最大試行でも busy が続いた場合のみエラー
-        showBanner("チェックインに失敗しました。受付へお声がけください。", "danger");
-        hideOverlay();
-        return;
-      }
-
-      // busy 以外のレスポンスが来たら retry ループを抜ける
-      break;
-    }
-
-    // 2) 初回電話要求
-    if (res && res.status === "need_phone") {
-      // ★ インライン欄も表示しつつ、モーダルで前面に出して見落とし防止
-      $("phoneWrap").style.display = "block";
-      hideBanner();
-      hideOverlay();
+      AUTO_IN_FLIGHT = false;
       hideMiniLoading();
-      setBusy(false);
-      showPhoneModal({
-        title: "初回登録：電話番号",
-        text: "初めてのチェックインです。<br>会員登録時の電話番号（ハイフンなし）を入力してください。",
-        afterOk: "checkin"
+    }
+  }
+
+  // 手動リトライボタン
+  async function retryCheckin(){
+    await runAutoCheckin();
+  }
+
+  // ==========================================================
+  // ★ レスポンス分岐
+  // ==========================================================
+  async function dispatchAutoCheckinResponse_(res, phoneUsed){
+    // どの応答でもクラス情報が付いていれば表示を更新
+    updateClassDisplay_(res);
+
+    // 1) 初回：電話番号が必要
+    if (res && res.status === "need_phone") {
+      $("phoneWrap").style.display = "block";
+      hideOverlay();
+      showPhoneModal();
+      return;
+    }
+
+    // 2) 電話番号で会員が見つからない → お名前検索へ誘導（エラーで止めない）
+    if (res && res.status === "phone_not_found") {
+      $("phoneWrap").style.display = "block";
+      $("nameSearchBtn").style.display = "block";
+      hideOverlay();
+      openNameModal("この電話番号では会員が見つかりませんでした。<br>会員登録時のお名前で検索できます。<br>（番号を確認して入力し直す場合は「戻る」）");
+      return;
+    }
+
+    // 3) 会員候補：1件（確認）
+    if (res && res.status === "need_link_confirm") {
+      hideOverlay();
+      openLinkConfirm(res.candidate);
+      return;
+    }
+
+    // 4) 会員候補：複数（電話番号の同番ヒット or 同一LINEの複数会員）
+    if (res && (res.status === "need_member_select" || res.status === "select_member")) {
+      hideOverlay();
+      openLinkSelect(res.candidates || [], {
+        title: "会員選択",
+        text: res.status === "select_member"
+          ? "このLINEには複数の会員が登録されています。チェックインする会員を選択してください。"
+          : "該当する会員を選択してください。"
       });
       return;
     }
 
-    // 2.5) 会員選択が必要
-    if (res && res.status === "need_member_select") {
-      openLinkSelect(res.candidates || []);
+    // 5) クラス未判別 → 確認して続行
+    if (res && res.status === "confirm_unresolved") {
       hideOverlay();
-      return;
-    }
-    
-    // 2.6) 会員確認（1件ヒット）
-    if (res && res.status === "need_link_confirm") {
-      openLinkConfirm(res.candidate);
-      hideOverlay();
+      openUnresolvedConfirm_(res.message || "");
       return;
     }
 
-
-    // 3) すでにチェックイン済み（サーバー判定）
+    // 6) すでにチェックイン済み
     if (res && res.status === "already") {
-      showBanner(res.message || "本日はすでにチェックイン済みです。", "info");
-      markDoneToday_(SELECTED_CLASS.id);
-      hideOverlay();
-      // ★チェックイン済みでもスタンプ導線を必ず出す
-      //   （初回送信タイムアウト→再送が already になった会員がスタンプ未取得のまま詰まるのを防ぐ）
-      //   confirm はユーザー操作扱いのため、外部ブラウザでもポップアップブロックされずに開ける。
-      if (confirm("本日は既にチェックイン済みです。\n\nスタンプが未取得の場合は「OK」でスタンプ付与へ移動できます。\n（取得済みの場合はキャンセル）")) {
-        openStamp();
-      }
+      LINKED_MEMBERS = Array.isArray(res.linked_members) ? res.linked_members : LINKED_MEMBERS;
+      markDoneToday_(CURRENT_CLASS.class_id);
+      showSuccess(res.message || "本日はこのクラスのチェックインは完了しています。", "チェックイン済み");
+      maybeShowNextMemberButton_();
       return;
     }
 
-    // 4) 失敗
+    // 7) 失敗
     if (!res || res.status !== "success") {
-      showBanner("チェックインに失敗しました。受付へお声がけください。", "danger");
-      hideOverlay();
+      const msg = (res && res.message) ? res.message : "チェックインに失敗しました。受付へお声がけください。";
+      showRetryButton_();
+      showBanner(msg, "danger");
       return;
     }
 
-    // 5) 成功（ここで初めて “済” を付ける）
-    markDoneToday_(SELECTED_CLASS.id);
-    // ★ 別会員モードのPENDINGをリセット
+    // ==========================================================
+    // 8) 成功
+    // ==========================================================
+    markDoneToday_(CURRENT_CLASS.class_id);
+    LINKED_MEMBERS = Array.isArray(res.linked_members) ? res.linked_members : [];
     PENDING_CONFIRM = false;
     PENDING_ROW_INDEX = 0;
-    SWITCH_MEMBER_ID = "";
-    hideOverlay(); // ★ チェックイン完了でオーバーレイ解除
-    // ==========================================================
-    // ★B案：初回電話が入っているときだけ、連携コードを送る
-    // （webhookが受けて member_line_links を送信用IDで確定させる）
-    // ==========================================================
-    if (phone) {
-      try {
-        // UI的に軽く案内（邪魔しない）
-        showMiniLoading("LINE連携中…");
-        const linkRes = await issueLinkCodeAndSend_(phone);
-        if (!linkRes.ok) {
-          showBanner("LINE連携の処理中に問題が発生しました。チェックイン自体は完了しています。", "info");
-        } else if (linkRes.skipped) {
-          // LINE連携スキップ：会員への表示不要のため省略
-        } else {
-          // LINE連携OK：会員への表示不要（成功時はバナー不要）
-        }
+    hideOverlay();
 
-        // 送れなかった理由は運用上重要なので、開発モード/必要時のみ出す
+    // 初回電話が入っているときだけ、連携コードを送る（member_line_linksの送信用ID確定）
+    if (phoneUsed) {
+      try {
+        showMiniLoading("LINE連携中…");
+        const linkRes = await issueLinkCodeAndSend_(phoneUsed);
         if (!linkRes.ok && FORCE_PHONE) {
-          showBanner("LINE通知の送信に失敗しましたが、チェックインは完了しています。", "info");
+          showBanner("LINE連携でエラーが発生しましたが、チェックインは完了しています。", "info");
         }
       } catch (e) {
-        // 失敗してもチェックイン自体は成功させる（ここで止めない）
         if (FORCE_PHONE) {
           showBanner("LINE連携でエラーが発生しましたが、チェックインは完了しています。", "info");
         }
@@ -2048,55 +1823,36 @@ async function checkin(isConfirm){
       }
     }
 
-
-    const goStamp = () => {
-      showSuccess("スタンプを付与します…");
-      // ★スタンプ導線の保険: 自動遷移が失敗しても手動で進めるボタンを常時表示
-      const gsBtn = $("goStampBtn");
-      if (gsBtn) { gsBtn.style.display = ""; gsBtn.onclick = openStamp; }
-      if (liff.isInClient && liff.isInClient()) {
-        startCountdown(REDIRECT_DELAY_MS);
-        setTimeout(openStamp, REDIRECT_DELAY_MS);
-      } else {
-        // 外部ブラウザ: setTimeout経由の自動遷移はポップアップブロックされるためボタン誘導（タップ=ユーザー操作なら開ける）
-        const cdEl = $("countdown");
-        if (cdEl) cdEl.textContent = "下のボタンからスタンプ付与へ進んでください";
-      }
-    };
-
-    // 6) 表示メッセージ（優先順位：未払い→現地精算→超過→回数）
+    // 表示メッセージ（優先順位：未払い→現地精算→超過→回数）
     const unpaidMsg  = (res.unpaid === true)
       ? (res.unpaid_message || "当月のお支払いが未確認です。受付でお声がけください。")
       : "";
-
     const pendingMsg = (res.pending === true)
       ? (res.pending_message || "本日は現地精算です。受付でお手続きください。")
       : "";
-
-    const overMsg = (res.over_limit === true)
-      ? (res.over_message || "")
-      : "";
-
-    // ★ここは res.over_message を使わない方が安全（回数表示が変になる）
+    const overMsg = (res.over_limit === true) ? (res.over_message || "") : "";
     const monthMsg = (!overMsg && res.month_count)
       ? `今月の受講は ${res.month_count} 回目です。`
       : "";
 
-    // 7) 回数/超過モーダル → OKでスタンプ
+    // 未判別チェックイン成功時の補足
+    const unresolvedNote = (!CURRENT_CLASS.class_resolved)
+      ? "\n\n※クラスは後ほどスタッフが確定します。"
+      : "";
+
     const showInfoThenStamp = () => {
       const infoMsg = overMsg || monthMsg;
       if (infoMsg) {
         showPayModal(
           overMsg ? "追加受講の可能性" : "今月の受講回数",
-          infoMsg + "\n\nOKを押すとスタンプ付与へ移動します。",
-          () => goStamp()
+          infoMsg + unresolvedNote + "\n\nOKを押すとスタンプ付与へ移動します。",
+          () => goStamp_()
         );
       } else {
-        goStamp();
+        goStamp_();
       }
     };
 
-    // 8) 未払い/現地精算 → OK → 回数/超過 → OK → スタンプ
     if (unpaidMsg) {
       showPayModal(
         "当月のお支払いが未確認です",
@@ -2116,20 +1872,61 @@ async function checkin(isConfirm){
       return;
     }
 
-    // 9) 支払い系が無い → 回数/超過だけ（あれば）→ スタンプ
     showInfoThenStamp();
-
-  } catch (err) {
-    console.error(err);
-    showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
-  } finally {
-    setBusy(false);
-    hideMiniLoading();
   }
-}
 
+  // ==========================================================
+  // 初期化：LIFF起動 → 自動チェックイン開始
+  // ==========================================================
+  function applyTodayHeader_(){
+    TODAY_WD = getJstWeekdayJa_();
+    $("todayLabel").textContent = `本日のクラス（${TODAY_WD}曜日・自動判別）`;
+    $("todayJst").textContent = formatJstYmdHm_();
+  }
 
+  async function init(){
+    showOverlay();
+    hideBanner();
+    applyTodayHeader_();
+    wireDevReset_();
 
+    $("netInfo").textContent = navigator.onLine ? "online" : "offline";
+    $("formBox").style.display = "block";
+    showMiniLoading("起動中…");
+
+    await liff.init({ liffId: LIFF_ID });
+
+    if (!liff.isInClient()) $("externalHint").classList.add("show");
+
+    if (!liff.isLoggedIn()) {
+      hideOverlay();
+      liff.login();
+      return;
+    }
+
+    const profile = await liff.getProfile();
+    LINE_USER_ID = profile.userId;
+    LINE_DISPLAY_NAME = profile.displayName || "";
+    $("subInfo").textContent = LINE_DISPLAY_NAME ? `@${LINE_DISPLAY_NAME}` : "";
+
+    hideMiniLoading();
+
+    // ★ force_phone：電話番号入力を必ず挟む（開発・受付テスト用）
+    if (FORCE_PHONE) {
+      $("phoneWrap").style.display = "block";
+      $("phoneInput").value = "";
+      hideOverlay();
+      showBanner("開発モード（force_phone=1）：電話番号を入力してチェックインしてください。", "info");
+      showPhoneModal({
+        title: "電話番号の入力（開発モード）",
+        text: "force_phone=1 のため電話番号の入力が必要です。"
+      });
+      return;
+    }
+
+    // ★ QR読込＝チェックイン意思とみなし、自動でチェックイン処理を開始
+    await runAutoCheckin();
+  }
 
   init().catch(err => {
     hideMiniLoading();
@@ -2137,6 +1934,7 @@ async function checkin(isConfirm){
     showBanner("読み込みに失敗しました。ページを閉じてQRコードから再度開いてください。", "danger");
     console.error(err);
   });
+
 </script>
 
 </body>
