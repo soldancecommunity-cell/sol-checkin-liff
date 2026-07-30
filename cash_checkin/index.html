@@ -451,6 +451,94 @@
     @media (prefers-reduced-motion: reduce){
       *{ animation: none !important; transition: none !important; }
     }
+  
+    /* ============================================================
+       ★ v10 追加：会員照会なし・選択式フォーム用スタイル
+       ============================================================ */
+    .autoClassCard{
+      margin-top:8px; padding:14px 16px;
+      border:1px solid rgba(124,92,255,.35); border-radius:14px;
+      background: linear-gradient(135deg, rgba(124,92,255,.10), rgba(45,212,191,.06));
+    }
+    .autoClassCard.unresolved{
+      border-color: rgba(251,191,36,.45);
+      background: linear-gradient(135deg, rgba(251,191,36,.10), rgba(255,255,255,.02));
+    }
+    .autoClassLabel{ font-size:11px; letter-spacing:.14em; color:var(--muted); text-transform:uppercase; }
+    .autoClassName{ font-size:19px; font-weight:900; margin-top:4px; line-height:1.25; }
+    .autoClassMeta{ font-size:12px; color:var(--muted); margin-top:4px; }
+
+    .fieldLabel{
+      font-size:12px; color:var(--muted); margin:16px 0 6px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .reqBadge{
+      font-size:10px; font-weight:900; letter-spacing:.06em;
+      color:#ffd3dc; background:rgba(255,77,109,.16);
+      border:1px solid rgba(255,77,109,.35);
+      border-radius:999px; padding:2px 7px;
+    }
+    .textField input{
+      width:100%; padding:14px 14px; font-size:16px;
+      color:var(--text); background:rgba(255,255,255,.05);
+      border:1px solid var(--line); border-radius:12px; outline:none;
+    }
+    .textField input:focus{ border-color:rgba(124,92,255,.55); background:rgba(255,255,255,.07); }
+    .textField input::placeholder{ color:rgba(234,240,255,.45); }
+    .textField.error input{ border-color:rgba(255,77,109,.6); background:rgba(255,77,109,.08); }
+
+    .lineNameRow{
+      display:flex; align-items:center; gap:10px;
+      padding:12px 14px; border:1px solid var(--line); border-radius:12px;
+      background:rgba(255,255,255,.035);
+    }
+    .lineNameRow .value{ font-size:15px; }
+
+    /* 区分の選択式ボタン */
+    .kindGrid{ display:grid; grid-template-columns:1fr; gap:8px; margin-top:6px; }
+    .kindBtn{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:14px 14px; border:1px solid var(--line); border-radius:12px;
+      background:rgba(255,255,255,.04); color:var(--text);
+      font-size:15px; font-weight:800; cursor:pointer; text-align:left;
+      transition: background .15s, border-color .15s, transform .08s;
+    }
+    .kindBtn:active{ transform: translateY(1px); }
+    .kindBtn .kindFee{ font-size:16px; font-weight:1000; color:var(--muted); }
+    .kindBtn.selected{
+      border-color:rgba(124,92,255,.6);
+      background:linear-gradient(135deg, rgba(124,92,255,.20), rgba(45,212,191,.10));
+      box-shadow:0 0 0 1px rgba(124,92,255,.35) inset;
+    }
+    .kindBtn.selected .kindFee{ color:var(--text); }
+    .kindGrid.error .kindBtn{ border-color:rgba(255,77,109,.45); }
+
+    /* 合計料金の表示 */
+    .totalRow{
+      margin-top:16px; padding:14px 16px;
+      border:1px solid rgba(45,212,191,.30); border-radius:14px;
+      background:rgba(45,212,191,.07);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .totalLabel{ font-size:12px; color:var(--muted); }
+    .totalValue{ font-size:26px; font-weight:1000; letter-spacing:.3px; }
+    .totalEdit{
+      font-size:12px; padding:8px 12px; border-radius:10px; cursor:pointer;
+      color:var(--text); background:rgba(255,255,255,.06); border:1px solid var(--line);
+    }
+    .totalEdit:active{ background:rgba(255,255,255,.12); }
+
+    .successBox{ display:none; text-align:center; padding:20px 16px 22px; }
+    .successBox.show{ display:block; }
+    .successCheck{
+      width:64px; height:64px; margin:0 auto 10px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:32px; font-weight:900;
+      background:rgba(34,197,94,.18); border:1px solid rgba(34,197,94,.45); color:#a7f3c4;
+    }
+    .successBox h3{ margin:6px 0; font-size:18px; font-weight:900; }
+    .successBox p{ margin:0; color:var(--muted); font-size:13px; line-height:1.6; }
+    .successCountdown{ margin-top:10px; font-size:12px; color:var(--muted); }
   </style>
 </head>
 
@@ -466,161 +554,149 @@
       <div class="solOverlay-label">読み込み中</div>
     </div>
 
-  <!-- BUILD: 2026-05-26_cash_checkin_cardui_guest_manualfee_double_v9 -->
-  <div class="wrap">
+  <!-- BUILD: 2026-07-30_cash_checkin_v10_no_member_lookup_autoclass -->
 
-    <!-- ====== SCREEN 1: 会員確認（ページ） ====== -->
-    <div id="screenVerify" class="card">
+  <div class="wrap">
+    <div class="card">
       <div class="head">
         <h1>現地払いチェックイン</h1>
         <p class="sub">
-          電話番号（入会フォームの「緊急連絡先」）で会員を特定します。<br>
-          候補が出たら <strong>選択 → 「続行」</strong>。<br>
-          非会員の方は下の<strong>「非会員として現地決済」</strong>から進めます。
+          お名前と区分を選ぶだけでチェックインできます。<br>
+          クラスは現在の時間から自動で判別されます。
         </p>
       </div>
 
-      <div class="content">
-        <div class="label">電話番号（ハイフンなし）</div>
-        <input id="verifyPhone" inputmode="numeric" placeholder="例：08012345678" />
-        <div class="hint">候補が複数出た場合は、必ず候補を選んでから「続行」を押してください。</div>
+      <!-- ===== 入力フォーム ===== -->
+      <div class="content" id="formArea">
 
-        <div id="verifySelectBox" class="hide" style="margin-top:12px;">
-          <div class="label">同じ電話番号の候補が複数あります（選択）</div>
-          <select id="verifyMemberSel" style="width:100%;padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:var(--text);font-size:16px;"></select>
-          <div class="hint">送信予定 rowIndex：<strong id="pickedRowIndexLabel">—</strong></div>
-        </div>
-
-        <div class="sep"></div>
-
-        <div id="verifyNotice" class="notice warn">
-          <div class="title">入力してください</div>
-          <div id="verifyNoticeText">電話番号（ハイフンなし）を入力して「続行」を押してください。</div>
-        </div>
-
-        <div id="verifyErr" class="err"></div>
-
-        <details id="dbgVerify" class="hide" style="margin-top:12px;">
-          <summary class="hint">デバッグログ</summary>
-          <pre id="outVerify">—</pre>
-        </details>
-
-        <div style="height:14px"></div>
-      </div>
-
-      <div class="actionBar">
-        <button class="btn" id="btnVerifyOk" type="button">会員確認して続行</button>
-        <button class="btnGuest" id="btnGuestStart" type="button" style="margin-top:10px;">非会員として現地決済</button>
-        <button class="btnSub" id="btnVerifyRetry" type="button" style="margin-top:10px;">会員確認をやり直す（入力クリア）</button>
-        <button class="btnSub" id="btnVerifyCancel" type="button" style="margin-top:10px;">キャンセル（閉じる）</button>
-        <div class="statusLine">
-          <div id="verifyStatus">起動中…</div>
-          <div class="pill">本人確認</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ====== SCREEN 2: チェックイン ====== -->
-    <div id="screenCheckin" class="card hide" style="margin-top:14px;">
-      <div class="head">
-        <h1>現地払いチェックイン</h1>
-        <p class="sub">このQRは<strong>現地精算（PENDING）専用</strong>です。区分と料金を表示します。料金欄はタップで手動変更できます。</p>
-      </div>
-
-      <div class="content">
-        <div class="grid2">
-          <div class="item">
-            <div class="label">会員</div>
-            <div id="memberName" class="value">—</div>
-          </div>
-          <div class="item">
-            <div class="label">区分</div>
-            <div id="contractBadge" class="badge warn"><span class="dot"></span>—</div>
-          </div>
-          <!-- ★ 料金欄を手動変更可能に -->
-          <div class="item feeItem editable" id="feeItem">
-            <span class="feeManualBadge" id="feeManualBadge">手動</span>
-            <div class="label">料金（タップで変更）</div>
-            <div id="fee" class="fee">—</div>
-            <div class="feeEditHint">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-              タップで料金変更
-            </div>
-          </div>
-          <div class="item">
-            <div class="label">今月</div>
-            <div id="yyyymm" class="value">—</div>
-          </div>
-        </div>
-
-        <div id="checkinNotice" class="notice ok" style="margin-top:12px;">
-          <div class="title">準備中</div>
-          <div id="checkinNoticeText">会員情報とクラス一覧を読み込みます。</div>
-          <div id="checkinNoticeSmall" class="small" style="margin-top:6px;"></div>
-        </div>
-
-        <div class="sep"></div>
-
-        <!-- ★ クラスカード -->
         <div class="sectionTag">
-          <div class="left" id="todayLabel">受講クラス（タップで選択）</div>
+          <div class="left" id="todayLabel">本日のクラス（自動判別）</div>
           <div class="right" id="todayJst"></div>
         </div>
-        <div id="classGrid" class="grid"></div>
 
-        <details id="dbgCheckin" class="hide" style="margin-top:12px;">
-          <summary class="hint">デバッグログ</summary>
-          <pre id="out">—</pre>
-        </details>
+        <div id="autoClassCard" class="autoClassCard">
+          <div class="autoClassLabel">判別されたクラス</div>
+          <div id="autoClassName" class="autoClassName">判別中…</div>
+          <div id="autoClassMeta" class="autoClassMeta"></div>
+        </div>
 
-        <div style="height:10px"></div>
+        <div id="checkinNotice" class="notice ok hide">
+          <div class="title"></div>
+          <div id="checkinNoticeText"></div>
+          <div class="small" id="checkinNoticeSmall"></div>
+        </div>
+
+        <!-- LINE名（自動取得） -->
+        <div class="fieldLabel">LINE名（自動取得）</div>
+        <div class="lineNameRow">
+          <span class="badge guest"><span class="dot"></span>LINE</span>
+          <div class="value" id="lineNameValue">—</div>
+        </div>
+
+        <!-- 氏名 -->
+        <div class="fieldLabel">
+          氏名 <span class="reqBadge">必須</span>
+        </div>
+        <div class="textField" id="nameFieldWrap">
+          <input id="nameInput" type="text" placeholder="例）山田 花子"
+                 autocomplete="off" autocorrect="off" autocapitalize="off" />
+        </div>
+        <div class="hint">受付での照合に使います。フルネームで入力してください。</div>
+
+        <!-- 区分 -->
+        <div class="fieldLabel">
+          区分 <span class="reqBadge">必須</span>
+        </div>
+        <div class="kindGrid" id="kindGrid">
+          <button class="kindBtn" type="button" data-kind="monthly">
+            <span>月謝会員</span><span class="kindFee" id="feeMonthly">—</span>
+          </button>
+          <button class="kindBtn" type="button" data-kind="regular">
+            <span>通常会員</span><span class="kindFee" id="feeRegular">—</span>
+          </button>
+          <button class="kindBtn" type="button" data-kind="guest">
+            <span>非会員</span><span class="kindFee" id="feeGuest">—</span>
+          </button>
+        </div>
+
+        <!-- ★ 月謝会員の受講回数（表示専用・チェックインは常に可能） -->
+        <div id="planNotice" class="notice warn hide">
+          <div class="title" id="planNoticeTitle"></div>
+          <div id="planNoticeText"></div>
+          <div class="small" id="planNoticeSmall"></div>
+        </div>
+
+        <!-- 合計料金 -->
+        <div class="totalRow">
+          <div>
+            <div class="totalLabel">お支払い金額（現地精算）</div>
+            <div class="totalValue" id="totalValue">—</div>
+            <span class="feeManualBadge" id="feeManualBadge">手動</span>
+          </div>
+          <button class="totalEdit" id="btnEditFee" type="button">変更</button>
+        </div>
+
+        <div class="actionBar">
+          <button class="btn" id="btnCheckin" type="button" disabled>チェックイン</button>
+        </div>
+
+        <div class="statusLine">
+          <span class="pill" id="statusText">起動中…</span>
+          <span class="pill" id="netInfo"></span>
+        </div>
+
+        <div class="hint" style="margin-bottom:14px;">
+          チェックイン後、自動でスタンプ付与画面へ移動します。<br>
+          金額は受付でお支払いください（管理者にも通知されます）。
+        </div>
       </div>
 
-      <div class="actionBar">
-        <button class="btn" id="btnCheckin" disabled>クラスを選択してください</button>
-        <button class="btnSub" id="btnBackToVerify" type="button" style="margin-top:10px;">会員確認に戻る</button>
-        <div class="statusLine">
-          <div id="statusText">起動中…</div>
-          <div class="pill">PENDING 記録</div>
+      <!-- ===== 完了画面 ===== -->
+      <div class="successBox" id="successBox">
+        <div class="successCheck">✓</div>
+        <h3 id="successTitle">チェックイン完了</h3>
+        <p id="successMsg"></p>
+        <div class="successCountdown" id="successCountdown"></div>
+        <div class="actionBar">
+          <button class="btnSub" id="btnStampNow" type="button">スタンプ画面をひらく</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ★ 確認モーダル（クラス未判別時） -->
+    <div id="classConfirmModal" class="modal">
+      <div class="modalCard">
+        <div class="classConfirmTitle" id="classConfirmTitle">クラスを判別できませんでした</div>
+        <div id="classConfirmName" class="classConfirmName">このままチェックインしますか？</div>
+        <div id="classConfirmMeta" class="classConfirmMeta"></div>
+        <div style="display:flex; gap:10px; margin-top:16px;">
+          <button class="modalBtn modalBtnNo" id="classConfirmNo" type="button">いいえ</button>
+          <button class="modalBtn" id="classConfirmYes" type="button">はい</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ★ 料金変更モーダル -->
+    <div id="feeModal" class="modal">
+      <div class="modalCard">
+        <div class="feeModalTitle">料金を変更</div>
+        <div class="feeModalText">イレギュラーな料金の場合に手動で変更できます。<br>受付で金額を確認してください。</div>
+        <div class="feeModalField" id="feeModalFieldWrap">
+          <span class="feeModalYen">¥</span>
+          <input id="feeModalInput" inputmode="numeric" type="tel" placeholder="3000" />
+        </div>
+        <div class="feeModalHint">自動判定の料金：<strong id="feeAutoLabel">—</strong></div>
+        <div class="feeModalActions">
+          <button class="modalBtn modalBtnNo" id="feeModalReset" type="button">自動に戻す</button>
+          <button class="modalBtn" id="feeModalOk" type="button">この料金にする</button>
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- ★ クラス選択確認モーダル -->
-  <div id="classConfirmModal" class="modal">
-    <div class="modalCard">
-      <div class="classConfirmTitle">このクラスの受講で<br>あってますか？</div>
-      <div id="classConfirmName" class="classConfirmName"></div>
-      <div id="classConfirmMeta" class="classConfirmMeta"></div>
-      <div id="classConfirmFee" class="classConfirmFee"></div>
-      <div style="display:flex; gap:10px; margin-top:16px;">
-        <button class="modalBtn modalBtnNo" id="classConfirmNo" type="button">いいえ</button>
-        <button class="modalBtn" id="classConfirmYes" type="button">はい</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ★ 料金変更モーダル -->
-  <div id="feeModal" class="modal">
-    <div class="modalCard">
-      <div class="feeModalTitle">料金を変更</div>
-      <div class="feeModalText">イレギュラーな料金の場合に手動で変更できます。<br>受付で金額を確認してください。</div>
-      <div class="feeModalField" id="feeModalFieldWrap">
-        <span class="feeModalYen">¥</span>
-        <input id="feeModalInput" inputmode="numeric" type="tel" placeholder="3000" />
-      </div>
-      <div class="feeModalHint" id="feeModalHint">自動判定の料金：<strong id="feeAutoLabel">—</strong></div>
-      <div class="feeModalActions">
-        <button class="modalBtn modalBtnNo" id="feeModalReset" type="button">自動に戻す</button>
-        <button class="modalBtn" id="feeModalOk" type="button">この料金にする</button>
-      </div>
-    </div>
-  </div>
 
 <script>
-
   function showOverlay(){ var e=document.getElementById('solOverlay'); if(e) e.classList.add('active'); }
   function hideOverlay(){ var e=document.getElementById('solOverlay'); if(e) e.classList.remove('active'); }
 
@@ -630,64 +706,114 @@
   const API_TOKEN = "sol_checkin_2026_144025036146";
   const STAMP_URL        = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=9cN1kUjyRBqOiexb4KelOfpruP63PRucZ7_BistMav0";
   const STAMP_URL_DOUBLE = "https://liff.line.me/1654883656-XqwKRkd4/?searchId=849rmjko&shopcardProgramId=01HG80PGE6KDYNYF61RB36SHHD&printablePointId=MumAot2UNX-01-BC-eTc5xEADlegdTiMD-INoMt-ExU";
-  /* ★ 非会員の既定料金（GAS側 GUEST_CASH_FEE と合わせる） */
-  const GUEST_CASH_FEE = 3000;
   /* =================================== */
 
-  document.title = "cash_checkin BUILD 2026-05-26_cardui_guest_manualfee_double_v9";
+  document.title = "現地払いチェックイン";
 
-  const JSONP_TIMEOUT_MS = 16000;
+  const JSONP_TIMEOUT_MS  = 22000;
+  const REDIRECT_DELAY_MS = 2500;
   const $ = (id)=>document.getElementById(id);
 
+  // ===== 状態 =====
   let gUserId = "";
   let gDisplayName = "";
   let RUNNING = false;
 
-  let gVerifiedPhone = "";
-  let gSelectedRowIndex = 0;
-  let gMemberId = "";
-
-  let RESOLVE_IN_FLIGHT = false;
-
-  // ★ 状態：会員/非会員、選択クラス、料金
-  let IS_GUEST = false;            // 非会員モードか
-  let SELECTED_CLASS = null;       // { id, name, stamp_count, weekday }
-  let AUTO_FEE_PER_CLASS = 0;      // 1クラスあたりの自動判定料金（会員区分から）
+  let FEES = { monthly:{label:"月謝会員",fee:1500}, regular:{label:"通常会員",fee:2500}, guest:{label:"非会員",fee:3000} };
+  let SELECTED_KIND = "";          // "monthly" | "regular" | "guest"
   let MANUAL_FEE = null;           // 手動上書き（合計額）。nullなら自動
-  let TODAY_WD = "";
-  let CLASSES_CACHE = [];
+  let FORCE_UNRESOLVED = false;    // クラス未判別を承知でチェックイン
+  let CHECKIN_REQ_ID = newReqId_();
+  let STAMP_TIMER = null;
 
-  // 本日チェックイン済み（端末側・このページ用）
-  const DONE_CACHE_PREFIX = "sol_cash_done_";
+  let CURRENT_CLASS = { class_id:"", class_name:"", class_resolved:false, stamp_count:1 };
+
+  function newReqId_(){
+    return "rid_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+  }
+
+  /* ============================================================
+     ★ 月謝会員の受講回数照会（表示専用）
+     重要な設計方針：
+       - この処理は「表示だけ」。失敗しても画面には一切出さず、
+         チェックインの可否にも絶対に影響させない
+       - 例外・タイムアウト・不正レスポンスは全て黙って無視する
+       - 遅延レスポンスで古い結果が出ないよう seq で世代管理する
+     ============================================================ */
+  let PLAN_INFO_SEQ = 0;
+
+  function hidePlanNotice_(){
+    const box = $("planNotice");
+    if (box) box.className = "notice warn hide";
+  }
+
+  function showPlanNotice_(info){
+    const box = $("planNotice");
+    if (!box || !info || info.available !== true) return;
+
+    const cnt = Number(info.month_count) || 0;
+    const lim = Number(info.plan_limit) || 0;
+    const unlimited = (info.unlimited === true);
+    const within = (info.within_plan === true);
+
+    // 枠が残っている＝現地精算が不要な可能性がある → 注意喚起
+    // 枠を使い切っている＝現地精算が妥当 → 参考情報として淡く表示
+    box.className = "notice " + (within ? "warn" : "ok");
+    $("planNoticeTitle").textContent = within
+      ? "月謝の枠が残っている可能性があります"
+      : "月謝の上限に達しています（現地精算が妥当）";
+
+    const limLabel = unlimited ? "受け放題" : `上限 ${lim} 回`;
+    $("planNoticeText").textContent = `今月の受講：${cnt} 回目 / ${limLabel}`;
+    $("planNoticeSmall").textContent = within
+      ? "受付で現地精算が必要かご確認ください。このままチェックインすることもできます。"
+      : "";
+  }
+
+  async function refreshPlanNotice_(){
+    hidePlanNotice_();
+
+    // 月謝会員を選択したときだけ照会する
+    if (SELECTED_KIND !== "monthly") return;
+
+    const name = String($("nameInput").value || "").trim();
+    const seq = ++PLAN_INFO_SEQ;
+
+    try{
+      const url =
+        `${API_URL}?api=cash_plan_info`
+        + `&token=${encodeURIComponent(API_TOKEN)}`
+        + `&userId=${encodeURIComponent(gUserId)}`
+        + `&member_name=${encodeURIComponent(name)}`;
+
+      const res = await jsonp(url);
+
+      // 古い世代のレスポンス／区分が変わっていたら破棄
+      if (seq !== PLAN_INFO_SEQ) return;
+      if (SELECTED_KIND !== "monthly") return;
+
+      showPlanNotice_(res);
+    }catch(_){
+      // ★ 照会失敗は完全に無視（表示もエラーも出さない）
+    }
+  }
 
   // ---------- error hooks ----------
   window.onerror = function(msg, src, line, col, err){
     try{
-      const o = { where:"window.onerror", msg:String(msg), src:String(src), line, col, err:String(err && err.stack ? err.stack : err) };
-      setOut(o); setOutVerify(o);
-      if ($("verifyErr")) $("verifyErr").textContent = "予期しないエラーが発生しました。画面を閉じて再度QRから開いてください。";
+      setNotice("ng","エラー","予期しないエラーが発生しました。画面を閉じて再度QRから開いてください。");
+      console.error(msg, src, line, col, err);
     }catch(_){}
   };
   window.onunhandledrejection = function(ev){
     try{
-      const r = ev && ev.reason;
-      const o = { where:"unhandledrejection", reason:String(r && r.stack ? r.stack : r) };
-      setOut(o); setOutVerify(o);
-      if ($("verifyErr")) $("verifyErr").textContent = "エラーが発生しました。画面を閉じて再度QRから開いてください。";
+      setNotice("ng","エラー","エラーが発生しました。画面を閉じて再度QRから開いてください。");
+      console.error(ev && ev.reason);
     }catch(_){}
   };
 
-  /* ===== 案内UI helper ===== */
-  function setVerifyNotice(type, title, text){
-    const box = $("verifyNotice");
-    if (!box) return;
-    box.className = "notice " + (type || "warn");
-    const t = box.querySelector(".title");
-    if (t) t.textContent = title || "";
-    const el = $("verifyNoticeText");
-    if (el) el.textContent = text || "";
-  }
-  function setCheckinNotice(type, title, text, small){
+  /* ===== 表示 helper ===== */
+  function setNotice(type, title, text, small){
     const box = $("checkinNotice");
     if (!box) return;
     box.className = "notice " + (type || "ok");
@@ -698,274 +824,194 @@
     const sm = $("checkinNoticeSmall");
     if (sm) sm.textContent = small || "";
   }
-
-  function setOut(obj){
-    const dbg = $("dbgCheckin");
-    if (!dbg || dbg.classList.contains("hide")) return;
-    $("out").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
+  function hideNotice(){
+    const box = $("checkinNotice");
+    if (box) box.className = "notice ok hide";
   }
-  function setOutVerify(obj){
-    const dbg = $("dbgVerify");
-    if (!dbg || dbg.classList.contains("hide")) return;
-    $("outVerify").textContent = (typeof obj === "string") ? obj : JSON.stringify(obj, null, 2);
-  }
-
   function setStatus(t){ $("statusText").textContent = t || ""; }
-  function setVerifyStatus(t){ $("verifyStatus").textContent = t || ""; }
 
-  function showVerifyScreen_(){
-    $("screenCheckin").classList.add("hide");
-    $("screenVerify").classList.remove("hide");
-  }
-  function showCheckinScreen_(){
-    $("screenVerify").classList.add("hide");
-    $("screenCheckin").classList.remove("hide");
-  }
-
-  function withTimeout(p, ms, label){
-    let t;
-    const timeout = new Promise((_, rej)=> t=setTimeout(()=>rej(new Error(label+" timeout")), ms));
-    return Promise.race([p, timeout]).finally(()=>clearTimeout(t));
+  function fmtYen_(n){
+    const v = Number(n);
+    if (!Number.isFinite(v)) return "—";
+    return "¥" + Math.floor(v).toLocaleString();
   }
 
   function jsonp(url){
-    return new Promise((resolve, reject)=>{
+    return new Promise((resolve, reject) => {
       const cb = "cb_" + Math.random().toString(36).slice(2);
       const script = document.createElement("script");
-      const timer = setTimeout(()=>{ cleanup(); reject(new Error("JSONP timeout")); }, JSONP_TIMEOUT_MS);
+      const timer = setTimeout(() => { cleanup(); reject(new Error("JSONP timeout")); }, JSONP_TIMEOUT_MS);
       function cleanup(){
         clearTimeout(timer);
         window[cb] = function(){};
-        try { script.remove(); } catch(_){}
+        if (script && script.parentNode) script.parentNode.removeChild(script);
       }
-      window[cb] = (data)=>{ cleanup(); resolve(data); };
-      script.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cb;
-      script.onerror = ()=>{ cleanup(); reject(new Error("jsonp load error")); };
+      window[cb] = (data) => { cleanup(); resolve(data); };
+      const sep = url.includes("?") ? "&" : "?";
+      script.src = url + sep + "callback=" + cb;
+      script.onerror = () => { cleanup(); reject(new Error("JSONP load error")); };
       document.body.appendChild(script);
     });
   }
 
-  // ★ 修正R4: 再試行付きJSONP（resolve_member / me_cash 用）
-  //   GASコールドスタートや一時的過負荷でのタイムアウトを自動吸収する。
-  //   チェックイン送信には既に再試行があるが、会員照会だけ一発勝負だったため追加。
-  async function jsonpRetry(url, maxRetry, onRetry){
-    maxRetry = maxRetry || 3;
-    let lastErr = null;
-    for (let attempt = 1; attempt <= maxRetry; attempt++){
-      try { return await jsonp(url); }
-      catch(err){
-        lastErr = err;
-        if (attempt < maxRetry){
-          if (onRetry) { try { onRetry(attempt + 1, maxRetry); } catch(_){} }
-          const waitMs = Math.min(2500 * attempt, 8000) + Math.floor(Math.random()*1500);
-          await new Promise(r=>setTimeout(r, waitMs));
-        }
-      }
-    }
-    throw lastErr || new Error("jsonp failed");
-  }
-
-  // ===== JST helpers =====
+  /* ===== JST ===== */
   function getJstNow_(){
     const now = new Date();
-    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
     return new Date(utc + 9 * 60 * 60000);
   }
   function getJstWeekdayJa_(){
-    const d = getJstNow_();
-    const map = ["日","月","火","水","木","金","土"];
-    return map[d.getDay()];
+    return ["日","月","火","水","木","金","土"][getJstNow_().getDay()];
   }
   function formatJstYmdHm_(){
     const d = getJstNow_();
     const pad = (n)=>String(n).padStart(2,"0");
     return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
-  function formatJstYmdCompact_(){
-    const d = getJstNow_();
-    const pad = (n)=>String(n).padStart(2,"0");
-    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
-  }
-  function yyyymmNowJst(){
-    const d = getJstNow_();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    return `${d.getFullYear()}${m}`;
-  }
-  function normalizeWeekdayCell_(w){
-    return String(w || "").trim().replace(/曜日|曜/g, "");
-  }
 
-  function normPhone_(s){
-    s = String(s || '').trim().replace(/[^\d]/g,'');
-    if (s.length < 10) return "";
-    if (s.length > 11) return s.slice(-11);
-    return s;
+  /* ===== 料金計算 =====
+     自動料金 = 区分の単価 × クラスのスタンプ数（2クラス分クラスは2倍）
+     MANUAL_FEE があればそれを最優先（イレギュラー対応） */
+  function autoFee_(){
+    if (!SELECTED_KIND || !FEES[SELECTED_KIND]) return 0;
+    const unit = Number(FEES[SELECTED_KIND].fee) || 0;
+    const mult = Math.max(1, Number(CURRENT_CLASS.stamp_count) || 1);
+    return unit * mult;
   }
-
-  // ===== done cache（会員ごと/非会員はuserId）=====
-  function currentCheckinKey_(){ return IS_GUEST ? ("guest_" + gUserId) : (gMemberId || gUserId); }
-  function doneKeyToday_(){
-    const mk = currentCheckinKey_();
-    return DONE_CACHE_PREFIX + formatJstYmdCompact_() + (mk ? "_" + mk : "");
-  }
-  function loadDoneToday_(){
-    try{
-      const raw = localStorage.getItem(doneKeyToday_());
-      const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr.map(String) : [];
-    }catch(e){ return []; }
-  }
-  function saveDoneToday_(arr){
-    try{
-      const unique = Array.from(new Set((arr || []).map(String)));
-      localStorage.setItem(doneKeyToday_(), JSON.stringify(unique));
-    }catch(e){}
-  }
-  function markDoneToday_(classId){
-    const arr = loadDoneToday_();
-    arr.push(String(classId));
-    saveDoneToday_(arr);
-  }
-  function isDoneToday_(classId){
-    return loadDoneToday_().includes(String(classId));
-  }
-
-  // ===== 料金計算 =====
-  function selectedStampCount_(){
-    return (SELECTED_CLASS && Number(SELECTED_CLASS.stamp_count) >= 2) ? Number(SELECTED_CLASS.stamp_count) : 1;
-  }
-  // 現在の確定料金（手動があれば手動、無ければ 自動単価×スタンプ数）
   function currentFee_(){
-    if (MANUAL_FEE != null) return MANUAL_FEE;
-    return AUTO_FEE_PER_CLASS * selectedStampCount_();
+    return (MANUAL_FEE != null) ? MANUAL_FEE : autoFee_();
   }
-  function fmtYen_(n){
-    n = Number(n || 0);
-    return `¥${n.toLocaleString()}`;
+
+  function refreshFeeUi_(){
+    $("feeMonthly").textContent = fmtYen_(FEES.monthly.fee);
+    $("feeRegular").textContent = fmtYen_(FEES.regular.fee);
+    $("feeGuest").textContent   = fmtYen_(FEES.guest.fee);
+
+    const total = currentFee_();
+    $("totalValue").textContent = SELECTED_KIND ? fmtYen_(total) : "—";
+    $("feeAutoLabel").textContent = SELECTED_KIND ? fmtYen_(autoFee_()) : "—";
+    $("feeManualBadge").classList.toggle("show", MANUAL_FEE != null);
+
+    const btn = $("btnCheckin");
+    btn.textContent = SELECTED_KIND
+      ? `現地精算でチェックイン（${fmtYen_(total)}）`
+      : "チェックイン";
   }
-  // 料金表示を更新（区分・選択クラスに応じて）
-  function refreshFeeDisplay_(){
-    const feeEl = $("fee");
-    const badge = $("feeManualBadge");
-    const sc = selectedStampCount_();
 
-    if (MANUAL_FEE != null){
-      feeEl.textContent = fmtYen_(MANUAL_FEE);
-      if (badge) badge.classList.add("show");
-      return;
-    }
-    if (badge) badge.classList.remove("show");
+  function validate_(silent){
+    const name = String($("nameInput").value || "").trim();
+    let ok = true;
 
-    // 自動表示。クラス未選択なら単価（×1）を目安表示。
-    const total = AUTO_FEE_PER_CLASS * sc;
-    if (AUTO_FEE_PER_CLASS > 0){
-      feeEl.textContent = sc >= 2
-        ? `${fmtYen_(total)}（2クラス分）`
-        : fmtYen_(total);
+    if (!name){
+      ok = false;
+      if (!silent) $("nameFieldWrap").classList.add("error");
     } else {
-      feeEl.textContent = "—";
+      $("nameFieldWrap").classList.remove("error");
     }
-  }
 
-  // ===== クラスカード描画（通常チェックインから移植・cash用に調整）=====
-  function sortClassesByToday_(classes){
-    const today = TODAY_WD || getJstWeekdayJa_();
-    const wdOrder = { "月":0,"火":1,"水":2,"木":3,"金":4,"土":5,"日":6 };
-    const orderKey = (c)=>{
-      const wd = normalizeWeekdayCell_(c.weekday);
-      const isToday = (wd && wd === today) ? 0 : 1;
-      const dayRank = (wd in wdOrder) ? wdOrder[wd] : 999;
-      return { isToday, dayRank };
-    };
-    return (classes || [])
-      .map((c,i)=>({...c, __i:i}))
-      .sort((a,b)=>{
-        const ka=orderKey(a), kb=orderKey(b);
-        if (ka.isToday !== kb.isToday) return ka.isToday - kb.isToday;
-        if (ka.dayRank !== kb.dayRank) return ka.dayRank - kb.dayRank;
-        const an=String(a.name||""), bn=String(b.name||"");
-        if (an && bn){ const cmp=an.localeCompare(bn,"ja"); if (cmp!==0) return cmp; }
-        return a.__i - b.__i;
-      })
-      .map(({__i, ...c})=>c);
-  }
-  function countTodayClasses_(classes){
-    const today = TODAY_WD || getJstWeekdayJa_();
-    return (classes || []).filter(c => normalizeWeekdayCell_(c.weekday) === today).length;
-  }
-
-  function renderClasses_(classes){
-    const grid = $("classGrid");
-    grid.innerHTML = "";
-    if (!classes || classes.length === 0){
-      setCheckinNotice("warn","クラスがありません","現在選択できるクラスがありません。");
-      return;
+    if (!SELECTED_KIND){
+      ok = false;
+      if (!silent) $("kindGrid").classList.add("error");
+    } else {
+      $("kindGrid").classList.remove("error");
     }
-    const doneSet = new Set(loadDoneToday_());
 
-    classes.forEach(c=>{
-      const wd = normalizeWeekdayCell_(c.weekday);
-      const isToday = wd && (wd === TODAY_WD);
-      const isDone = doneSet.has(String(c.id));
+    return ok;
+  }
 
-      const card = document.createElement("div");
-      card.className = "classCard" + (isToday ? " today" : "") + (isDone ? " done" : "");
-      card.dataset.classId = String(c.id);
+  function refreshSubmitState_(){
+    $("btnCheckin").disabled = RUNNING || !validate_(true);
+  }
 
-      const left = document.createElement("div");
-      const name = document.createElement("div");
-      name.className = "className";
-      name.textContent = c.name;
-      const meta = document.createElement("div");
-      meta.className = "classMeta";
-      if (wd){
-        if (isDone) meta.textContent = `${wd}｜チェックイン済み`;
-        else if (isToday) meta.textContent = `${wd}｜今日`;
-        else meta.textContent = `${wd}｜タップして選択`;
-      } else {
-        meta.textContent = "タップして選択";
-      }
-      left.appendChild(name); left.appendChild(meta);
-
-      const right = document.createElement("div");
-      right.className = "rightWrap";
-      if (isDone){
-        const b = document.createElement("div"); b.className="doneBadge"; b.textContent="済"; right.appendChild(b);
-      } else if (isToday){
-        const b = document.createElement("div"); b.className="todayBadge"; b.textContent="今日"; right.appendChild(b);
-      }
-      if (Number(c.stamp_count) >= 2){
-        const b2 = document.createElement("div"); b2.className="doubleClassBadge"; b2.textContent="2クラス";
-        right.insertBefore(b2, right.firstChild);
-      }
-      const dot = document.createElement("div"); dot.className="cdot"; right.appendChild(dot);
-
-      card.appendChild(left); card.appendChild(right);
-
-      if (!isDone){
-        card.addEventListener("click", ()=> confirmClassSelection_(String(c.id), String(c.name), c.stamp_count, c.weekday));
-      } else {
-        card.style.pointerEvents = "none";
-      }
-      grid.appendChild(card);
+  /* ===== 区分選択 ===== */
+  function bindKindButtons_(){
+    document.querySelectorAll(".kindBtn").forEach(function(b){
+      b.addEventListener("click", function(){
+        const kind = b.getAttribute("data-kind");
+        if (SELECTED_KIND !== kind){
+          SELECTED_KIND = kind;
+          MANUAL_FEE = null;              // 区分を変えたら手動料金は解除
+          CHECKIN_REQ_ID = newReqId_();   // 内容が変わったので冪等キーを更新
+        }
+        document.querySelectorAll(".kindBtn").forEach(function(x){
+          x.classList.toggle("selected", x === b);
+        });
+        $("kindGrid").classList.remove("error");
+        hideNotice();
+        refreshFeeUi_();
+        refreshSubmitState_();
+        // ★ 月謝会員選択時のみ受講回数を照会（失敗しても無視・チェックインには影響なし）
+        refreshPlanNotice_();
+      });
     });
   }
 
-  // ★ クラス選択確認モーダル（料金併記）
-  function confirmClassSelection_(id, name, stampCount, weekday){
+  /* ===== 料金変更モーダル ===== */
+  function bindFeeModal_(){
+    $("btnEditFee").addEventListener("click", function(){
+      if (!SELECTED_KIND){
+        setNotice("warn","区分が未選択です","先に区分（月謝会員／通常会員／非会員）を選択してください。");
+        $("kindGrid").classList.add("error");
+        return;
+      }
+      $("feeModalInput").value = String(currentFee_() || "");
+      $("feeModal").classList.add("show");
+      setTimeout(()=>{ try{ $("feeModalInput").focus(); $("feeModalInput").select(); }catch(_){} }, 150);
+    });
+    $("feeModalReset").addEventListener("click", function(){
+      MANUAL_FEE = null;
+      CHECKIN_REQ_ID = newReqId_();
+      $("feeModal").classList.remove("show");
+      refreshFeeUi_();
+    });
+    $("feeModalOk").addEventListener("click", function(){
+      const v = Number(String($("feeModalInput").value || "").replace(/[^\d]/g, ""));
+      if (!Number.isFinite(v) || v < 0 || v > 100000){
+        setNotice("warn","金額を確認してください","0〜100,000円の範囲で入力してください。");
+        $("feeModal").classList.remove("show");
+        return;
+      }
+      MANUAL_FEE = Math.floor(v);
+      CHECKIN_REQ_ID = newReqId_();
+      $("feeModal").classList.remove("show");
+      refreshFeeUi_();
+    });
+    $("feeModal").addEventListener("click", function(e){
+      if (e.target && e.target.id === "feeModal") $("feeModal").classList.remove("show");
+    });
+  }
+
+  /* ===== クラス表示 ===== */
+  function applyClassInfo_(res){
+    if (!res) return;
+    CURRENT_CLASS = {
+      class_id:       String(res.class_id || ""),
+      class_name:     String(res.class_name || ""),
+      class_resolved: res.class_resolved === true,
+      stamp_count:    Number(res.stamp_count) || 1
+    };
+
+    const card = $("autoClassCard");
+    card.classList.toggle("unresolved", !CURRENT_CLASS.class_resolved);
+
+    $("autoClassName").textContent = CURRENT_CLASS.class_resolved
+      ? (CURRENT_CLASS.class_name || "—")
+      : "クラス未判別";
+
+    const parts = [];
+    if (CURRENT_CLASS.class_resolved && CURRENT_CLASS.stamp_count >= 2) parts.push("2クラス分（料金2倍）");
+    if (!CURRENT_CLASS.class_resolved) parts.push("代講・振替の場合はそのままチェックインできます");
+    $("autoClassMeta").textContent = parts.join("　/　");
+
+    refreshFeeUi_();
+  }
+
+  /* ===== 未判別確認モーダル ===== */
+  function openUnresolvedConfirm_(){
     const modal = $("classConfirmModal");
-    const sc = Number(stampCount) >= 2 ? Number(stampCount) : 1;
-
-    // 確定時の料金を計算（手動があればそれ、無ければ自動単価×sc）
-    const feeForThis = (MANUAL_FEE != null) ? MANUAL_FEE : (AUTO_FEE_PER_CLASS * sc);
-
-    $("classConfirmName").textContent = name;
-    $("classConfirmMeta").textContent = sc >= 2 ? "2クラス分（スタンプ2つ）" : "";
-    $("classConfirmFee").textContent = AUTO_FEE_PER_CLASS > 0 || MANUAL_FEE != null
-      ? `料金 ${fmtYen_(feeForThis)}${MANUAL_FEE != null ? "（手動）" : ""}`
-      : "";
-
-    if (!modal){ setSelectedClass_(id, name, sc, weekday); return; }
+    $("classConfirmTitle").textContent = "クラスを判別できませんでした";
+    $("classConfirmName").textContent = "このままチェックインしますか？";
+    $("classConfirmMeta").textContent = "代講・振替などの場合はそのままチェックインできます（クラスは後ほどスタッフが確定します）。";
 
     const yesOld = $("classConfirmYes");
     const noOld  = $("classConfirmNo");
@@ -974,653 +1020,245 @@
     yesOld.parentNode.replaceChild(yes, yesOld);
     noOld.parentNode.replaceChild(no, noOld);
 
-    yes.addEventListener("click", ()=>{ modal.classList.remove("show"); setSelectedClass_(id, name, sc, weekday); });
-    no.addEventListener("click",  ()=>{ modal.classList.remove("show"); });
+    yes.addEventListener("click", async function(){
+      modal.classList.remove("show");
+      FORCE_UNRESOLVED = true;
+      await doCheckin_();
+    });
+    no.addEventListener("click", function(){
+      modal.classList.remove("show");
+      setNotice("warn","中断しました","クラスの時間になってから再度チェックインしてください。");
+      setStatus("待機中");
+    });
 
     modal.classList.add("show");
   }
 
-  function setSelectedClass_(id, name, stampCount, weekday){
-    SELECTED_CLASS = { id, name, stamp_count: Number(stampCount) || 1, weekday: weekday || "" };
-    document.querySelectorAll(".classCard").forEach(el=>{
-      el.classList.toggle("selected", el.dataset.classId === id);
-    });
-    refreshFeeDisplay_(); // 2クラスなら料金が2倍表示になる
-
-    if (isDoneToday_(id)){
-      $("btnCheckin").disabled = true;
-      $("btnCheckin").textContent = "本日チェックイン済み";
-      return;
-    }
-    $("btnCheckin").disabled = false;
-    const sc = selectedStampCount_();
-    $("btnCheckin").textContent = `現地精算でチェックイン（${fmtYen_(currentFee_())}）`;
+  /* ===== 完了・スタンプ ===== */
+  function showSuccess_(title, msg){
+    $("formArea").style.display = "none";
+    $("successBox").classList.add("show");
+    $("successTitle").textContent = title || "チェックイン完了";
+    $("successMsg").textContent = msg || "";
   }
-
-  // ===== 料金変更モーダル =====
-  function openFeeModal_(){
-    $("feeAutoLabel").textContent = fmtYen_(AUTO_FEE_PER_CLASS * selectedStampCount_());
-    $("feeModalInput").value = (MANUAL_FEE != null) ? String(MANUAL_FEE) : "";
-    $("feeModal").classList.add("show");
-    setTimeout(()=>{ try{ $("feeModalInput").focus(); }catch(_){} }, 150);
-  }
-  function closeFeeModal_(){ $("feeModal").classList.remove("show"); }
-
-  function bindFeeUI_(){
-    $("feeItem").addEventListener("click", ()=>{
-      // 料金欄が有効なときだけ（区分が確定してから）
-      if ($("feeItem").classList.contains("editable")) openFeeModal_();
-    });
-    $("feeModalOk").addEventListener("click", ()=>{
-      const raw = String($("feeModalInput").value || "").replace(/[^\d]/g, "");
-      if (raw === ""){ closeFeeModal_(); return; }
-      const v = Math.max(0, Math.floor(Number(raw)));
-      MANUAL_FEE = v;
-      closeFeeModal_();
-      refreshFeeDisplay_();
-      if (SELECTED_CLASS) $("btnCheckin").textContent = `現地精算でチェックイン（${fmtYen_(currentFee_())}）`;
-    });
-    $("feeModalReset").addEventListener("click", ()=>{
-      MANUAL_FEE = null;
-      closeFeeModal_();
-      refreshFeeDisplay_();
-      if (SELECTED_CLASS) $("btnCheckin").textContent = `現地精算でチェックイン（${fmtYen_(currentFee_())}）`;
-    });
-    $("feeModal").addEventListener("click", (e)=>{ if (e.target && e.target.id === "feeModal") closeFeeModal_(); });
-    $("feeModalInput").addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); $("feeModalOk").click(); }});
-  }
-
-  // ===== 会員確認画面のUI =====
-  function updatePickedRowIndexLabel_(){
-    const el = $("pickedRowIndexLabel");
-    if (el) el.textContent = String(gSelectedRowIndex || 0);
-  }
-  function getSelectedRowIndexFromUI_(){
-    const box = $("verifySelectBox");
-    const sel = $("verifyMemberSel");
-    if (!box || !sel) return 0;
-    if (box.classList.contains("hide")) return 0;
-    try{
-      const so = sel.selectedOptions && sel.selectedOptions[0];
-      const n1 = so ? Number(String(so.value||"").trim()) : 0;
-      if (Number.isFinite(n1) && n1 > 0) return n1;
-    }catch(_){}
-    try{
-      const idx = (typeof sel.selectedIndex === "number") ? sel.selectedIndex : -1;
-      if (idx >= 0){
-        const opt = sel.options && sel.options[idx];
-        const n2 = opt ? Number(String(opt.value||"").trim()) : 0;
-        if (Number.isFinite(n2) && n2 > 0) return n2;
-      }
-    }catch(_){}
-    const n3 = Number(String(sel.value||"").trim());
-    return (Number.isFinite(n3) && n3 > 0) ? n3 : 0;
-  }
-
-  function applyMeToUi_(me){
-    IS_GUEST = false;
-    $("memberName").textContent = me.member_name || "(不明)";
-    const badge = $("contractBadge");
-    badge.innerHTML = '<span class="dot"></span>' + (me.is_contract ? "月謝会員" : "通常会員");
-    badge.className = "badge " + (me.is_contract ? "ok" : "ng");
-    AUTO_FEE_PER_CLASS = Number(me.cash_fee || 0);
-    MANUAL_FEE = null; // 会員確定時は手動リセット
-    $("feeItem").classList.add("editable");
-    refreshFeeDisplay_();
-  }
-
-  function applyGuestToUi_(){
-    IS_GUEST = true;
-    $("memberName").textContent = gDisplayName || "(非会員)";
-    const badge = $("contractBadge");
-    badge.innerHTML = '<span class="dot"></span>非会員';
-    badge.className = "badge guest";
-    AUTO_FEE_PER_CLASS = GUEST_CASH_FEE;
-    MANUAL_FEE = null;
-    $("feeItem").classList.add("editable");
-    refreshFeeDisplay_();
-  }
-
-  async function fetchMeCashByUserId_(){
-    const meUrl =
-      `${API_URL}?api=me_cash`
-      + `&token=${encodeURIComponent(API_TOKEN)}`
-      + `&userId=${encodeURIComponent(gUserId)}`
-      + (gMemberId ? `&member_id=${encodeURIComponent(gMemberId)}` : "");
-    // ★ 修正R4: me_cash もタイムアウト時に最大3回自動再試行
-    return await jsonpRetry(meUrl, 3);
-  }
-
-  function setVerifyCandidates_(cands){
-    const box = $("verifySelectBox");
-    const sel = $("verifyMemberSel");
-    sel.innerHTML = "";
-    (cands || []).forEach((c, i)=>{
-      const opt = document.createElement("option");
-      opt.value = String(c.rowIndex || "");
-      opt.textContent = `${c.member_name || "(不明)"}${c.member_type ? " / "+c.member_type : ""}（候補${i+1}）`;
-      sel.appendChild(opt);
-    });
-    if (sel.options.length > 0){
-      sel.selectedIndex = 0;
-      sel.value = String(sel.options[0].value || "");
-      gSelectedRowIndex = getSelectedRowIndexFromUI_();
-    } else { gSelectedRowIndex = 0; }
-    updatePickedRowIndexLabel_();
-    sel.onchange = ()=>{
-      gSelectedRowIndex = getSelectedRowIndexFromUI_();
-      updatePickedRowIndexLabel_();
-      setVerifyNotice("warn","候補を選択してください",`選択中 rowIndex：${gSelectedRowIndex || "—"}\n選択後、「会員確認して続行」を押してください。`);
-    };
-    box.classList.remove("hide");
-    setVerifyNotice("warn","候補を選択してください",`同じ電話番号の会員が複数見つかりました。\n候補を選んで「会員確認して続行」を押してください。`);
-  }
-
-  function clearVerifyCandidates_(){
-    $("verifySelectBox").classList.add("hide");
-    $("verifyMemberSel").innerHTML = "";
-    gSelectedRowIndex = 0;
-    updatePickedRowIndexLabel_();
-  }
-
-  async function verifyMeCashOrStayOnVerify_(){
-    setVerifyStatus("会員情報を確認中…（me_cash）");
-    setVerifyNotice("warn","確認中…","会員情報を確認しています。少々お待ちください。");
-    try{
-      const me = await fetchMeCashByUserId_();
-      setOutVerify({ where:"me_cash_after_resolve", me });
-      if (me && me.status === "success"){
-        if (me.member_id) gMemberId = String(me.member_id).trim();
-        setVerifyStatus("会員情報OK（チェックインへ移動）");
-        setVerifyNotice("ok","確認OK","会員情報の確認が完了しました。チェックイン画面へ移動します。");
-        return true;
-      }
-      $("verifyErr").textContent = "会員情報の確認に失敗しました。もう一度「会員確認して続行」を押してください。";
-      setVerifyStatus("会員情報取得失敗");
-      setVerifyNotice("ng","会員情報取得に失敗","もう一度「会員確認して続行」を押してください。");
-      return false;
-    }catch(e){
-      setOutVerify({ where:"me_cash_exception_after_resolve", error:String(e?.message||e) });
-      $("verifyErr").textContent = "会員情報の取得に失敗しました。電波状況を確認してやり直してください。" + String(e?.message || e);
-      setVerifyStatus("会員情報取得失敗");
-      setVerifyNotice("ng","通信失敗","通信に失敗しました。もう一度「会員確認して続行」を押してください。");
-      return false;
-    }
-  }
-
-  async function ensureMemberInfoByMeCashOnCheckin_(){
-    setStatus("会員情報を取得中…");
-    setCheckinNotice("ok","準備中","会員情報を取得しています…");
-    try{
-      const me = await fetchMeCashByUserId_();
-      setOut({ where:"me_cash_on_checkin", me });
-      if (!me || me.status !== "success"){
-        setStatus("会員情報取得失敗");
-        setCheckinNotice("ng","読み込み失敗","会員情報の取得に失敗しました。会員確認に戻ってやり直してください。");
-        return { ok:false, allow_cash_checkin:false, me };
-      }
-      if (me.member_id) gMemberId = String(me.member_id).trim();
-      applyMeToUi_(me);
-
-      const allow = (me.allow_cash_checkin !== false);
-      if (!allow){
-        setStatus(String(me.cash_reason || "月謝内のため現地精算不可"));
-        const mc  = Number(me?.month_count || 0);
-        const lim = Number(me?.plan_limit || 0);
-        setCheckinNotice("warn","現地精算はできません","月謝内のため、この画面ではチェックインできません。",
-          `今月の受講数：${mc}${lim ? ` / ${lim}` : ""}（通常チェックインへ）`);
-      } else {
-        setStatus("チェックイン可能");
-        setCheckinNotice("ok","チェックインできます","クラスを選択して「現地精算でチェックイン」を押してください。料金欄はタップで変更できます。");
-      }
-      return { ok:true, allow_cash_checkin:allow, me };
-    }catch(e){
-      setOut({ where:"me_cash_exception_on_checkin", error:String(e?.message||e) });
-      setStatus("会員情報取得失敗");
-      setCheckinNotice("ng","通信失敗","会員情報の取得に失敗しました。会員確認に戻ってやり直してください。");
-      return { ok:false, allow_cash_checkin:false, me:null };
-    }
-  }
-
-  async function loadClasses_(){
-    setStatus("クラス一覧を取得中…");
-    const clsUrl = `${API_URL}?api=classes&token=${encodeURIComponent(API_TOKEN)}`;
-    const cls = await jsonp(clsUrl);
-    if (!cls || cls.status !== "success") {
-      setOut({ where:"classes", cls });
-      setStatus("失敗");
-      setCheckinNotice("ng","読み込み失敗","クラス一覧の取得に失敗しました。電波状況を確認してやり直してください。");
-      return false;
-    }
-    CLASSES_CACHE = cls.classes || [];
-    return true;
-  }
-
-  function applyTodayHeader_(){
-    TODAY_WD = getJstWeekdayJa_();
-    $("todayLabel").textContent = `受講クラス（${TODAY_WD}曜日 優先表示）`;
-    $("todayJst").textContent = formatJstYmdHm_();
-  }
-
-  // ===== チェックイン画面へ（会員/非会員 共通の入口） =====
-  async function goToCheckin_(){
-    showCheckinScreen_();
-    applyTodayHeader_();
-    $("yyyymm").textContent = yyyymmNowJst();
-    SELECTED_CLASS = null;
-    MANUAL_FEE = null;
-
-    setCheckinNotice("ok","準備中","クラス一覧を読み込みます。");
-    showOverlay();
-
-    if (IS_GUEST){
-      // 非会員：me_cash不要。区分・料金だけ適用してクラス取得。
-      applyGuestToUi_();
-      const clsOk = await loadClasses_();
-      hideOverlay();
-      if (!clsOk){
-        $("btnCheckin").disabled = true;
-        $("btnCheckin").textContent = "読み込み失敗";
-        return;
-      }
-      const sorted = sortClassesByToday_(CLASSES_CACHE);
-      renderClasses_(sorted);
-      if (countTodayClasses_(CLASSES_CACHE) === 0){
-        $("todayLabel").textContent = `受講クラス（本日のクラスはありません）`;
-      }
-      $("btnCheckin").disabled = true;
-      $("btnCheckin").textContent = "クラスを選択してください";
-      setCheckinNotice("ok","チェックインできます","クラスを選択して「現地精算でチェックイン」を押してください。料金欄はタップで変更できます。");
-      bindCheckinButton_();
-      return;
-    }
-
-    // 会員：会員情報 + クラス を並列取得
-    const [meState, clsOk] = await Promise.all([
-      ensureMemberInfoByMeCashOnCheckin_(),
-      loadClasses_()
-    ]);
-
-    if (!meState.ok || !clsOk){
-      hideOverlay();
-      $("btnCheckin").disabled = true;
-      $("btnCheckin").textContent = "読み込み失敗";
-      return;
-    }
-
-    // 月謝内＝現地精算不可
-    if (!meState.allow_cash_checkin){
-      hideOverlay();
-      $("btnCheckin").disabled = true;
-      $("btnCheckin").textContent = "現地精算不可（通常チェックインへ）";
-      $("feeItem").classList.remove("editable"); // 料金変更も無効化
-      const mc  = Number(meState.me?.month_count || 0);
-      const lim = Number(meState.me?.plan_limit || 0);
-      alert(`月謝内のため現地精算はできません。\n今月の受講数：${mc}${lim ? ` / ${lim}` : ""}\n\n→ 通常チェックインをしてください。`);
-      return;
-    }
-
-    const sorted = sortClassesByToday_(CLASSES_CACHE);
-    renderClasses_(sorted);
-    if (countTodayClasses_(CLASSES_CACHE) === 0){
-      $("todayLabel").textContent = `受講クラス（本日のクラスはありません）`;
-    }
-
-    hideOverlay();
-    $("btnCheckin").disabled = true;
-    $("btnCheckin").textContent = "クラスを選択してください";
-    bindCheckinButton_();
-  }
-
-  // ===== チェックイン送信 =====
-  function bindCheckinButton_(){
-    const btn = $("btnCheckin");
-    btn.onclick = async ()=>{
-      if (RUNNING) return;
-
-      if (!SELECTED_CLASS || !SELECTED_CLASS.id){
-        setCheckinNotice("warn","クラス未選択","クラスを選択してください。");
-        return;
-      }
-      if (isDoneToday_(SELECTED_CLASS.id)){
-        setCheckinNotice("ok","チェックイン済み","このクラスは本日すでにチェックイン済みです。");
-        btn.disabled = true;
-        return;
-      }
-      if (!IS_GUEST && !gMemberId){
-        setStatus("会員未確定");
-        setCheckinNotice("ng","会員未確定","会員IDが取得できていません。会員確認に戻ってやり直してください。");
-        return;
-      }
-
-      RUNNING = true;
-      btn.disabled = true;
-      setStatus("チェックイン送信中…");
-      showOverlay();
-      setCheckinNotice("ok","送信中…","チェックインを送信しています。");
-
-      const CHECKIN_MAX_RETRY = 10;
-      const CHECKIN_BASE_WAIT_MS = 3000;
-      const reqId = "rid_" + Date.now() + "_" + Math.random().toString(36).slice(2);
-
-      const classId = SELECTED_CLASS.id;
-      const className = SELECTED_CLASS.name;
-      const fee = currentFee_(); // 手動 or 自動（×スタンプ数）
-
-      let url =
-        `${API_URL}?api=checkin`
-        + `&token=${encodeURIComponent(API_TOKEN)}`
-        + `&cash=1`
-        + `&userId=${encodeURIComponent(gUserId)}`
-        + `&displayName=${encodeURIComponent(gDisplayName)}`
-        + `&classId=${encodeURIComponent(classId)}`
-        + `&className=${encodeURIComponent(className)}`
-        + `&cash_amount=${encodeURIComponent(String(fee))}`
-        + `&request_id=${encodeURIComponent(reqId)}`;
-
-      if (IS_GUEST){
-        url += `&guest=1`;
-      } else {
-        url += `&member_id=${encodeURIComponent(gMemberId)}`
-             + (gVerifiedPhone ? `&phone=${encodeURIComponent(gVerifiedPhone)}` : "")
-             + (gSelectedRowIndex ? `&rowIndex=${encodeURIComponent(String(gSelectedRowIndex))}` : "");
-      }
-
-      try{
-        for (let attempt = 1; attempt <= CHECKIN_MAX_RETRY; attempt++){
-          if (attempt > 1) setStatus(`再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
-
-          let res;
-          try{ res = await jsonp(url); }
-          catch(err){
-            setOut({ where:"checkin_exception", attempt, error:String(err?.message||err) });
-            if (attempt < CHECKIN_MAX_RETRY){
-              const waitMs = Math.min(CHECKIN_BASE_WAIT_MS * attempt, 15000) + Math.floor(Math.random()*2000);
-              setCheckinNotice("ok","通信エラー・再試行中",`通信に失敗しました。${Math.round(waitMs/1000)}秒後に自動で再試行します… (${attempt}/${CHECKIN_MAX_RETRY})`);
-              await new Promise(r=>setTimeout(r, waitMs));
-              continue;
-            }
-            setStatus("通信失敗");
-            setCheckinNotice("ng","通信失敗","通信に失敗しました。電波状況を確認してやり直してください。");
-            return;
-          }
-
-          setOut({ where:"checkin_result", attempt, res });
-
-          if (res && res.status === "success"){
-            markDoneToday_(classId);
-            const lines = [];
-            if (res.pending === true) lines.push(res.pending_message || "本日は現地精算です。受付でお手続きください。");
-            if (res.over_limit === true && res.over_message) lines.push(res.over_message);
-            else if (res.month_count) lines.push(`今月の受講は ${res.month_count} 回目です。`);
-            if (lines.length === 0) lines.push("チェックインが完了しました。");
-
-            const text = lines.join("\n\n") + "\n\nOKでスタンプ付与へ移動します。";
-            setStatus("確認待ち");
-            setCheckinNotice("ok","完了","チェックインが完了しました。画面の案内に従ってください。");
-
-            const ok = confirm(text);
-            if (ok){
-              setStatus("スタンプへ移動中…");
-              setCheckinNotice("ok","移動中…","スタンプ付与画面へ移動します。");
-              openStamp_();
-            } else {
-              setStatus("キャンセル");
-              setCheckinNotice("warn","キャンセル","スタンプ付与への移動をキャンセルしました。");
-            }
-            return;
-          }
-
-          if (res && res.status === "busy"){
-            if (attempt < CHECKIN_MAX_RETRY){
-              const retryAfter = Number(res.retry_after || 3);
-              const waitMs = retryAfter * 1000 + Math.floor(Math.random()*2000);
-              setCheckinNotice("ok","混み合っています",`サーバーが混み合っています。まもなく自動で再試行します… (${attempt}/${CHECKIN_MAX_RETRY})`);
-              setStatus(`混み合い中・再試行待ち (${attempt}/${CHECKIN_MAX_RETRY})`);
-              await new Promise(r=>setTimeout(r, waitMs));
-              continue;
-            }
-            setStatus("エラー");
-            setCheckinNotice("ng","エラー","チェックインに失敗しました。受付へお声がけください。");
-            return;
-          }
-
-          if (res && res.status === "already"){
-            markDoneToday_(classId);
-            setStatus("チェックイン済み");
-            setCheckinNotice("ok","チェックイン済み","本日はこのクラスのチェックインは完了しています。");
-            // ★チェックイン済みでもスタンプ導線を出す（再送が already 扱いになった場合の救済）
-            if (confirm("本日は既にチェックイン済みです。\n\nスタンプが未取得の場合は「OK」でスタンプ付与へ移動できます。\n（取得済みの場合はキャンセル）")) openStamp_();
-            return;
-          }
-
-          if (res && res.status === "blocked"){
-            setStatus("現地精算不可");
-            const mc  = Number(res.month_count || 0);
-            const lim = Number(res.plan_limit || 0);
-            setCheckinNotice("warn","現地精算はできません", String(res.message || "月謝内のため現地精算不可"), `今月の受講数：${mc}${lim ? ` / ${lim}` : ""}`);
-            alert(String(res.message || "月謝内のため現地精算不可"));
-            return;
-          }
-
-          setStatus("エラー");
-          setCheckinNotice("ng","エラー","チェックインに失敗しました。受付へお声がけください。");
-          return;
-        }
-      } finally {
-        hideOverlay();
-        RUNNING = false;
-        // 成功・already 以外は再操作できるよう戻す
-        if (SELECTED_CLASS && !isDoneToday_(SELECTED_CLASS.id)){
-          $("btnCheckin").disabled = false;
-          $("btnCheckin").textContent = `現地精算でチェックイン（${fmtYen_(currentFee_())}）`;
-        }
-      }
-    };
-  }
-
   function openStamp_(){
-    const url = (selectedStampCount_() >= 2) ? STAMP_URL_DOUBLE : STAMP_URL;
+    const url = (Number(CURRENT_CLASS.stamp_count) >= 2) ? STAMP_URL_DOUBLE : STAMP_URL;
     try { liff.openWindow({ url, external:false }); }
     catch(e1){
       try { liff.openWindow({ url, external:true }); }
       catch(e2){ window.location.href = url; }
     }
   }
+  function startStampCountdown_(ms){
+    const el = $("successCountdown");
+    const start = Date.now();
+    const tick = () => {
+      if (STAMP_TIMER === null){ el.textContent = ""; return; }
+      const remain = Math.max(0, ms - (Date.now() - start));
+      const sec = Math.ceil(remain / 1000);
+      el.textContent = sec > 0 ? `${sec}秒後にスタンプ付与へ移動します` : "移動します…";
+      if (remain > 0) requestAnimationFrame(tick);
+    };
+    tick();
+  }
+  function goStamp_(){
+    if (STAMP_TIMER) clearTimeout(STAMP_TIMER);
+    STAMP_TIMER = setTimeout(()=>{ STAMP_TIMER = null; openStamp_(); }, REDIRECT_DELAY_MS);
+    startStampCountdown_(REDIRECT_DELAY_MS);
+  }
 
-  // ===== 会員照合 =====
-  async function doResolveMember_(){
-    if (RESOLVE_IN_FLIGHT) return;
-    RESOLVE_IN_FLIGHT = true;
-    IS_GUEST = false; // 会員確認ボタン経由は会員モード
+  /* ===== チェックイン送信 ===== */
+  async function doCheckin_(){
+    if (RUNNING) return;
+    if (!validate_(false)){
+      setNotice("warn","入力を確認してください","氏名の入力と区分の選択が必要です。");
+      return;
+    }
+
+    RUNNING = true;
+    $("btnCheckin").disabled = true;
+    showOverlay();
+    setStatus("チェックイン送信中…");
+    setNotice("ok","送信中…","チェックインを送信しています。");
+
+    const CHECKIN_MAX_RETRY = 5;
+    const CHECKIN_BASE_WAIT_MS = 3500;
+
+    const name = String($("nameInput").value || "").trim();
+    const fee  = currentFee_();
+
+    const url =
+      `${API_URL}?api=cash_checkin`
+      + `&token=${encodeURIComponent(API_TOKEN)}`
+      + `&userId=${encodeURIComponent(gUserId)}`
+      + `&displayName=${encodeURIComponent(gDisplayName)}`
+      + `&member_name=${encodeURIComponent(name)}`
+      + `&kind=${encodeURIComponent(SELECTED_KIND)}`
+      + `&cash_amount=${encodeURIComponent(String(fee))}`
+      + (FORCE_UNRESOLVED ? `&force_unresolved=1` : "")
+      + `&request_id=${encodeURIComponent(CHECKIN_REQ_ID)}`;
 
     try{
-      $("btnVerifyOk").disabled = true;
-      $("btnVerifyCancel").disabled = true;
-      $("btnVerifyRetry").disabled = true;
-      $("btnGuestStart").disabled = true;
+      let res = null;
 
-      $("verifyErr").textContent = "";
-      setVerifyStatus("照会中…");
-      setVerifyNotice("ok","照会中…","電話番号から会員情報を照会しています。");
+      for (let attempt = 1; attempt <= CHECKIN_MAX_RETRY; attempt++){
+        if (attempt > 1) setStatus(`再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
 
-      const phone = normPhone_($("verifyPhone").value);
-      gVerifiedPhone = phone;
-      if (!phone){
-        $("verifyErr").textContent = "電話番号を入力してください（ハイフンなし）";
-        setVerifyStatus("入力待ち");
-        setVerifyNotice("warn","入力してください","電話番号（ハイフンなし）を入力してください。");
-        return;
-      }
-
-      const box = $("verifySelectBox");
-      const hasCandidates = box && !box.classList.contains("hide");
-      let rowIndex = 0;
-      if (hasCandidates){
-        rowIndex = getSelectedRowIndexFromUI_();
-        if (!rowIndex){
-          const sel = $("verifyMemberSel");
-          if (sel && sel.options && sel.options.length > 0){
-            sel.selectedIndex = Math.max(0, sel.selectedIndex);
-            sel.value = String(sel.options[sel.selectedIndex].value || "");
-            rowIndex = getSelectedRowIndexFromUI_();
+        try{
+          res = await jsonp(url);
+        }catch(err){
+          if (attempt < CHECKIN_MAX_RETRY){
+            const waitMs = Math.min(CHECKIN_BASE_WAIT_MS * attempt, 12000) + Math.floor(Math.random()*2000);
+            setNotice("ok","通信エラー・再試行中",`通信に失敗しました。${Math.round(waitMs/1000)}秒後に自動で再試行します…（${attempt}/${CHECKIN_MAX_RETRY}）`);
+            await new Promise(r=>setTimeout(r, waitMs));
+            continue;
           }
-        }
-        if (!rowIndex){
-          $("verifyErr").textContent = "候補の選択が確定できませんでした。いったん候補を選び直してから続行してください。";
-          setVerifyStatus("候補選択");
-          setVerifyNotice("warn","候補を選択してください","候補を選び直してから「会員確認して続行」を押してください。");
+          setStatus("通信失敗");
+          setNotice("ng","通信失敗","通信に失敗しました。電波状況を確認してやり直してください。");
           return;
         }
+
+        if (res && res.status === "busy"){
+          if (attempt < CHECKIN_MAX_RETRY){
+            const waitMs = Number(res.retry_after || 3) * 1000 + Math.floor(Math.random()*2000);
+            setNotice("ok","混み合っています",`サーバーが混み合っています。まもなく自動で再試行します…（${attempt}/${CHECKIN_MAX_RETRY}）`);
+            setStatus(`混み合い中・再試行待ち (${attempt}/${CHECKIN_MAX_RETRY})`);
+            await new Promise(r=>setTimeout(r, waitMs));
+            continue;
+          }
+          setStatus("エラー");
+          setNotice("ng","エラー","チェックインに失敗しました。受付へお声がけください。");
+          return;
+        }
+
+        break;
       }
 
-      const url =
-        `${API_URL}?api=resolve_member`
-        + `&token=${encodeURIComponent(API_TOKEN)}`
-        + `&userId=${encodeURIComponent(gUserId)}`
-        + `&phone=${encodeURIComponent(phone)}`
-        + (rowIndex ? `&rowIndex=${encodeURIComponent(String(rowIndex))}` : "")
-        + `&readonly=1`;
+      applyClassInfo_(res);
 
-      // ★ 修正R4: タイムアウト時は自動で最大3回再試行（進捗を画面に表示）
-      const r = await jsonpRetry(url, 3, (next, max)=>{
-        setVerifyStatus(`照会中…自動再試行 (${next}/${max})`);
-        setVerifyNotice("ok","再試行中…",`通信がタイムアウトしました。自動で再試行しています… (${next}/${max})`);
-      });
-
-      if (r && r.status === "need_member_select"){
-        setVerifyCandidates_(r.candidates || []);
-        $("verifyErr").textContent = "候補を選んで、もう一度「会員確認して続行」を押してください。";
-        setVerifyStatus("候補選択");
+      // クラス未判別 → 確認して続行
+      if (res && res.status === "confirm_unresolved"){
+        hideOverlay();
+        setStatus("確認待ち");
+        openUnresolvedConfirm_();
         return;
       }
 
-      if (r && r.status === "success"){
-        clearVerifyCandidates_();
-        if (r.member_id) gMemberId = String(r.member_id).trim();
-        if (!gMemberId){
-          $("verifyErr").textContent = "会員IDが取得できませんでした。この会員のmember_idがスプレッドシートに設定されているか確認してください。";
-          setVerifyStatus("会員ID未設定");
-          setVerifyNotice("ng","会員IDが未設定","スプレッドシートの members シートで member_id 列が入力されているか確認してください。");
-          return;
-        }
-        setVerifyStatus("紐付けOK → me_cash確認中…");
-        setVerifyNotice("ok","紐付けOK","会員情報を確認しています…");
-        const ok = await verifyMeCashOrStayOnVerify_();
-        if (!ok) return;
-        await goToCheckin_();
+      if (res && res.status === "already"){
+        setStatus("チェックイン済み");
+        showSuccess_("チェックイン済み", res.message || "本日はこのクラスのチェックインは完了しています。");
         return;
       }
 
-      $("verifyErr").textContent = "会員照合に失敗しました。電話番号を確認してやり直してください。";
-      setVerifyStatus("失敗");
-      setVerifyNotice("ng","照会に失敗","もう一度やり直してください。");
+      if (!res || res.status !== "success"){
+        setStatus("エラー");
+        setNotice("ng","エラー", (res && res.message) ? res.message : "チェックインに失敗しました。受付へお声がけください。");
+        return;
+      }
 
-    } catch(err){
-      $("verifyErr").textContent = "通信に失敗しました。電波状況を確認してやり直してください。";
-      setOutVerify({ where:"resolve_member_exception", error:String(err?.message || err) });
-      setVerifyStatus("失敗");
-      setVerifyNotice("ng","通信失敗","通信に失敗しました。電波状況を確認してやり直してください。");
+      // 成功
+      setStatus("完了");
+      const lines = [];
+      lines.push(res.pending_message || `現地精算 ${fmtYen_(fee)} で受け付けました。受付でお手続きください。`);
+      if (!CURRENT_CLASS.class_resolved) lines.push("クラスは後ほどスタッフが確定します。");
+      showSuccess_("チェックイン完了", lines.join("\n"));
+      goStamp_();
+
     } finally {
-      RESOLVE_IN_FLIGHT = false;
-      $("btnVerifyOk").disabled = false;
-      $("btnVerifyCancel").disabled = false;
-      $("btnVerifyRetry").disabled = false;
-      $("btnGuestStart").disabled = false;
+      hideOverlay();
+      RUNNING = false;
+      refreshSubmitState_();
     }
   }
 
-  // ===== 非会員開始 =====
-  function startGuest_(){
-    IS_GUEST = true;
-    gMemberId = "";
-    gVerifiedPhone = "";
-    gSelectedRowIndex = 0;
-    clearVerifyCandidates_();
-    goToCheckin_();
+  /* ===== 初期化 ===== */
+  function applyTodayHeader_(){
+    $("todayLabel").textContent = `本日のクラス（${getJstWeekdayJa_()}曜日・自動判別）`;
+    $("todayJst").textContent = formatJstYmdHm_();
   }
 
-  // ===== ボタン束縛 =====
-  function bindVerifyUI_(){
-    const okBtn = $("btnVerifyOk");
-    okBtn.type = "button";
-    okBtn.addEventListener("click", (e)=>{
-      e.preventDefault(); e.stopPropagation();
-      doResolveMember_().catch(()=>{
-        $("verifyErr").textContent = "予期しないエラーが発生しました。やり直してください。";
-        RESOLVE_IN_FLIGHT = false;
-        $("btnVerifyOk").disabled = false;
-        $("btnVerifyCancel").disabled = false;
-        $("btnVerifyRetry").disabled = false;
-        $("btnGuestStart").disabled = false;
-      });
-    }, true);
+  async function loadOptions_(){
+    const url =
+      `${API_URL}?api=cash_options`
+      + `&token=${encodeURIComponent(API_TOKEN)}`
+      + `&userId=${encodeURIComponent(gUserId)}`;
 
-    $("verifyPhone").addEventListener("keydown",(e)=>{ if(e.key==="Enter") doResolveMember_(); });
+    const res = await jsonp(url);
+    if (!res || res.status !== "success"){
+      throw new Error((res && res.message) ? res.message : "cash_options failed");
+    }
 
-    $("btnGuestStart").addEventListener("click",(e)=>{
-      e.preventDefault(); e.stopPropagation();
-      startGuest_();
-    }, true);
+    if (res.fees) FEES = res.fees;
+    applyClassInfo_(res);
 
-    $("btnVerifyCancel").addEventListener("click",(e)=>{
-      e.preventDefault(); e.stopPropagation();
-      try{
-        if (window.liff && liff.isInClient && liff.isInClient()){ liff.closeWindow(); return; }
-      }catch(_){}
-      $("verifyPhone").value = "";
-      $("verifyErr").textContent = "";
-      clearVerifyCandidates_();
-      setVerifyStatus("入力待ち");
-      setVerifyNotice("warn","入力してください","電話番号（ハイフンなし）を入力して「続行」を押してください。");
-    }, true);
+    // 氏名・区分のサジェスト（このLINEに紐付く会員が1件だけのとき）
+    if (res.suggest_name && !String($("nameInput").value || "").trim()){
+      $("nameInput").value = res.suggest_name;
+    }
+    if (res.suggest_kind && FEES[res.suggest_kind]){
+      const b = document.querySelector(`.kindBtn[data-kind="${res.suggest_kind}"]`);
+      if (b) b.click();
+    }
 
-    $("btnVerifyRetry").addEventListener("click",(e)=>{
-      e.preventDefault(); e.stopPropagation();
-      $("verifyPhone").value = "";
-      $("verifyErr").textContent = "";
-      clearVerifyCandidates_();
-      setVerifyStatus("入力待ち");
-      setVerifyNotice("warn","入力してください","電話番号（ハイフンなし）を入力して「続行」を押してください。");
-    }, true);
-
-    $("btnBackToVerify").addEventListener("click",(e)=>{
-      e.preventDefault(); e.stopPropagation();
-      IS_GUEST = false;
-      showVerifyScreen_();
-      setVerifyStatus("入力待ち");
-      setVerifyNotice("warn","入力してください","電話番号（ハイフンなし）を入力して「続行」を押してください。");
-    }, true);
-
-    setVerifyStatus("入力待ち");
-    setVerifyNotice("warn","入力してください","電話番号（ハイフンなし）を入力して「続行」を押してください。");
+    if (!res.class_resolved){
+      setNotice("warn","クラスを判別できませんでした","このまま進めることもできます（クラスは後ほどスタッフが確定します）。");
+    }
   }
 
-  async function main(){
+  async function init(){
     showOverlay();
-    showVerifyScreen_();
-    setVerifyStatus("LIFF初期化中…");
-    setVerifyNotice("ok","起動中…","LINE認証を確認しています…");
+    applyTodayHeader_();
+    bindKindButtons_();
+    bindFeeModal_();
+    refreshFeeUi_();
 
-    await withTimeout(liff.init({ liffId: LIFF_ID }), 20000, "liff.init");
-    if (!liff.isLoggedIn()) { liff.login(); return; }
+    $("netInfo").textContent = navigator.onLine ? "online" : "offline";
+    let nameDebounce = null;
+    $("nameInput").addEventListener("input", function(){
+      $("nameFieldWrap").classList.remove("error");
+      CHECKIN_REQ_ID = newReqId_();
+      refreshSubmitState_();
+      // ★ 氏名で会員特定するため、入力が落ち着いてから再照会（表示専用）
+      hidePlanNotice_();
+      if (nameDebounce) clearTimeout(nameDebounce);
+      nameDebounce = setTimeout(function(){ refreshPlanNotice_(); }, 700);
+    });
+    $("btnCheckin").addEventListener("click", doCheckin_);
+    $("btnStampNow").addEventListener("click", function(){
+      if (STAMP_TIMER){ clearTimeout(STAMP_TIMER); STAMP_TIMER = null; }
+      openStamp_();
+    });
 
-    const prof = await withTimeout(liff.getProfile(), 12000, "liff.getProfile");
-    gUserId = prof.userId;
-    gDisplayName = prof.displayName || "";
+    setStatus("LIFF起動中…");
+    await liff.init({ liffId: LIFF_ID });
 
-    bindVerifyUI_();
-    bindFeeUI_();
-    setVerifyStatus("電話番号入力が必要");
+    if (!liff.isLoggedIn()){
+      hideOverlay();
+      liff.login();
+      return;
+    }
+
+    const profile = await liff.getProfile();
+    gUserId = profile.userId;
+    gDisplayName = profile.displayName || "";
+    $("lineNameValue").textContent = gDisplayName || "(取得できませんでした)";
+
+    setStatus("クラス判別中…");
+    await loadOptions_();
+
+    setStatus("入力してください");
+    refreshSubmitState_();
     hideOverlay();
   }
 
-  main().catch(e=>{
+  init().catch(function(err){
     hideOverlay();
-    setOutVerify("FATAL: " + String(e && e.message ? e.message : e));
-    setVerifyStatus("起動失敗");
-    setVerifyNotice("ng","起動失敗","ページを閉じて、もう一度QRから開いてください。");
+    setStatus("読み込み失敗");
+    setNotice("ng","読み込みに失敗しました","画面を閉じて、再度QRコードから開いてください。");
+    console.error(err);
   });
+
 </script>
+
 </body>
 </html>
