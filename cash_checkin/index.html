@@ -676,6 +676,18 @@
       </div>
     </div>
 
+    <!-- ★ クラス選択モーダル（レッスン前後チェックイン対応） -->
+    <div id="classSelectModal" class="modal">
+      <div class="modalCard">
+        <div class="classConfirmTitle">クラスを選択</div>
+        <div class="classConfirmMeta">チェックインするクラスを選択してください。<br>レッスン後のチェックインの場合は受講したクラスを選択してください。</div>
+        <div id="classSelectList" style="margin-top:10px;"></div>
+        <div style="display:flex; gap:10px; margin-top:14px;">
+          <button class="modalBtn modalBtnNo" id="classSelectCancel" type="button">やめる</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ★ 料金変更モーダル -->
     <div id="feeModal" class="modal">
       <div class="modalCard">
@@ -723,6 +735,7 @@
   let SELECTED_KIND = "";          // "monthly" | "regular" | "guest"
   let MANUAL_FEE = null;           // 手動上書き（合計額）。nullなら自動
   let FORCE_UNRESOLVED = false;    // クラス未判別を承知でチェックイン
+  let SELECTED_CLASS_ID = "";      // ★クラス選択ポップアップで選んだclass_id（レッスン前後チェックイン対応）
   let CHECKIN_REQ_ID = newReqId_();
   let STAMP_TIMER = null;
 
@@ -994,13 +1007,20 @@
     const card = $("autoClassCard");
     card.classList.toggle("unresolved", !CURRENT_CLASS.class_resolved);
 
+    // ★クラス選択待ち（select_class）のときは「未判別」ではなく「クラス選択」と表示
+    const selecting = !CURRENT_CLASS.class_resolved &&
+                      (res.class_select === true ||
+                       (Array.isArray(res.class_options) && res.class_options.length > 0));
+
     $("autoClassName").textContent = CURRENT_CLASS.class_resolved
       ? (CURRENT_CLASS.class_name || "—")
-      : "クラス未判別";
+      : (selecting ? "クラス選択" : "クラス未判別");
 
     const parts = [];
     if (CURRENT_CLASS.class_resolved && CURRENT_CLASS.stamp_count >= 2) parts.push("2クラス分（料金2倍）");
-    if (!CURRENT_CLASS.class_resolved) parts.push("代講・振替の場合はそのままチェックインできます");
+    if (!CURRENT_CLASS.class_resolved) parts.push(selecting
+      ? "チェックインするクラスを選択してください"
+      : "代講・振替の場合はそのままチェックインできます");
     $("autoClassMeta").textContent = parts.join("　/　");
 
     refreshFeeUi_();
@@ -1028,6 +1048,75 @@
     no.addEventListener("click", function(){
       modal.classList.remove("show");
       setNotice("warn","中断しました","クラスの時間になってから再度チェックインしてください。");
+      setStatus("待機中");
+    });
+
+    modal.classList.add("show");
+  }
+
+  /* ===== ★クラス選択モーダル（レッスン前後チェックイン対応） ===== */
+  //  1クラス目終了後など自動確定できない場合に、本日のクラス一覧から選択してもらう。
+  //  onPicked: 選択後に続けて実行する処理（doCheckin_ など）。null なら選択のみ。
+  function openClassSelect_(options, onPicked){
+    const modal = $("classSelectModal");
+    const box = $("classSelectList");
+    box.innerHTML = "";
+
+    (options || []).forEach(function(o){
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "modalBtn";
+      btn.style.width = "100%";
+      btn.style.marginTop = "8px";
+      btn.style.textAlign = "left";
+      btn.style.lineHeight = "1.5";
+      if (o.suggested) btn.style.border = "1.5px solid rgba(255,255,255,.85)";
+
+      const time = (o.start_time && o.end_time) ? (o.start_time + "〜" + o.end_time + "　") : "";
+      const inst = o.instructor ? ("（" + o.instructor + "）") : "";
+      btn.textContent = time + o.class_name + inst + (o.suggested ? "　◀ 今の時間" : "");
+
+      btn.onclick = async function(){
+        modal.classList.remove("show");
+        FORCE_UNRESOLVED  = false;
+        SELECTED_CLASS_ID = String(o.class_id || "");
+        // 選択クラスを即カード・料金表示に反映（stamp_count 2なら料金2倍が正しく出る）
+        applyClassInfo_({
+          class_id:       o.class_id,
+          class_name:     o.class_name,
+          class_resolved: true,
+          stamp_count:    o.stamp_count || 1
+        });
+        setNotice("ok", "クラスを選択しました", o.class_name + " でチェックインします。");
+        if (typeof onPicked === "function") await onPicked();
+      };
+      box.appendChild(btn);
+    });
+
+    // 一覧にないケース（代講・振替など）→ 従来どおり未判別のままチェックイン
+    const btnOther = document.createElement("button");
+    btnOther.type = "button";
+    btnOther.className = "modalBtn";
+    btnOther.style.width = "100%";
+    btnOther.style.marginTop = "8px";
+    btnOther.style.background = "rgba(255,255,255,.06)";
+    btnOther.textContent = "この中にない（代講・振替など）";
+    btnOther.onclick = async function(){
+      modal.classList.remove("show");
+      SELECTED_CLASS_ID = "";
+      FORCE_UNRESOLVED  = true;   // 未判別のまま記録（後でスタッフが確定）
+      applyClassInfo_({ class_id:"", class_name:"", class_resolved:false, stamp_count:1 });
+      setNotice("warn", "クラス未判別のまま進みます", "クラスは後ほどスタッフが確定します。");
+      if (typeof onPicked === "function") await onPicked();
+    };
+    box.appendChild(btnOther);
+
+    // キャンセル（多重リスナー防止のためcloneで張り替え）
+    const cancelOld = $("classSelectCancel");
+    const cancel = cancelOld.cloneNode(true);
+    cancelOld.parentNode.replaceChild(cancel, cancelOld);
+    cancel.addEventListener("click", function(){
+      modal.classList.remove("show");
       setStatus("待機中");
     });
 
@@ -1096,6 +1185,7 @@
       + `&kind=${encodeURIComponent(SELECTED_KIND)}`
       + `&cash_amount=${encodeURIComponent(String(fee))}`
       + (FORCE_UNRESOLVED ? `&force_unresolved=1` : "")
+      + (SELECTED_CLASS_ID ? `&class_id=${encodeURIComponent(SELECTED_CLASS_ID)}` : "")
       + `&request_id=${encodeURIComponent(CHECKIN_REQ_ID)}`;
 
     try{
@@ -1135,6 +1225,14 @@
       }
 
       applyClassInfo_(res);
+
+      // ★クラス選択（レッスン前後チェックイン：1クラス目終了後など）
+      if (res && res.status === "select_class"){
+        hideOverlay();
+        setStatus("クラス選択待ち");
+        openClassSelect_(res.class_options || [], doCheckin_);
+        return;
+      }
 
       // クラス未判別 → 確認して続行
       if (res && res.status === "confirm_unresolved"){
@@ -1200,7 +1298,12 @@
       if (b) b.click();
     }
 
-    if (!res.class_resolved){
+    if (res.class_select){
+      // ★レッスン前後チェックイン: 起動時にクラスを選択してもらう
+      //   （選択のみ行い、チェックインは氏名・区分入力後に通常どおり送信）
+      setNotice("warn","クラスを選択してください","レッスン後・レッスン前どちらのチェックインにも対応しています。");
+      openClassSelect_(res.class_options || [], null);
+    } else if (!res.class_resolved){
       setNotice("warn","クラスを判別できませんでした","このまま進めることもできます（クラスは後ほどスタッフが確定します）。");
     }
   }
