@@ -752,6 +752,119 @@
     .btnManual:hover:not(:disabled){
       background: rgba(255,255,255,.15);
     }
+
+    /* ===================================================
+       ★ 案内ポップアップ（初回登録・家族のスマホ追加・エラー案内）
+       =================================================== */
+    .guideModal{
+      position: fixed; inset: 0; z-index: 150;
+      display: none; align-items: center; justify-content: center;
+      padding: 18px;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    .guideModal.show{ display: flex; animation: fadeIn .18s ease; }
+    .guideCard{
+      width: min(460px, 100%);
+      max-height: 88svh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      background: linear-gradient(180deg, #141821, #0d1016);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 22px;
+      box-shadow: 0 24px 80px rgba(0,0,0,.7);
+      padding: 22px 18px 18px;
+    }
+    .guideIcon{
+      width: 52px; height: 52px; margin: 0 auto 12px;
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      background: linear-gradient(135deg, rgba(124,92,255,.85), rgba(45,212,191,.85));
+      box-shadow: 0 14px 36px rgba(124,92,255,.30);
+    }
+    .guideIcon.warn{ background: linear-gradient(135deg, rgba(245,158,11,.85), rgba(255,77,109,.75)); box-shadow: 0 14px 36px rgba(245,158,11,.25); }
+    .guideTitle{ text-align: center; font-size: 17px; font-weight: 900; margin-bottom: 10px; line-height: 1.45; }
+    .guideBody{ font-size: 13px; color: rgba(234,240,255,.92); line-height: 1.7; }
+    .guideBody p{ margin: 0 0 10px; }
+    .guideBody b{ color: #fff; }
+    .guideSteps{ margin: 4px 0 10px; padding: 0; list-style: none; counter-reset: gs; }
+    .guideSteps li{
+      position: relative;
+      padding: 10px 12px 10px 42px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px;
+      background: rgba(255,255,255,.035);
+      counter-increment: gs;
+    }
+    .guideSteps li::before{
+      content: counter(gs);
+      position: absolute; left: 12px; top: 11px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: rgba(124,92,255,.40); color: #fff;
+      font-size: 11px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .guideSteps li small{ display: block; margin-top: 3px; font-size: 11px; color: var(--muted); line-height: 1.55; }
+    .guideNote{ font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 4px; }
+    .guideActions{ display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+    .guideBtn{
+      appearance: none; -webkit-appearance: none;
+      border: 0; border-radius: 14px;
+      padding: 13px 14px;
+      font-size: 14px; font-weight: 800;
+      cursor: pointer; touch-action: manipulation;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #0b0d12;
+    }
+    .guideBtn.ghost{ background: rgba(255,255,255,.07); color: var(--text); border: 1px solid rgba(255,255,255,.16); }
+    .guideBtn.text{ background: transparent; color: var(--muted); font-weight: 600; padding: 8px; }
+    .guideBtn:disabled{ opacity: .55; cursor: default; }
+    .inviteCodeBox{
+      margin: 6px 0 6px;
+      text-align: center;
+      font-size: 34px; font-weight: 900;
+      letter-spacing: .28em;
+      padding: 14px 8px 14px 18px;
+      border-radius: 16px;
+      border: 2px dashed rgba(45,212,191,.55);
+      background: rgba(45,212,191,.07);
+      color: #e6fffb;
+      font-variant-numeric: tabular-nums;
+      user-select: all; -webkit-user-select: all;
+    }
+    .inviteExpire{ text-align: center; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .codeInput{
+      width: 100%;
+      text-align: center;
+      font-size: 26px; font-weight: 800;
+      letter-spacing: .3em;
+      padding: 14px 10px;
+      border-radius: 14px;
+      border: 2px solid rgba(124,92,255,.55);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    .codeInput:focus{ border-color: var(--accent); box-shadow: 0 0 0 4px rgba(124,92,255,.20); }
+    .codeInput::placeholder{ color: rgba(169,180,208,.45); letter-spacing: .2em; }
+    .guideErr{ display: none; margin-top: 8px; text-align: center; font-size: 12px; font-weight: 700; color: #ffd3dc; }
+    .guideErr.show{ display: block; }
+    .phoneLinkAlt{
+      display: block; width: 100%;
+      margin-top: 10px;
+      appearance: none; -webkit-appearance: none;
+      border: 1px dashed rgba(45,212,191,.40);
+      border-radius: 12px;
+      background: rgba(45,212,191,.05);
+      color: #9ff3e6;
+      font-size: 12px; font-weight: 700;
+      padding: 10px 12px;
+      cursor: pointer; touch-action: manipulation;
+    }
+    .phoneLinkAlt:active{ opacity: .75; }
   </style>
 </head>
 
@@ -819,7 +932,8 @@
     <!-- 初回紐付け（電話番号入力） -->
     <div id="phoneLinkArea" class="phoneLinkBox" style="display:none;">
       <div class="phoneLinkLead">
-        初回のみ、電話番号で会員を検索します（ハイフンなし）
+        初回のみ、<b>会員登録時の電話番号</b>（ハイフンなし）で会員を検索します。<br>
+        お子さまの会員は、保護者様の番号で登録されている場合があります。
       </div>
 
       <div class="phoneLinkRow">
@@ -836,6 +950,11 @@
           会員検索
         </button>
       </div>
+
+      <!-- ★ 認証コードで照合（電話番号で照合できなかった後にだけ表示） -->
+      <button class="phoneLinkAlt" id="phoneLinkAlt" type="button" onclick="openRedeemCode_()" style="display:none;">
+        🔑 電話番号で照合できない場合は「認証コード」で照合
+      </button>
     </div>
 
 
@@ -847,6 +966,19 @@
       <button class="historyBtn" id="historyBtnArea" onclick="openPaymentHistory()">
         🧾 決済履歴を確認する
       </button>
+      <button class="historyBtn" id="familyAddBtn" onclick="openFamilyInvite_()">
+        👨‍👩‍👧 家族のスマホを追加
+      </button>
+    </div>
+
+    <!-- ★ 案内ポップアップ（共通） -->
+    <div id="guideModal" class="guideModal" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+      <div class="guideCard">
+        <div class="guideIcon" id="guideIcon">📱</div>
+        <div class="guideTitle" id="guideTitle"></div>
+        <div class="guideBody" id="guideBody"></div>
+        <div class="guideActions" id="guideActions"></div>
+      </div>
     </div>
 
     <!-- ★ 決済履歴モーダル -->
@@ -1383,6 +1515,9 @@ function buildApiUrl_(params){
 function replaceUrlWithMemberId_(mid){
   const u = new URL(location.href);
   u.searchParams.set("member_id", mid);
+  // ★ 認証コード・登録誘導用のパラメータは確定後に残さない
+  u.searchParams.delete("invite_code");
+  u.searchParams.delete("link");
   location.replace(u.toString());
 }
 
@@ -1418,11 +1553,18 @@ async function resolveByPhone_(userId, phone){
 
 window.linkByPhoneStart = async function(){
   const inp = document.getElementById("linkPhoneInput");
-  const phone = inp ? String(inp.value || "").trim() : "";
+  // ★ 全角数字・ハイフン・空白を吸収して数字だけにする
+  // ★ GAS側 normalizePhone_ と同じ補正（全角・ハイフン・+81・先頭0落ち）
+  const phone = normalizeJpPhone_(inp ? inp.value : "");
   if (!phone) {
     showToast("電話番号を入力してください（ハイフンなし）", "warn");
     return;
   }
+  if (phone.length < 10 || phone.length > 11) {
+    showToast("電話番号は10〜11桁の数字で入力してください。", "warn");
+    return;
+  }
+  if (inp) inp.value = phone;
 
   try{
     setPill("warn","照合中…");
@@ -1462,13 +1604,38 @@ window.linkByPhoneStart = async function(){
       return;
     }
 
-    // 3) その他（error / 想定外）
-    showToast("会員情報の照合に失敗しました。受付にお問い合わせください。", "bad");
+    // 3) 電話番号に一致する会員なし → 丁寧な案内ポップアップ（行き止まりにしない）
+    const errMsg = String((res && res.message) || "");
+    if (res && res.status === "error" && /no match phone/i.test(errMsg)) {
+      setPill("warn","会員が見つかりません");
+      showPhoneNotFoundGuide_(phone);
+      return;
+    }
+
+    // 4) その他（error / 想定外）
     setPill("bad","紐付け失敗");
+    openGuide_({
+      icon: "⚠️", iconWarn: true,
+      title: "会員情報を確認できませんでした",
+      html: `<p>システム側で会員情報の照合ができませんでした。時間をおいてもう一度お試しください。</p>
+             <p class="guideNote">繰り返し表示される場合は、お手数ですがスタッフ・受付にお声がけください。</p>`,
+      buttons: [
+        { label: "もう一度試す", onClick: () => { closeGuide_(); window.linkByPhoneStart(); } },
+        { label: "閉じる", kind: "text" }
+      ]
+    });
 
   }catch(e){
-    showToast("照合に失敗しました。通信状況を確認してやり直してください。", "bad");
     setPill("bad","エラー");
+    openGuide_({
+      icon: "📶", iconWarn: true,
+      title: "通信に失敗しました",
+      html: `<p>電波の良い場所で、もう一度お試しください。</p>`,
+      buttons: [
+        { label: "もう一度試す", onClick: () => { closeGuide_(); window.linkByPhoneStart(); } },
+        { label: "閉じる", kind: "text" }
+      ]
+    });
   }
 };
 
@@ -1551,6 +1718,7 @@ function withTimeout(p, ms, label){
   const u = new URL(location.href);
   memberId = String(u.searchParams.get("member_id") || u.searchParams.get("memberId") || "").trim();
   const switchMode = u.searchParams.get("switch") === "1"; // ★「別の会員として支払う」ボタン経由フラグ
+  const linkMode   = u.searchParams.get("link") === "1";   // ★「このスマホを登録する」案内経由フラグ
 
   if (memberId){
     // ★sessionStorageから会員名を取得して表示
@@ -1630,6 +1798,26 @@ function withTimeout(p, ms, label){
     // ★ここから：member_idが無いなら、この画面で候補取得→選択
     if (!memberId){
 
+      // ★ 家族の招待リンク（?invite_code=123456）から開いた場合は、コード入力を最優先で表示
+      //   ※LIFFのURLパラメータは liff.init 後に復元されるため、ここで読み直す
+      const inviteCode = String(new URL(location.href).searchParams.get("invite_code") || "").replace(/[^\d]/g, "").slice(0, 6);
+      if (inviteCode){
+        setPill("warn","認証コードで照合");
+        document.getElementById("phoneLinkArea").style.display = "block";
+        hideOverlay();
+        openRedeemCode_(inviteCode);
+        return;
+      }
+
+      // ★「このスマホを登録する」案内経由：電話番号 or 認証コードの選択ポップアップ
+      if (linkMode){
+        setPill("warn","このスマホを登録");
+        document.getElementById("phoneLinkArea").style.display = "block";
+        hideOverlay();
+        showFirstTimeGuide_();
+        return;
+      }
+
       // ★「別の会員として支払う」ボタン経由の場合は、電話番号入力を強制表示
       if (switchMode){
         setPill("warn","別の会員を検索");
@@ -1641,9 +1829,10 @@ function withTimeout(p, ms, label){
 
       if (members.length === 0){
         setPill("warn","初回紐付け");
-        showToast("初回のみ電話番号で会員を紐付けします（ハイフンなし）。", "warn");
         document.getElementById("phoneLinkArea").style.display = "block";
         hideOverlay();
+        // ★ トーストではなく、選べる案内ポップアップで誘導（電話番号 or 家族の認証コード）
+        showFirstTimeGuide_();
         return;
       }
 
@@ -1817,13 +2006,32 @@ async function startPay(plan){
       };
       // ★ codeがstripe_create_session_failedで始まる場合、Stripeの生エラーも補足表示
       const baseCode = code ? code.split(':')[0].trim() : '';
+
+      // ★ このスマホが会員と未紐付けの系統 → トーストではなく登録方法を案内するポップアップ
+      const LINK_REQUIRED_CODES = {
+        member_bound_to_other_line: true,
+        member_linked_to_other_line: true,
+        phone_required_for_first_checkout: true,
+        phone_mismatch: true,
+        access_denied: true
+      };
+      if (LINK_REQUIRED_CODES[baseCode]) {
+        showLinkRequiredGuide_();
+        const handled = new Error(code);
+        handled._shown = true;
+        throw handled;
+      }
+
       const friendlyMsg = msgMap[baseCode] || msgMap[code] || msgMap[res && res.message] || "決済ページの作成に失敗しました。しばらくしてから再試行してください。";
       // ★ Stripeエラーの詳細をコンソールに出力（デバッグ用）
       if (baseCode === 'stripe_create_session_failed') {
         console.error('[startPay] Stripe error:', code, res);
       }
       showToast(friendlyMsg, "bad");
-      throw new Error(code || "create_checkout failed");
+      // ★バグ修正: 表示済みフラグを付けて throw（catch 側で汎用メッセージに上書きされないように）
+      const shownErr = new Error(code || "create_checkout failed");
+      shownErr._shown = true;
+      throw shownErr;
     }
 
     setPill("ok","Stripeへ移動");
@@ -1831,7 +2039,10 @@ async function startPay(plan){
 
   }catch(e){
     setPill("bad","エラー");
-    showToast("決済ページの作成に失敗しました。しばらくしてから再試行してください。");
+    // ★バグ修正: 既に日本語メッセージ／案内ポップアップを出した場合は上書きしない
+    if (!(e && e._shown)) {
+      showToast("決済ページの作成に失敗しました。しばらくしてから再試行してください。");
+    }
     setButtonsEnabled(true);
 
     if (btn){
@@ -1845,6 +2056,9 @@ async function startPay(plan){
 }
 async function onClickPortal_(){
   showOverlay();
+  // ★バグ修正: 従来は失敗時にローディングが消えず「読み込み中」のまま固まっていた
+  //   （エラートーストもローディングの裏に隠れて見えなかった）。遷移する時だけ残す。
+  let redirecting = false;
   try {
     hideToast();
 
@@ -1876,16 +2090,25 @@ async function onClickPortal_(){
     if (btn) { btn.disabled = false; btn.textContent = old || 'プラン変更（契約中の方）'; }
 
     if (!r || r.status !== 'success' || !r.url) {
+      // ★ 権限（お支払い手続きをした端末のみ）で拒否された場合は理由と対処を案内
+      if (r && r.message === 'portal_access_denied') {
+        // ★仕様変更: 照合済み端末はポータル可 → 未照合ならその場で電話番号照合して続行
+        openVerifyPhone_({ reason: 'portal', onVerified: () => onClickPortal_() });
+        return;
+      }
       showToast('プラン変更ページの起動に失敗しました。しばらくしてから再試行してください。', 'bad');
       return;
     }
 
+    redirecting = true;
     location.href = String(r.url);
 
   } catch (e) {
     const btn = document.getElementById('btnPortal');
     if (btn) { btn.disabled = false; btn.textContent = 'プラン変更（契約中の方）'; }
     showToast('プラン変更ページの起動に失敗しました。LINEアプリを再起動してやり直してください。', 'bad');
+  } finally {
+    if (!redirecting) hideOverlay();
   }
 }
 
@@ -1936,6 +2159,11 @@ async function loadPaymentHistory_() {
 
     const res = await jsonp(url.toString());
     if (!res || res.status !== 'success' || !Array.isArray(res.payments)) {
+      const m = String((res && res.message) || '');
+      if (m === 'member_bound_to_other_line' || m === 'access_denied') {
+        body.innerHTML = '<div class="historyEmpty">このスマホはまだこの会員と照合できていないため、履歴を表示できません。<br>画面を閉じて、会員登録時の電話番号で照合してください。</div>';
+        return;
+      }
       body.innerHTML = '<div class="historyEmpty">履歴を取得できませんでした。</div>';
       return;
     }
@@ -2085,6 +2313,466 @@ function switchPlanTab(tab) {
   document.getElementById('tabCard').classList.toggle('active', isCard);
   document.getElementById('tabManual').classList.toggle('active', isManual);
   document.getElementById('tabUpgrade').classList.toggle('active', isUpgrade);
+}
+
+/** ==========================================================
+ *  ★★ 案内ポップアップ（共通）
+ *  openGuide_({ icon, iconWarn, title, html, buttons:[{label, kind, onClick}] })
+ *   kind: 省略=メイン / "ghost"=サブ / "text"=閉じる系
+ *   onClick 省略時はポップアップを閉じるだけ
+ *  ========================================================== */
+function openGuide_(opt){
+  opt = opt || {};
+  hideToast();
+  const modal   = document.getElementById("guideModal");
+  const iconEl  = document.getElementById("guideIcon");
+  const titleEl = document.getElementById("guideTitle");
+  const bodyEl  = document.getElementById("guideBody");
+  const actEl   = document.getElementById("guideActions");
+  if (!modal) return;
+
+  iconEl.textContent = opt.icon || "📱";
+  iconEl.classList.toggle("warn", opt.iconWarn === true);
+  titleEl.textContent = opt.title || "";
+  bodyEl.innerHTML = opt.html || "";
+
+  actEl.innerHTML = "";
+  (opt.buttons || [{ label: "閉じる" }]).forEach(b => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "guideBtn" + (b.kind ? " " + b.kind : "");
+    btn.textContent = b.label;
+    if (b.id) btn.id = b.id;
+    if (b.hidden) btn.style.display = "none";
+    btn.onclick = () => {
+      if (typeof b.onClick === "function") b.onClick(btn);
+      else closeGuide_();
+    };
+    actEl.appendChild(btn);
+  });
+
+  modal.classList.add("show");
+  const card = modal.querySelector(".guideCard");
+  if (card) card.scrollTop = 0;
+}
+
+function closeGuide_(){
+  const modal = document.getElementById("guideModal");
+  if (modal) modal.classList.remove("show");
+}
+
+function normalizePhoneInput_(v){
+  // 全角数字 → 半角、数字以外は除去
+  return String(v || "")
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[^\d]/g, "");
+}
+
+/** GAS側 normalizePhone_ と同じ補正（+81 → 0 ／ 先頭0落ち10桁 → 0補完） */
+function normalizeJpPhone_(v){
+  let ph = normalizePhoneInput_(v);
+  if (ph.startsWith("81") && ph.length >= 11) ph = "0" + ph.slice(2);
+  if (ph.length === 10 && !ph.startsWith("0")) ph = "0" + ph;
+  return ph;
+}
+
+function focusPhoneInput_(){
+  const area = document.getElementById("phoneLinkArea");
+  if (area) {
+    area.style.display = "block";
+    try { area.scrollIntoView({ behavior: "smooth", block: "center" }); } catch(_) {}
+  }
+  setTimeout(() => {
+    const inp = document.getElementById("linkPhoneInput");
+    if (inp) { try { inp.focus(); inp.select && inp.select(); } catch(_) {} }
+  }, 250);
+}
+
+/** 電話番号で照合できなかった後にだけ、認証コードの導線を出す */
+function revealCodeRoute_(){
+  const alt = document.getElementById("phoneLinkAlt");
+  if (alt) alt.style.display = "block";
+}
+
+function formatHm_(iso){
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  } catch(_) { return ""; }
+}
+
+/** 認証コードの入手方法（共通文言） */
+const CODE_HOWTO_HTML_ =
+  `すでに照合済みのご家族のスマホで SoL Pay を開き「👨‍👩‍👧 家族のスマホを追加」を押すと、6桁の認証コードが表示されます（30分間有効・1回のみ）。`;
+
+/** 初回（このLINEに紐付く会員が無い）案内：まずは電話番号 */
+function showFirstTimeGuide_(){
+  openGuide_({
+    icon: "👋",
+    title: "はじめてのご利用ですね",
+    html: `<p>このスマホ（LINE）は、まだ会員情報と照合されていません。<br>
+           <b>会員登録時の電話番号</b>を入力して照合してください（初回のみ）。</p>
+           <p class="guideNote">お子さまの会員は、保護者様の番号で登録されている場合があります。<br>
+           照合が済むと、次回からは自動で会員が表示されます。</p>`,
+    buttons: [
+      { label: "電話番号を入力する", onClick: () => { closeGuide_(); focusPhoneInput_(); } }
+    ]
+  });
+}
+
+/** 電話番号に一致する会員が無いとき：入れ直し or 認証コード */
+function showPhoneNotFoundGuide_(phone){
+  revealCodeRoute_();
+  openGuide_({
+    icon: "🔍", iconWarn: true,
+    title: "会員が見つかりませんでした",
+    html: `<p>入力された番号 <b>${escapeHtml(phone)}</b> では、会員情報が見つかりませんでした。</p>
+           <ol class="guideSteps">
+             <li><b>会員登録時の電話番号</b>で入力し直す
+               <small>お子さまの会員は、保護者様の番号（緊急連絡先）で登録されている場合があります。</small>
+             </li>
+             <li>それでも照合できない場合は<b>「認証コード」</b>で照合
+               <small>${CODE_HOWTO_HTML_}</small>
+             </li>
+             <li>どちらも難しい場合は、スタッフ・受付にお声がけください。</li>
+           </ol>`,
+    buttons: [
+      { label: "番号を入力し直す", onClick: () => { closeGuide_(); focusPhoneInput_(); } },
+      { label: "🔑 認証コードで照合する", kind: "ghost", onClick: () => openRedeemCode_() },
+      { label: "閉じる", kind: "text" }
+    ]
+  });
+}
+
+/** 決済時：このスマホが会員と未照合 → 電話番号で照合へ */
+function showLinkRequiredGuide_(){
+  const nameEl = document.getElementById("memberNameText");
+  const name = nameEl ? String(nameEl.textContent || "").trim() : "";
+  const who = name ? `「${escapeHtml(name)}」さんの` : "この";
+  openGuide_({
+    icon: "🔗", iconWarn: true,
+    title: "このスマホの照合が必要です",
+    html: `<p>このスマホ（LINE）は、まだ${who}会員情報と照合されていないため、お支払い手続きを開始できませんでした。</p>
+           <p><b>会員登録時の電話番号</b>で照合してください（初回のみ）。</p>`,
+    buttons: [
+      { label: "電話番号で照合する", onClick: () => {
+          closeGuide_();
+          const u = new URL(location.href);
+          u.searchParams.delete("member_id");
+          u.searchParams.delete("memberId");
+          u.searchParams.delete("switch");
+          u.searchParams.set("link", "1");
+          location.replace(u.toString());
+        } },
+      { label: "閉じる", kind: "text" }
+    ]
+  });
+}
+
+/** ==========================================================
+ *  ★★ 表示中の会員に対して、このスマホを電話番号で照合
+ *   ・プラン変更（ポータル）や認証コード発行の前に、未照合なら一度だけ確認
+ *   ・照合できなければ認証コードへ
+ *  ========================================================== */
+let verifyingPhone = false;
+
+function openVerifyPhone_(opt){
+  opt = opt || {};
+  const nameEl = document.getElementById("memberNameText");
+  const name = nameEl ? String(nameEl.textContent || "").trim() : "";
+  const who = name ? `<b>${escapeHtml(name)}</b> さんの` : "この";
+  const lead = (opt.reason === "invite")
+    ? `家族のスマホを追加するには、このスマホで一度だけ${who}会員照合が必要です。`
+    : `プラン変更・解約・カード変更は、会員照合が済んだスマホから操作できます。<br>このスマホで一度だけ${who}会員照合をお願いします。`;
+
+  openGuide_({
+    icon: "🔐",
+    title: "会員照合をお願いします",
+    html: `<p>${lead}</p>
+           <p><b>会員登録時の電話番号</b>（ハイフンなし）を入力してください。</p>
+           <input id="verifyPhoneInput" class="codeInput" type="tel" inputmode="numeric"
+                  placeholder="09012345678" autocomplete="tel" style="letter-spacing:.08em;font-size:22px;" />
+           <div id="verifyPhoneErr" class="guideErr"></div>
+           <p class="guideNote" style="margin-top:10px;">お子さまの会員は、保護者様の番号で登録されている場合があります。</p>`,
+    buttons: [
+      { label: "照合する", id: "verifyPhoneOk", onClick: () => submitVerifyPhone_(opt) },
+      { label: "🔑 認証コードで照合する", id: "verifyToCode", kind: "ghost", hidden: true, onClick: () => openRedeemCode_() },
+      { label: "閉じる", kind: "text" }
+    ]
+  });
+
+  const inp = document.getElementById("verifyPhoneInput");
+  if (inp) {
+    inp.addEventListener("input", () => {
+      const err = document.getElementById("verifyPhoneErr");
+      if (err) err.classList.remove("show");
+    });
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); submitVerifyPhone_(opt); }
+    });
+    setTimeout(() => { try { inp.focus(); } catch(_) {} }, 200);
+  }
+}
+
+async function submitVerifyPhone_(opt){
+  if (verifyingPhone) return;
+  const inp = document.getElementById("verifyPhoneInput");
+  const err = document.getElementById("verifyPhoneErr");
+  const showErr = (m) => { if (err) { err.textContent = m; err.classList.add("show"); } };
+  const phone = normalizeJpPhone_(inp ? inp.value : "");
+  if (phone.length < 10 || phone.length > 11) {
+    showErr("電話番号は10〜11桁の数字で入力してください。");
+    return;
+  }
+  const mid = String(memberId || "").trim();
+  if (!mid || !lineUserId) {
+    showErr("会員情報が確定していません。画面を再読み込みしてください。");
+    return;
+  }
+
+  const btn = document.getElementById("verifyPhoneOk");
+  verifyingPhone = true;
+  if (btn) { btn.disabled = true; btn.textContent = "照合中…"; }
+  try {
+    const url = new URL(GAS_EXEC);
+    url.searchParams.set("api", "verify_member_phone");
+    url.searchParams.set("token", API_TOKEN_PAY);   // EITHER許可
+    url.searchParams.set("userId", lineUserId);
+    url.searchParams.set("member_id", mid);
+    url.searchParams.set("phone", phone);
+    const res = await jsonp(url.toString());
+
+    if (res && res.status === "success") {
+      closeGuide_();
+      showToast("会員照合が完了しました。", "ok");
+      if (typeof opt.onVerified === "function") opt.onVerified();
+      return;
+    }
+    // 照合できない → 認証コードの導線を出す
+    showErr((res && res.message) ? String(res.message) : "照合できませんでした。");
+    if (res && (res.code === "phone_mismatch" || res.code === "too_many_attempts")) {
+      const toCode = document.getElementById("verifyToCode");
+      if (toCode) toCode.style.display = "";
+    }
+  } catch (e) {
+    showErr("通信に失敗しました。電波の良い場所で再度お試しください。");
+  } finally {
+    verifyingPhone = false;
+    const b = document.getElementById("verifyPhoneOk");
+    if (b) { b.disabled = false; b.textContent = "照合する"; }
+  }
+}
+
+/** ==========================================================
+ *  ★★ 認証コードで照合（電話番号で照合できなかった端末：父のスマホなど）
+ *   ご家族のスマホに表示された6桁を、そのまま打ち込むだけ（LINEで送る必要なし）
+ *  ========================================================== */
+let redeeming = false;
+
+function openRedeemCode_(prefill){
+  const pre = String(prefill || "").replace(/[^\d]/g, "").slice(0, 6);
+  openGuide_({
+    icon: "🔑",
+    title: "認証コードで照合",
+    html: `<p>ご家族のスマホに表示された<b>6桁の認証コード</b>を入力してください。</p>
+           <input id="familyCodeInput" class="codeInput" type="tel" inputmode="numeric"
+                  maxlength="6" placeholder="000000" autocomplete="one-time-code" value="${escapeHtml(pre)}" />
+           <div id="familyCodeErr" class="guideErr"></div>
+           <p class="guideNote" style="margin-top:10px;">${CODE_HOWTO_HTML_}</p>`,
+    buttons: [
+      { label: "このコードで照合する", id: "familyCodeOk", onClick: () => redeemFamilyCode_() },
+      { label: "戻る", kind: "text", onClick: () => { closeGuide_(); focusPhoneInput_(); } }
+    ]
+  });
+
+  const inp = document.getElementById("familyCodeInput");
+  if (inp) {
+    inp.addEventListener("input", () => {
+      inp.value = normalizePhoneInput_(inp.value).slice(0, 6);
+      const err = document.getElementById("familyCodeErr");
+      if (err) err.classList.remove("show");
+    });
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); redeemFamilyCode_(); }
+    });
+    setTimeout(() => { try { inp.focus(); } catch(_) {} }, 200);
+  }
+}
+
+function showRedeemErr_(msg){
+  const err = document.getElementById("familyCodeErr");
+  if (err) { err.textContent = msg; err.classList.add("show"); }
+}
+
+async function redeemFamilyCode_(){
+  if (redeeming) return;
+  const inp = document.getElementById("familyCodeInput");
+  const code = normalizePhoneInput_(inp ? inp.value : "").slice(0, 6);
+  if (!/^\d{6}$/.test(code)) {
+    showRedeemErr_("認証コードは6桁の数字です。");
+    return;
+  }
+  if (!lineUserId) {
+    showRedeemErr_("LINE情報を取得できていません。LINEアプリを再起動してお試しください。");
+    return;
+  }
+
+  const btn = document.getElementById("familyCodeOk");
+  redeeming = true;
+  if (btn) { btn.disabled = true; btn.textContent = "照合中…"; }
+
+  try {
+    const url = new URL(GAS_EXEC);
+    url.searchParams.set("api", "redeem_family_invite");
+    url.searchParams.set("token", API_TOKEN_PAY);   // EITHER許可
+    url.searchParams.set("userId", lineUserId);
+    url.searchParams.set("code", code);
+    const res = await jsonp(url.toString());
+
+    if (res && res.status === "success" && res.member_id) {
+      const mid  = String(res.member_id).trim();
+      const name = String(res.member_name || "").trim();
+      if (name) { try { sessionStorage.setItem('sol_pay_mname_' + mid, name); } catch(_){} }
+      openGuide_({
+        icon: "🎉",
+        title: "照合が完了しました",
+        html: `<p>${name ? `<b>${escapeHtml(name)}</b> さんの` : ""}会員として、このスマホでも<b>SoL Pay（プラン変更を含む）</b>と<b>レッスンのチェックイン</b>が使えるようになりました。</p>
+               <p class="guideNote">次回からは、このスマホでSoL Payを開くだけで自動で会員が表示されます。</p>`,
+        buttons: [{ label: "SoL Payをはじめる", onClick: () => { closeGuide_(); replaceUrlWithMemberId_(mid); } }]
+      });
+      return;
+    }
+
+    showRedeemErr_((res && res.message) ? String(res.message) : "照合に失敗しました。時間をおいて再度お試しください。");
+  } catch (e) {
+    showRedeemErr_("通信に失敗しました。電波の良い場所で再度お試しください。");
+  } finally {
+    redeeming = false;
+    const b = document.getElementById("familyCodeOk");
+    if (b) { b.disabled = false; b.textContent = "このコードで照合する"; }
+  }
+}
+
+/** ==========================================================
+ *  ★★ 家族のスマホを追加（照合済み端末側：母のスマホなど）
+ *   認証コードを画面に表示 → ご家族のスマホで打ち込んでもらう
+ *  ========================================================== */
+let issuingInvite = false;
+
+function openFamilyInvite_(){
+  const nameEl = document.getElementById("memberNameText");
+  const name = nameEl ? String(nameEl.textContent || "").trim() : "";
+  openGuide_({
+    icon: "👨‍👩‍👧",
+    title: "家族のスマホを追加",
+    html: `<p>電話番号で照合できないご家族のスマホでも、${name ? `<b>${escapeHtml(name)}</b> さんの` : "この"}会員として<b>SoL Pay・チェックイン</b>が使えるようになります。</p>
+           <ol class="guideSteps">
+             <li>下のボタンで<b>6桁の認証コード</b>を表示<small>30分間有効・1回のみ使えます</small></li>
+             <li>ご家族のスマホでSoL Payを開き、電話番号の照合ができなかったときに出る「🔑 認証コードで照合する」を押す</li>
+             <li>このスマホに表示された6桁を、ご家族のスマホで入力<small>LINEで送る必要はありません。画面を見せて入力するだけでOKです。</small></li>
+           </ol>
+           <p class="guideNote">※コードを知っている人は誰でもこの会員として照合できます。ご家族以外には見せないでください。</p>`,
+    buttons: [
+      { label: "認証コードを表示する", id: "familyIssueBtn", onClick: () => issueFamilyInvite_() },
+      { label: "閉じる", kind: "text" }
+    ]
+  });
+}
+
+async function issueFamilyInvite_(){
+  if (issuingInvite) return;
+  const mid = String(memberId || "").trim();
+  if (!mid || !lineUserId) {
+    showToast("会員情報が確定していません。画面を再読み込みしてください。", "bad");
+    return;
+  }
+  const btn = document.getElementById("familyIssueBtn");
+  issuingInvite = true;
+  if (btn) { btn.disabled = true; btn.textContent = "発行中…"; }
+
+  try {
+    const url = new URL(GAS_EXEC);
+    url.searchParams.set("api", "issue_family_invite");
+    url.searchParams.set("token", API_TOKEN_PAY);   // EITHER許可
+    url.searchParams.set("userId", lineUserId);
+    url.searchParams.set("member_id", mid);
+    const res = await jsonp(url.toString());
+
+    if (res && res.status === "success" && res.code) {
+      showInviteCode_(res);
+      return;
+    }
+    // このスマホ自体が未照合 → 電話番号で照合してから発行し直す
+    if (res && res.code === "not_verified") {
+      issuingInvite = false;
+      openVerifyPhone_({ reason: "invite", onVerified: () => issueFamilyInvite_() });
+      return;
+    }
+    openGuide_({
+      icon: "⚠️", iconWarn: true,
+      title: "認証コードを発行できませんでした",
+      html: `<p>${escapeHtml((res && res.message) ? res.message : "時間をおいて再度お試しください。")}</p>`,
+      buttons: [{ label: "閉じる" }]
+    });
+  } catch (e) {
+    openGuide_({
+      icon: "📶", iconWarn: true,
+      title: "通信に失敗しました",
+      html: `<p>電波の良い場所で、もう一度お試しください。</p>`,
+      buttons: [
+        { label: "もう一度試す", onClick: () => openFamilyInvite_() },
+        { label: "閉じる", kind: "text" }
+      ]
+    });
+  } finally {
+    issuingInvite = false;
+  }
+}
+
+function buildInviteMessage_(code, expiresHm){
+  const link = `https://liff.line.me/${LIFF_ID}?invite_code=${encodeURIComponent(code)}`;
+  return `【SoL Pay 認証コード】\n${code}\n\n下のリンクからSoL Payを開くと、コードが自動で入力されます。\n${link}\n\n` +
+         (expiresHm ? `有効期限：本日 ${expiresHm} まで（1回のみ）` : `有効期限：発行から30分（1回のみ）`);
+}
+
+function showInviteCode_(res){
+  const code = String(res.code || "").trim();
+  const hm = formatHm_(res.expires_at);
+  const ttl = Number(res.ttl_min) || 30;
+  const msg = buildInviteMessage_(code, hm);
+
+  openGuide_({
+    icon: "🔑",
+    title: "認証コード",
+    html: `<p style="text-align:center;margin-bottom:6px;">ご家族のスマホで、この6桁を入力してください</p>
+           <div class="inviteCodeBox">${escapeHtml(code)}</div>
+           <div class="inviteExpire">${hm ? `有効期限：${escapeHtml(hm)} まで（${ttl}分・1回のみ）` : `発行から${ttl}分間有効・1回のみ`}</div>
+           <p class="guideNote">ご家族のスマホ：SoL Payを開く → 電話番号で照合できなかったら「🔑 認証コードで照合する」→ この6桁を入力</p>`,
+    buttons: [
+      { label: "閉じる" },
+      { label: "離れている場合：LINEで送る", kind: "text", onClick: () => shareInviteMessage_(msg) }
+    ]
+  });
+}
+
+async function shareInviteMessage_(text){
+  // ① shareTargetPicker（LIFFコンソールで有効化されていれば友だち選択画面が出る）
+  try {
+    if (liff && liff.isApiAvailable && liff.isApiAvailable("shareTargetPicker")) {
+      const r = await liff.shareTargetPicker([{ type: "text", text }]);
+      if (r) showToast("認証コードを送信しました。", "ok");
+      return;
+    }
+  } catch(_) { /* ②へ */ }
+
+  // ② LINEの共有画面（設定不要のフォールバック）
+  const url = "https://line.me/R/share?text=" + encodeURIComponent(text);
+  try {
+    liff.openWindow({ url, external: false });
+  } catch(_) {
+    location.href = url;
+  }
 }
 </script>
 </body>
