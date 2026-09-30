@@ -451,6 +451,32 @@
       /* 既存 .modalBtn のグラデーションを使用 */
     }
 
+    /* ★ 電話番号がわからない場合の別ルート（お名前検索・家族の認証コード） */
+    .modalAltRow{
+      display: flex;
+      gap: 8px;
+      margin: -4px 0 14px;
+    }
+    .modalAltBtn{
+      flex: 1;
+      appearance: none; -webkit-appearance: none;
+      border: 1px dashed rgba(45,212,191,.40);
+      background: rgba(45,212,191,.05);
+      color: #9ff3e6;
+      border-radius: 12px;
+      padding: 9px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .modalAltBtn:active{ opacity: .75; }
+    #codeModal .modalCard{
+      max-width: 440px;
+      padding: 22px 20px 20px;
+    }
+
     .btn{
       width:100%; margin-top:14px; border:0; border-radius:16px; padding:14px;
       font-size:16px; font-weight:900; color:#0b0d12; cursor:pointer;
@@ -496,7 +522,10 @@
 }
 
 .wrap{
-  animation: pageIn .28s ease-out both;
+  /* ★修正: fill-mode を both → backwards に。
+     both だとアニメ終了後も transform が残り、.wrap 内の position:fixed モーダルが
+     「画面」ではなく「.wrap」基準で中央寄せされ、上端が画面外に切れていた */
+  animation: pageIn .28s ease-out backwards;
 }
 @keyframes pageIn{
   from{ opacity:0; transform: translateY(8px); }
@@ -871,18 +900,6 @@
           </div>
         </div>
 
-        <!-- ★ クラス選択モーダル（レッスン前後チェックイン対応） -->
-        <div id="classSelectModal" class="modal">
-          <div class="modalCard">
-            <div class="modalTitle">クラスを選択</div>
-            <div class="modalText" id="classSelectText">チェックインするクラスを選択してください。</div>
-            <div id="classSelectList" style="margin-top:10px;"></div>
-            <div style="display:flex; gap:10px; margin-top:14px;">
-              <button class="modalBtn modalBtnNo" id="classSelectCancel" type="button">やめる</button>
-            </div>
-          </div>
-        </div>
-
         <!-- ★ お名前検索モーダル（電話番号で会員が見つからない場合の救済） -->
         <div id="nameModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
           <div class="modalCard">
@@ -897,6 +914,9 @@
             </div>
             <div class="phoneModalErrorText" id="nameModalErrorText"></div>
             <div class="phoneModalHint">2文字以上で入力してください。</div>
+            <div class="modalAltRow">
+              <button class="modalAltBtn" id="nameAltCode" type="button">🔑 認証コードで照合する</button>
+            </div>
             <div class="phoneModalActions">
               <button class="modalBtn phoneModalCancel" id="nameModalCancel" type="button">戻る</button>
               <button class="modalBtn phoneModalOk" id="nameModalOk" type="button">この名前で検索する</button>
@@ -923,10 +943,39 @@
                      autocomplete="off" autocorrect="off" autocapitalize="off" />
             </div>
             <div class="phoneModalErrorText" id="phoneModalErrorText"></div>
-            <div class="phoneModalHint">緊急連絡先と同じ番号でないと会員特定できません。</div>
+            <div class="phoneModalHint">会員登録時の「緊急連絡先」の番号です。<br>お子さまの会員は、保護者様の番号の場合があります。</div>
+            <!-- ★ 番号がわからない・一致しない場合の別ルート -->
+            <div class="modalAltRow" id="phoneAltRow" style="display:none;">
+              <button class="modalAltBtn" id="phoneAltName" type="button">お名前で<br>検索する</button>
+              <button class="modalAltBtn" id="phoneAltCode" type="button">🔑 認証コードで<br>照合する</button>
+            </div>
             <div class="phoneModalActions">
               <button class="modalBtn phoneModalCancel" id="phoneModalCancel" type="button">キャンセル</button>
               <button class="modalBtn phoneModalOk" id="phoneModalOk" type="button">この番号で確認する</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ★ 認証コード入力モーダル（照合済みのご家族のSoL Payに表示された6桁を打ち込む） -->
+        <div id="codeModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="codeModalTitle">
+          <div class="modalCard">
+            <div class="phoneModalIcon" aria-hidden="true" style="font-size:26px;">🔑</div>
+            <div class="phoneModalTitle" id="codeModalTitle">認証コードで照合</div>
+            <div class="phoneModalText">
+              ご家族のスマホに表示された<b>6桁の認証コード</b>を入力してください。
+            </div>
+            <div class="phoneModalField" id="codeModalField">
+              <input id="codeModalInput" type="tel" inputmode="numeric" maxlength="6"
+                     placeholder="000000"
+                     autocomplete="one-time-code" autocorrect="off" autocapitalize="off" />
+            </div>
+            <div class="phoneModalErrorText" id="codeModalErrorText"></div>
+            <div class="phoneModalHint">
+              認証コードは、照合済みのご家族のスマホで<br>SoL Pay →「家族のスマホを追加」から表示できます（30分間有効）。
+            </div>
+            <div class="phoneModalActions">
+              <button class="modalBtn phoneModalCancel" id="codeModalCancel" type="button">戻る</button>
+              <button class="modalBtn phoneModalOk" id="codeModalOk" type="button">このコードで照合する</button>
             </div>
           </div>
         </div>
@@ -1018,11 +1067,11 @@
   let LINE_DISPLAY_NAME = "";
   let TODAY_WD = "";
 
+  let PHONE_FAILED       = false;  // ★電話番号で照合できなかった（→お名前検索・認証コードの導線を出す）
   let TARGET_MEMBER_ID   = "";     // このチェックインの対象member_id（複数会員LINE・候補確定時にセット）
   let PENDING_ROW_INDEX  = 0;      // 初回紐付け候補のA側行番号（confirm=1で確定）
   let PENDING_CONFIRM    = false;  // 候補確定フラグ
   let FORCE_UNRESOLVED   = false;  // クラス未判別を承知でチェックインするフラグ
-  let SELECTED_CLASS_ID  = "";     // ★クラス選択ポップアップで選んだclass_id（レッスン前後チェックイン対応）
   let CHECKIN_REQ_ID     = newReqId_();  // 冪等キー（対象会員が変わるたびに再生成）
   let LINKED_MEMBERS     = [];     // 成功時にサーバーから返る「このLINEに紐付く会員一覧」
   let CURRENT_CLASS      = { class_id:"", class_name:"", class_resolved:false, stamp_count:1 };
@@ -1064,7 +1113,7 @@
     else $("phoneModalTitle").textContent = "初回登録：電話番号";
 
     if (opts.text) $("phoneModalText").innerHTML = opts.text;
-    else $("phoneModalText").innerHTML = "初めてのチェックインです。<br>会員登録時の電話番号（ハイフンなし）を入力してください。";
+    else $("phoneModalText").innerHTML = "このスマホでは初めてのチェックインです。<br>会員登録時の電話番号（ハイフンなし）を入力してください。";
 
     if (opts.okLabel) $("phoneModalOk").textContent = opts.okLabel;
     else $("phoneModalOk").textContent = "この番号で確認する";
@@ -1073,6 +1122,9 @@
     $("phoneModalInput").value = $("phoneInput").value || "";
     hidePhoneModalError_();
     $("phoneModalField").classList.remove("error");
+
+    // ★ 会員照合は電話番号が基本。照合できなかった後だけ「お名前検索・認証コード」を出す
+    $("phoneAltRow").style.display = PHONE_FAILED ? "flex" : "none";
 
     $("phoneModal").classList.add("show");
 
@@ -1320,6 +1372,115 @@
   $("nameModalInput").addEventListener("input", () => hideNameModalError_());
 
   // ==========================================================
+  // ★ 別ルート導線（電話番号がわからない・一致しない家族向け）
+  // ==========================================================
+  $("phoneAltName").onclick = () => { openNameModal(); };
+  $("phoneAltCode").onclick = () => { openCodeModal(); };
+  $("nameAltCode").onclick  = () => { hideNameModal(); openCodeModal(); };
+
+  // ==========================================================
+  // ★ 家族の認証コードモーダル
+  //   redeem_family_invite → member_line_links に attendance で登録 → そのまま自動チェックイン
+  // ==========================================================
+  let CODE_IN_FLIGHT = false;
+
+  function openCodeModal(){
+    hidePhoneModal();
+    hideNameModal();
+    $("codeModalInput").value = "";
+    hideCodeModalError_();
+    $("codeModal").classList.add("show");
+    setTimeout(() => { try { $("codeModalInput").focus(); } catch(_) {} }, 180);
+  }
+  function hideCodeModal(){
+    $("codeModal").classList.remove("show");
+    hideCodeModalError_();
+  }
+  function showCodeModalError_(msg){
+    const el = $("codeModalErrorText");
+    if (el) { el.textContent = msg || "認証コードを確認してください。"; el.classList.add("show"); }
+    $("codeModalField").classList.add("error");
+  }
+  function hideCodeModalError_(){
+    const el = $("codeModalErrorText");
+    if (el) el.classList.remove("show");
+    $("codeModalField").classList.remove("error");
+  }
+
+  $("codeModalCancel").onclick = () => {
+    hideCodeModal();
+    showPhoneModal();
+  };
+  $("codeModalInput").addEventListener("input", () => {
+    const el = $("codeModalInput");
+    el.value = String(el.value || "")
+      .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+      .replace(/[^\d]/g, "")
+      .slice(0, 6);
+    hideCodeModalError_();
+  });
+  $("codeModalInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); $("codeModalOk").click(); }
+  });
+  $("codeModal").addEventListener("click", (e) => {
+    if (e.target && e.target.id === "codeModal") $("codeModalCancel").click();
+  });
+
+  $("codeModalOk").onclick = async () => {
+    if (CODE_IN_FLIGHT) return;
+    const code = String($("codeModalInput").value || "").replace(/[^\d]/g, "");
+    if (!/^\d{6}$/.test(code)) {
+      showCodeModalError_("認証コードは6桁の数字です。");
+      return;
+    }
+    if (!LINE_USER_ID) {
+      showCodeModalError_("LINE情報を取得できていません。ページを開き直してください。");
+      return;
+    }
+
+    CODE_IN_FLIGHT = true;
+    $("codeModalOk").disabled = true;
+    $("codeModalOk").textContent = "確認中…";
+    try {
+      const url =
+        `${API_URL}?api=redeem_family_invite` +
+        `&token=${encodeURIComponent(API_TOKEN)}` +
+        `&userId=${encodeURIComponent(LINE_USER_ID)}` +
+        `&code=${encodeURIComponent(code)}`;
+      const r = await jsonp(url);
+
+      if (r && r.status === "success" && r.member_id) {
+        const mid  = String(r.member_id).trim();
+        const name = String(r.member_name || "").trim();
+        hideCodeModal();
+
+        // 電話番号経路の状態をリセットし、登録された会員でチェックインを続行
+        $("phoneInput").value = "";
+        PENDING_CONFIRM = false;
+        PENDING_ROW_INDEX = 0;
+        TARGET_MEMBER_ID = mid;
+        CHECKIN_REQ_ID = newReqId_();
+        updateTargetDisplay_(name, "", mid);
+
+        showPayModal(
+          "照合が完了しました",
+          (name ? `${name} さんの` : "") +
+          "会員として、このスマホでもチェックインとSoL Pay（プラン変更を含む）が使えるようになりました。\n\nOKを押すとチェックインを続けます。",
+          () => runAutoCheckin()
+        );
+        return;
+      }
+      showCodeModalError_((r && r.message) ? String(r.message) : "登録に失敗しました。時間をおいて再度お試しください。");
+    } catch (e) {
+      showCodeModalError_("通信に失敗しました。電波の良い場所で再度お試しください。");
+    } finally {
+      CODE_IN_FLIGHT = false;
+      $("codeModalOk").disabled = false;
+      $("codeModalOk").textContent = "このコードで照合する";
+    }
+  };
+
+  // ==========================================================
   // 表示系ユーティリティ
   // ==========================================================
   function showBanner(text, type){
@@ -1513,19 +1674,13 @@
     card.style.display = "block";
     card.classList.toggle("unresolved", !CURRENT_CLASS.class_resolved);
 
-    // ★クラス選択待ち（select_class）のときは「未判別」ではなく「クラス選択」と表示
-    const selecting = !CURRENT_CLASS.class_resolved &&
-                      Array.isArray(res.class_options) && res.class_options.length > 0;
-
     $("autoClassName").textContent = CURRENT_CLASS.class_resolved
       ? CURRENT_CLASS.class_name
-      : (selecting ? "クラス選択" : "クラス未判別");
+      : "クラス未判別";
 
     const metaParts = [];
     if (CURRENT_CLASS.class_resolved && CURRENT_CLASS.stamp_count >= 2) metaParts.push("2クラス分");
-    if (!CURRENT_CLASS.class_resolved) metaParts.push(selecting
-      ? "チェックインするクラスを選択してください"
-      : "代講・振替の場合はそのままチェックインできます");
+    if (!CURRENT_CLASS.class_resolved) metaParts.push("代講・振替の場合はそのままチェックインできます");
     $("autoClassMeta").textContent = metaParts.join("　/　");
   }
 
@@ -1619,7 +1774,6 @@
     PENDING_ROW_INDEX = 0;
     PENDING_CONFIRM   = false;
     FORCE_UNRESOLVED  = false;
-    SELECTED_CLASS_ID = "";   // ★別会員は改めてクラス選択（別クラスの兄弟にも対応）
     CHECKIN_REQ_ID    = newReqId_();
     $("phoneInput").value = "";
     hideBanner();
@@ -1671,76 +1825,6 @@
   }
 
   // ==========================================================
-  // ★ クラス選択モーダル（レッスン前後チェックイン対応）
-  //   1クラス目終了後など自動確定できない場合に、本日のクラス一覧から
-  //   選択してもらう。「今の時間」に最も近いクラスを強調表示する。
-  // ==========================================================
-  function openClassSelect_(options, message){
-    const modal = $("classSelectModal");
-    $("classSelectText").textContent = message || "チェックインするクラスを選択してください。";
-
-    const box = $("classSelectList");
-    box.innerHTML = "";
-
-    (options || []).forEach(o => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn";
-      btn.style.width = "100%";
-      btn.style.marginTop = "8px";
-      btn.style.textAlign = "left";
-      btn.style.lineHeight = "1.5";
-      if (o.suggested) btn.style.border = "1.5px solid rgba(255,255,255,.85)";
-
-      const time = (o.start_time && o.end_time) ? `${o.start_time}〜${o.end_time}　` : "";
-      const inst = o.instructor ? `（${o.instructor}）` : "";
-      btn.textContent = `${time}${o.class_name}${inst}` + (o.suggested ? "　◀ 今の時間" : "");
-
-      btn.onclick = async () => {
-        modal.classList.remove("show");
-        FORCE_UNRESOLVED  = false;
-        SELECTED_CLASS_ID = String(o.class_id || "");
-        // 選択したクラスを即カード表示に反映（class_optionsなし＝確定表示になる）
-        updateClassDisplay_({
-          class_id:       o.class_id,
-          class_name:     o.class_name,
-          class_resolved: true,
-          stamp_count:    o.stamp_count || 1
-        });
-        await runAutoCheckin();
-      };
-      box.appendChild(btn);
-    });
-
-    // 一覧にないケース（代講・振替など）→ 従来どおり未判別のままチェックイン
-    const btnOther = document.createElement("button");
-    btnOther.type = "button";
-    btnOther.className = "btn";
-    btnOther.style.width = "100%";
-    btnOther.style.marginTop = "8px";
-    btnOther.style.background = "rgba(255,255,255,.06)";
-    btnOther.textContent = "この中にない（代講・振替など）";
-    btnOther.onclick = async () => {
-      modal.classList.remove("show");
-      SELECTED_CLASS_ID = "";
-      FORCE_UNRESOLVED  = true;   // 未判別のまま記録（後でスタッフが確定）
-      await runAutoCheckin();
-    };
-    box.appendChild(btnOther);
-
-    // キャンセル（多重リスナー防止のためcloneで張り替え）
-    const cancelOld = $("classSelectCancel");
-    const cancel = cancelOld.cloneNode(true);
-    cancelOld.parentNode.replaceChild(cancel, cancelOld);
-    cancel.addEventListener("click", () => {
-      modal.classList.remove("show");
-      showRetryButton_("チェックインを中断しました。「もう一度チェックインする」から再開できます。");
-    });
-
-    modal.classList.add("show");
-  }
-
-  // ==========================================================
   // ★ 自動チェックイン本体
   // ==========================================================
   async function runAutoCheckin(){
@@ -1767,7 +1851,6 @@
         (TARGET_MEMBER_ID ? `&member_id=${encodeURIComponent(TARGET_MEMBER_ID)}` : "") +
         ((PENDING_CONFIRM && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "") +
         (FORCE_UNRESOLVED ? `&force_unresolved=1` : "") +
-        (SELECTED_CLASS_ID ? `&class_id=${encodeURIComponent(SELECTED_CLASS_ID)}` : "") +
         `&request_id=${encodeURIComponent(CHECKIN_REQ_ID)}`;
 
       let res = null;
@@ -1838,6 +1921,7 @@
 
     // 2) 電話番号で会員が見つからない → お名前検索へ誘導（エラーで止めない）
     if (res && res.status === "phone_not_found") {
+      PHONE_FAILED = true;
       $("phoneWrap").style.display = "block";
       $("nameSearchBtn").style.display = "block";
       hideOverlay();
@@ -1864,13 +1948,6 @@
       return;
     }
 
-    // 4.5) クラス選択（レッスン前後チェックイン：1クラス目終了後など）
-    if (res && res.status === "select_class") {
-      hideOverlay();
-      openClassSelect_(res.class_options || [], res.message || "");
-      return;
-    }
-
     // 5) クラス未判別 → 確認して続行
     if (res && res.status === "confirm_unresolved") {
       hideOverlay();
@@ -1884,6 +1961,21 @@
       markDoneToday_(CURRENT_CLASS.class_id);
       showSuccess(res.message || "本日はこのクラスのチェックインは完了しています。", "チェックイン済み");
       maybeShowNextMemberButton_();
+      return;
+    }
+
+    // 7-a) 会員特定に関するエラー → 赤バナーで止めず、電話番号モーダルで再誘導（お名前検索・認証コードの導線付き）
+    if (res && res.status === "error" && /電話番号|登録に失敗|別アカウント/.test(String(res.message || ""))) {
+      PHONE_FAILED = true;
+      $("phoneWrap").style.display = "block";
+      $("nameSearchBtn").style.display = "block";
+      hideOverlay();
+      showRetryButton_();
+      showPhoneModal({
+        title: "会員情報を確認できませんでした",
+        text: "番号を確認して入力し直すか、下の「お名前で検索する」<br>「認証コードで照合する」をお試しください。"
+      });
+      showPhoneModalError_(String(res.message || ""));
       return;
     }
 
