@@ -539,6 +539,18 @@
     .successBox h3{ margin:6px 0; font-size:18px; font-weight:900; }
     .successBox p{ margin:0; color:var(--muted); font-size:13px; line-height:1.6; }
     .successCountdown{ margin-top:10px; font-size:12px; color:var(--muted); }
+
+    /* ★★ V3: クラスカード内の「クラスを変更」ボタン（2クラス以上ある日だけ表示） */
+    .classChangeBtn{
+      display:none; margin-top:10px;
+      -webkit-appearance:none; appearance:none;
+      border:1px solid rgba(255,255,255,.22); border-radius:999px;
+      background: rgba(255,255,255,.06); color: inherit;
+      font-size:12px; font-weight:700; padding:7px 14px; cursor:pointer;
+      font-family: inherit; touch-action: manipulation;
+    }
+    .classChangeBtn.show{ display:inline-block; }
+    .classChangeBtn:active{ background: rgba(255,255,255,.12); }
   </style>
 </head>
 
@@ -578,6 +590,8 @@
           <div class="autoClassLabel">判別されたクラス</div>
           <div id="autoClassName" class="autoClassName">判別中…</div>
           <div id="autoClassMeta" class="autoClassMeta"></div>
+          <!-- ★★ V3: 自動判別と違うクラスを受講する場合（早く来た・レッスン後・2クラス目など） -->
+          <button id="btnChangeClass" class="classChangeBtn" type="button">クラスを変更</button>
         </div>
 
         <div id="checkinNotice" class="notice ok hide">
@@ -736,6 +750,7 @@
   let MANUAL_FEE = null;           // 手動上書き（合計額）。nullなら自動
   let FORCE_UNRESOLVED = false;    // クラス未判別を承知でチェックイン
   let SELECTED_CLASS_ID = "";      // ★クラス選択ポップアップで選んだclass_id（レッスン前後チェックイン対応）
+  let TODAY_CLASS_OPTIONS = [];    // ★V3: 本日の全クラス（「クラスを変更」用。2クラス以上ある日だけ入る）
   let CHECKIN_REQ_ID = newReqId_();
   let STAMP_TIMER = null;
 
@@ -1080,6 +1095,7 @@
         modal.classList.remove("show");
         FORCE_UNRESOLVED  = false;
         SELECTED_CLASS_ID = String(o.class_id || "");
+        CHECKIN_REQ_ID    = newReqId_();   // ★V3: 対象クラスが変わったので冪等キーを更新
         // 選択クラスを即カード・料金表示に反映（stamp_count 2なら料金2倍が正しく出る）
         applyClassInfo_({
           class_id:       o.class_id,
@@ -1105,6 +1121,7 @@
       modal.classList.remove("show");
       SELECTED_CLASS_ID = "";
       FORCE_UNRESOLVED  = true;   // 未判別のまま記録（後でスタッフが確定）
+      CHECKIN_REQ_ID    = newReqId_();   // ★V3: 対象クラスが変わったので冪等キーを更新
       applyClassInfo_({ class_id:"", class_name:"", class_resolved:false, stamp_count:1 });
       setNotice("warn", "クラス未判別のまま進みます", "クラスは後ほどスタッフが確定します。");
       if (typeof onPicked === "function") await onPicked();
@@ -1243,6 +1260,20 @@
       }
 
       if (res && res.status === "already"){
+        // ★V3: 2クラス以上ある日は完了画面に飛ばさず、別のクラスを選べるようにフォームに留まる
+        //   （両方受講する人の2回目チェックイン。自動では別クラスに記録しない）
+        const doneId = String(res.class_id || "");
+        const others = TODAY_CLASS_OPTIONS.filter(function(o){ return String(o.class_id || "") !== doneId; });
+        if (others.length > 0){
+          setStatus("チェックイン済み");
+          setNotice(
+            "warn",
+            "このクラスはチェックイン済みです",
+            "「" + (res.class_name || "このクラス") + "」は本日チェックイン済みです。",
+            "別のクラスも受講する場合は、上の「クラスを変更」から選んでチェックインしてください。"
+          );
+          return;
+        }
         setStatus("チェックイン済み");
         showSuccess_("チェックイン済み", res.message || "本日はこのクラスのチェックインは完了しています。");
         return;
@@ -1289,6 +1320,10 @@
     if (res.fees) FEES = res.fees;
     applyClassInfo_(res);
 
+    // ★V3: 2クラス以上ある日だけ「クラスを変更」を出す
+    TODAY_CLASS_OPTIONS = Array.isArray(res.today_class_options) ? res.today_class_options : [];
+    $("btnChangeClass").classList.toggle("show", TODAY_CLASS_OPTIONS.length >= 2);
+
     // 氏名・区分のサジェスト（このLINEに紐付く会員が1件だけのとき）
     if (res.suggest_name && !String($("nameInput").value || "").trim()){
       $("nameInput").value = res.suggest_name;
@@ -1327,6 +1362,12 @@
       nameDebounce = setTimeout(function(){ refreshPlanNotice_(); }, 700);
     });
     $("btnCheckin").addEventListener("click", doCheckin_);
+    // ★V3: 自動判別と違うクラスを選び直す（選択のみ。送信は「チェックイン」ボタンで行う）
+    $("btnChangeClass").addEventListener("click", function(){
+      if (RUNNING || TODAY_CLASS_OPTIONS.length < 2) return;
+      hideNotice();
+      openClassSelect_(TODAY_CLASS_OPTIONS, null);
+    });
     $("btnStampNow").addEventListener("click", function(){
       if (STAMP_TIMER){ clearTimeout(STAMP_TIMER); STAMP_TIMER = null; }
       openStamp_();
