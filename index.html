@@ -765,6 +765,62 @@
       animation: solPulse 1.6s ease-in-out infinite;
     }
     @keyframes solPulse{ 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+    /* ★★ V3: クラス選択モーダル（境目の時間帯・クラス変更で使用） */
+    #classSelectModal{
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    #classSelectModal .modalCard{
+      background: linear-gradient(180deg, #141821, #0d1016);
+      border: 1px solid rgba(255,255,255,.16);
+      box-shadow: 0 24px 80px rgba(0,0,0,.7);
+      max-height: calc(100vh - 36px);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .classSelectList{ display:grid; grid-template-columns:1fr; gap:10px; margin-top:14px; }
+    .classSelectList .classCard{
+      -webkit-appearance:none; appearance:none;
+      width:100%; text-align:left; color:var(--text); font-family:inherit;
+      padding:16px 14px; min-height:64px;
+      touch-action: manipulation;
+    }
+    .classSelectList .className{ font-size:18px; }
+    .classSelectList .classMeta{ font-size:13px; margin-top:4px; }
+    .phaseBadge{
+      font-size:11px; font-weight:900; padding:5px 8px; border-radius:999px;
+      line-height:1; white-space:nowrap;
+      color: rgba(234,240,255,.85);
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.14);
+    }
+    .phaseBadge.now{
+      color:#0b0d12; border-color: transparent;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+    }
+    .classSelectOther{
+      -webkit-appearance:none; appearance:none;
+      width:100%; margin-top:10px; padding:12px;
+      border:1px dashed rgba(255,255,255,.22); border-radius:14px;
+      background: rgba(255,255,255,.03); color: rgba(234,240,255,.82);
+      font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;
+      touch-action: manipulation;
+    }
+    .classSelectOther:active{ background: rgba(255,255,255,.08); }
+
+    /* ★★ V3: 完了画面の記録クラス表示・追加チェックイン／クラス変更ボタン */
+    .successView p{ white-space: pre-line; }
+    .successClass{
+      display:none; margin: 2px 0 8px;
+      font-size:22px; font-weight:900; line-height:1.3;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .successActions{ display:none; margin-top:6px; }
+    .successActions.show{ display:block; }
   </style>
 </head>
 
@@ -900,6 +956,19 @@
           </div>
         </div>
 
+        <!-- ★★ V3: クラス選択モーダル（境目の時間帯の選択・クラス変更で使用） -->
+        <div id="classSelectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="classSelectTitle">
+          <div class="modalCard">
+            <div class="classConfirmTitle" id="classSelectTitle">受講するクラスを選択</div>
+            <div class="classConfirmMeta" id="classSelectText"></div>
+            <div id="classSelectList" class="classSelectList"></div>
+            <button class="classSelectOther" id="classSelectOther" type="button">この中にない（代講・振替など）</button>
+            <div style="display:flex; gap:10px; margin-top:12px;">
+              <button class="modalBtn modalBtnNo" id="classSelectCancel" type="button">やめる</button>
+            </div>
+          </div>
+        </div>
+
         <!-- ★ お名前検索モーダル（電話番号で会員が見つからない場合の救済） -->
         <div id="nameModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
           <div class="modalCard">
@@ -983,8 +1052,12 @@
         <div id="successView" class="successView">
           <div class="check">✓</div>
           <h3 id="successTitle">チェックイン完了</h3>
+          <!-- ★★ V3: 記録されたクラス名 -->
+          <div id="successClass" class="successClass"></div>
           <p id="successMsg">スタンプを付与します…</p>
           <div class="countdown" id="countdown"></div>
+          <!-- ★★ V3: 追加チェックイン（2回目スキャン）・クラス変更のボタン置き場 -->
+          <div id="successActions" class="successActions"></div>
           <!-- ★ 兄弟・親子など同一LINEで複数会員をチェックインする場合 -->
           <button id="nextMemberBtn" class="nextMemberBtn" style="display:none;" type="button">
             続けて別の会員をチェックイン
@@ -1072,7 +1145,10 @@
   let PENDING_ROW_INDEX  = 0;      // 初回紐付け候補のA側行番号（confirm=1で確定）
   let PENDING_CONFIRM    = false;  // 候補確定フラグ
   let FORCE_UNRESOLVED   = false;  // クラス未判別を承知でチェックインするフラグ
-  let CHECKIN_REQ_ID     = newReqId_();  // 冪等キー（対象会員が変わるたびに再生成）
+  let SELECTED_CLASS_ID  = "";     // ★V3: 本人がクラスカード／ボタンで選んだclass_id（空なら時刻で自動判別）
+  let CLASS_CHANGE_OPTIONS = [];   // ★V3: 完了画面の「クラスを変更」候補（サーバーから返る。空ならボタン非表示）
+  let CHANGE_IN_FLIGHT   = false;  // ★V3: クラス変更の二重送信防止
+  let CHECKIN_REQ_ID     = newReqId_();  // 冪等キー（対象会員・対象クラスが変わるたびに再生成）
   let LINKED_MEMBERS     = [];     // 成功時にサーバーから返る「このLINEに紐付く会員一覧」
   let CURRENT_CLASS      = { class_id:"", class_name:"", class_resolved:false, stamp_count:1 };
   let AUTO_IN_FLIGHT     = false;  // 二重送信防止
@@ -1674,13 +1750,18 @@
     card.style.display = "block";
     card.classList.toggle("unresolved", !CURRENT_CLASS.class_resolved);
 
+    // ★V3: クラス選択待ち（select_class）のときは「未判別」ではなく「クラスを選択」と表示
+    const selecting = !CURRENT_CLASS.class_resolved && res.status === "select_class";
+
     $("autoClassName").textContent = CURRENT_CLASS.class_resolved
       ? CURRENT_CLASS.class_name
-      : "クラス未判別";
+      : (selecting ? "クラスを選択" : "クラス未判別");
 
     const metaParts = [];
     if (CURRENT_CLASS.class_resolved && CURRENT_CLASS.stamp_count >= 2) metaParts.push("2クラス分");
-    if (!CURRENT_CLASS.class_resolved) metaParts.push("代講・振替の場合はそのままチェックインできます");
+    if (!CURRENT_CLASS.class_resolved) metaParts.push(selecting
+      ? "受講するクラスを選んでください"
+      : "代講・振替の場合はそのままチェックインできます");
     $("autoClassMeta").textContent = metaParts.join("　/　");
   }
 
@@ -1714,12 +1795,93 @@
     $("successView").classList.add("show");
     $("successTitle").textContent = title || "チェックイン完了";
     $("successMsg").textContent = message || "スタンプを付与します…";
+    clearSuccessExtras_();   // ★V3: クラス名・追加ボタンは毎回リセット（必要な画面だけ後から描画）
   }
   function showForm_(){
     $("successView").classList.remove("show");
     $("nextMemberBtn").style.display = "none";
     $("countdown").textContent = "";
+    clearSuccessExtras_();   // ★V3
     $("formBox").style.display = "block";
+  }
+
+  // ==========================================================
+  // ★★ V3: 完了画面の追加表示（記録クラス名・追加チェックイン・クラス変更）
+  // ==========================================================
+  function clearSuccessExtras_(){
+    const cls = $("successClass");
+    if (cls) { cls.textContent = ""; cls.style.display = "none"; }
+    const box = $("successActions");
+    if (box) { box.innerHTML = ""; box.classList.remove("show"); }
+  }
+  function setSuccessClass_(name){
+    const cls = $("successClass");
+    if (!cls) return;
+    cls.textContent = name || "";
+    cls.style.display = name ? "block" : "none";
+  }
+  function addSuccessAction_(label, primary, onClick){
+    const box = $("successActions");
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = primary ? "btn" : "nextMemberBtn";
+    b.textContent = label;
+    b.addEventListener("click", onClick);
+    box.appendChild(b);
+    box.classList.add("show");
+    return b;
+  }
+
+  // スタンプ付与前の完了画面：記録されたクラス名と「クラスを変更」
+  //  2クラス以上ある日だけサーバーが候補を返す（CLASS_CHANGE_OPTIONS）。
+  function renderSuccessClass_(){
+    if (!CURRENT_CLASS.class_resolved || !CURRENT_CLASS.class_name) return;
+    setSuccessClass_(CURRENT_CLASS.class_name);
+
+    const opts = Array.isArray(CLASS_CHANGE_OPTIONS) ? CLASS_CHANGE_OPTIONS : [];
+    if (!opts.length) return;
+    addSuccessAction_("クラスが違う場合はこちら（変更）", false, () => {
+      // スタンプ遷移を止めてから変更モーダルを開く
+      if (STAMP_TIMER) { clearTimeout(STAMP_TIMER); STAMP_TIMER = null; }
+      openChangeClass_({
+        fromId:     CURRENT_CLASS.class_id,
+        fromName:   CURRENT_CLASS.class_name,
+        options:    opts,
+        afterStamp: false
+      });
+    });
+  }
+
+  // 2回目以降のスキャン：「◯◯はチェックイン済み」＋残りクラスのボタン
+  //  ※自動では2クラス目を記録しない（再読み込み・誤スキャン対策）
+  function showAlreadyToday_(res){
+    const opts = Array.isArray(res.class_options) ? res.class_options : [];
+    const doneName = String(res.class_name || "");
+
+    showSuccess(res.message || "本日はチェックイン済みです。", "チェックイン済み");
+    setSuccessClass_(doneName);
+
+    // 残りのクラスに追加でチェックイン（両方受講する人）
+    opts.forEach(o => {
+      const time = (o.start_time && o.end_time) ? `（${o.start_time}〜${o.end_time}）` : "";
+      addSuccessAction_(`${o.class_name} にチェックイン${time}`, true, async () => {
+        SELECTED_CLASS_ID = String(o.class_id || "");
+        FORCE_UNRESOLVED  = false;
+        CHECKIN_REQ_ID    = newReqId_();   // 別クラスのチェックイン＝別リクエスト（前回の冪等キャッシュに吸われないように）
+        showForm_();
+        await runAutoCheckin();
+      });
+    });
+
+    // 記録されたクラスが違っていた人（変更元が一意に決まるときだけサーバーが返す）
+    const fromId = String(res.change_from_class_id || "");
+    if (fromId && opts.length) {
+      addSuccessAction_(`${doneName} ではなかった場合（クラスを変更）`, false, () => {
+        openChangeClass_({ fromId: fromId, fromName: doneName, options: opts, afterStamp: true });
+      });
+    }
+
+    maybeShowNextMemberButton_();
   }
 
   function openStamp(){
@@ -1751,6 +1913,7 @@
 
   function goStamp_(){
     showSuccess("スタンプを付与します…");
+    renderSuccessClass_();   // ★V3: 記録されたクラス名＋「クラスを変更」
     if (STAMP_TIMER) clearTimeout(STAMP_TIMER);
     STAMP_TIMER = setTimeout(() => { STAMP_TIMER = null; openStamp(); }, REDIRECT_DELAY_MS);
     startCountdown(REDIRECT_DELAY_MS);
@@ -1774,6 +1937,8 @@
     PENDING_ROW_INDEX = 0;
     PENDING_CONFIRM   = false;
     FORCE_UNRESOLVED  = false;
+    SELECTED_CLASS_ID = "";        // ★V3: 別会員は改めて時刻判別（前の会員の選択を引き継がない）
+    CLASS_CHANGE_OPTIONS = [];     // ★V3
     CHECKIN_REQ_ID    = newReqId_();
     $("phoneInput").value = "";
     hideBanner();
@@ -1791,6 +1956,166 @@
         title: "会員の電話番号",
         text: "チェックインする会員の登録電話番号（ハイフンなし）を入力してください。"
       });
+    }
+  }
+
+  // ==========================================================
+  // ★★ V3: クラス選択モーダル（クラスカード）
+  //   ・境目の時間帯（前のクラス終了15分前〜次のクラス開始15分後）の選択
+  //   ・クラス変更（完了画面／2回目スキャン画面）
+  //  cfg: { title, text, options, allowOther, cancelLabel, onPick(o), onOther(), onCancel() }
+  // ==========================================================
+  function phaseLabel_(phase){
+    if (phase === "now")    return "開催中";
+    if (phase === "before") return "このあと";
+    if (phase === "after")  return "終了";
+    return "";
+  }
+
+  function buildClassCard_(o, onPick){
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "classCard" + (o.phase === "now" ? " today" : "");
+
+    const left = document.createElement("div");
+    const nm = document.createElement("div");
+    nm.className = "className";
+    nm.textContent = o.class_name || "クラス";
+    const meta = document.createElement("div");
+    meta.className = "classMeta";
+    const time = (o.start_time && o.end_time) ? `${o.start_time}〜${o.end_time}` : "";
+    meta.textContent = [time, o.instructor || ""].filter(Boolean).join("　/　");
+    left.appendChild(nm);
+    left.appendChild(meta);
+
+    const right = document.createElement("div");
+    right.className = "rightWrap";
+    if (Number(o.stamp_count) >= 2) {
+      const d = document.createElement("span");
+      d.className = "doubleClassBadge";
+      d.textContent = "2クラス分";
+      right.appendChild(d);
+    }
+    const pl = phaseLabel_(o.phase);
+    if (pl) {
+      const b = document.createElement("span");
+      b.className = "phaseBadge" + (o.phase === "now" ? " now" : "");
+      b.textContent = pl;
+      right.appendChild(b);
+    }
+
+    card.appendChild(left);
+    card.appendChild(right);
+    card.addEventListener("click", () => onPick(o));
+    return card;
+  }
+
+  function openClassSelect_(cfg){
+    cfg = cfg || {};
+    const modal = $("classSelectModal");
+    $("classSelectTitle").textContent = cfg.title || "受講するクラスを選択";
+    $("classSelectText").textContent  = cfg.text  || "";
+
+    const close = () => modal.classList.remove("show");
+
+    const box = $("classSelectList");
+    box.innerHTML = "";
+    (cfg.options || []).forEach(o => {
+      box.appendChild(buildClassCard_(o, (picked) => {
+        close();
+        if (typeof cfg.onPick === "function") cfg.onPick(picked);
+      }));
+    });
+
+    // cloneNodeでリスナーを毎回剥がしてから付け直す（多重登録防止）
+    const otherOld  = $("classSelectOther");
+    const cancelOld = $("classSelectCancel");
+    const other  = otherOld.cloneNode(true);
+    const cancel = cancelOld.cloneNode(true);
+    otherOld.parentNode.replaceChild(other, otherOld);
+    cancelOld.parentNode.replaceChild(cancel, cancelOld);
+
+    other.style.display = cfg.allowOther ? "block" : "none";
+    other.addEventListener("click", () => {
+      close();
+      if (typeof cfg.onOther === "function") cfg.onOther();
+    });
+    cancel.textContent = cfg.cancelLabel || "やめる";
+    cancel.addEventListener("click", () => {
+      close();
+      if (typeof cfg.onCancel === "function") cfg.onCancel();
+    });
+
+    modal.classList.add("show");
+  }
+
+  // ==========================================================
+  // ★★ V3: クラス変更（自動判別・選択ミスで違うクラスに記録されたとき）
+  //  ctx: { fromId, fromName, options, afterStamp }
+  //   afterStamp=false … 完了画面（スタンプ付与前）。変更後／取消後はスタンプ付与へ進む
+  //   afterStamp=true  … 2回目スキャン画面（スタンプ取得済み）。スタンプへは進まない
+  // ==========================================================
+  function openChangeClass_(ctx){
+    openClassSelect_({
+      title: "クラスを変更",
+      text: `「${ctx.fromName}」のチェックインを、選んだクラスに変更します。`,
+      options: ctx.options || [],
+      allowOther: false,
+      cancelLabel: "変更しない",
+      onPick: (o) => { submitChangeClass_(ctx, o); },
+      onCancel: () => { if (!ctx.afterStamp) goStamp_(); }
+    });
+  }
+
+  async function submitChangeClass_(ctx, o){
+    if (CHANGE_IN_FLIGHT) return;
+    CHANGE_IN_FLIGHT = true;
+    showOverlay();
+
+    let r = null;
+    try {
+      const url =
+        `${API_URL}?api=change_checkin_class` +
+        `&token=${encodeURIComponent(API_TOKEN)}` +
+        `&userId=${encodeURIComponent(LINE_USER_ID)}` +
+        (TARGET_MEMBER_ID ? `&member_id=${encodeURIComponent(TARGET_MEMBER_ID)}` : "") +
+        `&from_class_id=${encodeURIComponent(String(ctx.fromId || ""))}` +
+        `&to_class_id=${encodeURIComponent(String(o.class_id || ""))}`;
+      r = await jsonp(url);
+    } catch (e) {
+      r = null;
+    } finally {
+      CHANGE_IN_FLIGHT = false;
+      hideOverlay();
+    }
+
+    if (r && r.status === "success") {
+      updateClassDisplay_(r);      // CURRENT_CLASS を変更後のクラスに更新（stamp_count 含む）
+      CLASS_CHANGE_OPTIONS = [];   // 変更は1回で十分（再変更はQRを読み直す）
+      if (ctx.afterStamp) {
+        const stampNote = (Number(r.old_stamp_count || 1) !== Number(r.stamp_count || 1))
+          ? "\nスタンプ数が変わります。受付にお声がけください。"
+          : "";
+        showSuccess((r.message || "クラスを変更しました。") + stampNote, "クラスを変更しました");
+        setSuccessClass_(CURRENT_CLASS.class_name);
+        maybeShowNextMemberButton_();
+      } else {
+        goStamp_();                // 変更後のクラスのスタンプ数でスタンプ付与へ
+      }
+      return;
+    }
+
+    // 失敗：チェックイン自体は元のクラスで成立しているので、案内して元の流れに戻す
+    const msg = (r && r.message) ? r.message : "通信に失敗しました。クラスは変更されていません。";
+    if (ctx.afterStamp) {
+      showPayModal("クラスを変更できませんでした", msg, null, true);
+    } else {
+      showPayModal(
+        "クラスを変更できませんでした",
+        msg + "\n\nOKを押すとスタンプ付与へ移動します。",
+        () => goStamp_(),
+        true
+      );
     }
   }
 
@@ -1851,6 +2176,7 @@
         (TARGET_MEMBER_ID ? `&member_id=${encodeURIComponent(TARGET_MEMBER_ID)}` : "") +
         ((PENDING_CONFIRM && PENDING_ROW_INDEX) ? `&confirm=1&rowIndex=${encodeURIComponent(PENDING_ROW_INDEX)}` : "") +
         (FORCE_UNRESOLVED ? `&force_unresolved=1` : "") +
+        (SELECTED_CLASS_ID ? `&class_id=${encodeURIComponent(SELECTED_CLASS_ID)}` : "") +   // ★V3
         `&request_id=${encodeURIComponent(CHECKIN_REQ_ID)}`;
 
       let res = null;
@@ -1948,6 +2274,42 @@
       return;
     }
 
+    // 4.5) ★V3: クラスの境目の時間帯 → クラスカードで選択
+    //   （これまでこの分岐が無く、select_class が「失敗」扱いになってチェックインできなかった）
+    if (res && res.status === "select_class") {
+      hideOverlay();
+      openClassSelect_({
+        title: "受講するクラスを選択",
+        text: "レッスン後のチェックインは、受講したクラスを選んでください。",
+        options: res.class_options || [],
+        allowOther: true,
+        onPick: async (o) => {
+          SELECTED_CLASS_ID = String(o.class_id || "");
+          FORCE_UNRESOLVED  = false;
+          CHECKIN_REQ_ID    = newReqId_();
+          await runAutoCheckin();
+        },
+        onOther: async () => {
+          // 一覧にない（代講・振替など）→ 従来どおり未判別のまま記録（後でスタッフが確定）
+          SELECTED_CLASS_ID = "";
+          FORCE_UNRESOLVED  = true;
+          await runAutoCheckin();
+        },
+        onCancel: () => {
+          showRetryButton_("チェックインを中断しました。「もう一度チェックインする」から再開できます。");
+        }
+      });
+      return;
+    }
+
+    // 4.6) ★V3: 2回目以降のスキャン（本日すでに別クラスにチェックイン済み）
+    if (res && res.status === "already_today") {
+      LINKED_MEMBERS = Array.isArray(res.linked_members) ? res.linked_members : LINKED_MEMBERS;
+      hideOverlay();
+      showAlreadyToday_(res);
+      return;
+    }
+
     // 5) クラス未判別 → 確認して続行
     if (res && res.status === "confirm_unresolved") {
       hideOverlay();
@@ -1992,6 +2354,8 @@
     // ==========================================================
     markDoneToday_(CURRENT_CLASS.class_id);
     LINKED_MEMBERS = Array.isArray(res.linked_members) ? res.linked_members : [];
+    // ★V3: 完了画面の「クラスを変更」候補（2クラス以上ある日だけ返る）
+    CLASS_CHANGE_OPTIONS = Array.isArray(res.class_change_options) ? res.class_change_options : [];
     PENDING_CONFIRM = false;
     PENDING_ROW_INDEX = 0;
     hideOverlay();
