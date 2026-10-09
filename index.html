@@ -763,6 +763,7 @@
     .solOverlay-label{
       font-size:13px; color:rgba(255,255,255,0.55); letter-spacing:.1em;
       animation: solPulse 1.6s ease-in-out infinite;
+      white-space: pre-line; text-align: center; line-height: 1.7; padding: 0 24px; /* ★修正K: 再試行メッセージを表示 */
     }
     @keyframes solPulse{ 0%,100%{opacity:0.4} 50%{opacity:1} }
 
@@ -833,7 +834,7 @@
         <div class="solOverlay-ring"></div>
         <div class="solOverlay-ring"></div>
       </div>
-      <div class="solOverlay-label">読み込み中</div>
+      <div class="solOverlay-label" id="solOverlayLabel">読み込み中</div>
     </div>
 
   <div class="wrap">
@@ -1079,7 +1080,15 @@
 <script>
 
   function showOverlay(){ var e=document.getElementById('solOverlay'); if(e) e.classList.add('active'); }
-  function hideOverlay(){ var e=document.getElementById('solOverlay'); if(e) e.classList.remove('active'); }
+  function hideOverlay(){
+    var e=document.getElementById('solOverlay'); if(e) e.classList.remove('active');
+    setOverlayLabel_("");   // ★修正K: 次回表示用に「読み込み中」へ戻す
+  }
+  // ★修正K: ローディング幕の文言を更新（従来は幕の裏の miniLoading にしか出ず、再試行中も「読み込み中」のままだった）
+  function setOverlayLabel_(text){
+    var l=document.getElementById('solOverlayLabel');
+    if(l) l.textContent = text || "読み込み中";
+  }
  
 
 /**
@@ -1156,6 +1165,39 @@
 
   function newReqId_(){
     return "rid_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+  }
+
+  // ==========================================================
+  // ★★ 修正K: 「スタンプ前のチェックイン」を端末に覚えておく
+  //   ローディング中に画面を閉じた／通信が切れた人が QR を読み直したとき、
+  //   同じ request_id で送り直す → サーバーが「記録済みの同じチェックイン」と判定して
+  //   成功を返す → スタンプへ進める（従来は「チェックイン済み」で止まりスタンプなし）。
+  //   スタンプ画面を開いた時点・別の会員に切り替えた時点で消す。当日分のみ有効。
+  // ==========================================================
+  const PENDING_CK_KEY = "sol_ck_pending_v1";
+  let RESUMED_PENDING = false;   // 起動時に未完了のチェックインを引き継いだか（サーバーへ retry=1 を送る）
+
+  function savePendingCheckin_(){
+    try {
+      localStorage.setItem(PENDING_CK_KEY, JSON.stringify({
+        rid:       CHECKIN_REQ_ID,
+        date:      formatJstYmdCompact_(),
+        uid:       LINE_USER_ID,
+        member_id: TARGET_MEMBER_ID || "",
+        ts:        Date.now()
+      }));
+    } catch(_) {}
+  }
+  function loadPendingCheckin_(){
+    try {
+      const o = JSON.parse(localStorage.getItem(PENDING_CK_KEY) || "null");
+      if (o && o.rid && o.date === formatJstYmdCompact_() && o.uid && o.uid === LINE_USER_ID) return o;
+    } catch(_) {}
+    return null;
+  }
+  function clearPendingCheckin_(){
+    try { localStorage.removeItem(PENDING_CK_KEY); } catch(_) {}
+    RESUMED_PENDING = false;
   }
 
   const $ = (id) => document.getElementById(id);
@@ -1573,9 +1615,11 @@
   function showMiniLoading(text){
     $("miniLoadingText").textContent = text || "同期中…";
     $("miniLoading").style.display = "flex";
+    setOverlayLabel_(text || "");   // ★修正K: 幕の上にも同じ文言を出す
   }
   function hideMiniLoading(){
     $("miniLoading").style.display = "none";
+    setOverlayLabel_("");   // ★修正K
   }
 
   function showRetryButton_(msg){
@@ -1588,14 +1632,14 @@
     $("checkinBtn").style.display = "none";
   }
 
-  function jsonp(url){
+  function jsonp(url, timeoutMs){
     return new Promise((resolve, reject) => {
       const cb = "cb_" + Math.random().toString(36).slice(2);
       const script = document.createElement("script");
       const timer = setTimeout(() => {
         cleanup();
         reject(new Error("JSONP timeout"));
-      }, JSONP_TIMEOUT_MS);
+      }, Number(timeoutMs) > 0 ? Number(timeoutMs) : JSONP_TIMEOUT_MS);   // ★修正K: 呼び出しごとに指定可
 
       function cleanup(){
         clearTimeout(timer);
@@ -1885,6 +1929,7 @@
   }
 
   function openStamp(){
+    clearPendingCheckin_();   // ★修正K: スタンプへ進んだので「未完了」の記録を消す
     const url = (Number(CURRENT_CLASS.stamp_count) >= 2)
       ? STAMP_URL_DOUBLE
       : STAMP_URL;
@@ -1932,6 +1977,7 @@
   }
 
   function startNextMemberFlow_(){
+    clearPendingCheckin_();   // ★修正K: 別の会員へ切り替え（従来どおり前の会員のスタンプ遷移はキャンセル）
     // 状態リセット（冪等キーも必ず再生成）
     TARGET_MEMBER_ID  = "";
     PENDING_ROW_INDEX = 0;
@@ -2164,10 +2210,14 @@
     try {
       const phone = normalizePhone($("phoneInput").value);
 
-      const CHECKIN_MAX_RETRY = 5;
+      // ★修正K: 1回の待ち時間を 22秒 → 30秒、回数を 5 → 4回に。
+      //   混雑時にGASが20秒台で返すケースでタイムアウト→再送→サーバー負荷増、の悪循環を避ける。
+      //   （再送はサーバー側で「同じチェックイン」として吸収されるので二重記録にはならない）
+      const CHECKIN_MAX_RETRY = 4;
       const CHECKIN_BASE_WAIT_MS = 3500;
+      const CHECKIN_JSONP_TIMEOUT_MS = 30000;
 
-      const url =
+      const baseUrl =
         `${API_URL}?api=auto_checkin` +
         `&token=${encodeURIComponent(API_TOKEN)}` +
         `&userId=${encodeURIComponent(LINE_USER_ID)}` +
@@ -2179,25 +2229,31 @@
         (SELECTED_CLASS_ID ? `&class_id=${encodeURIComponent(SELECTED_CLASS_ID)}` : "") +   // ★V3
         `&request_id=${encodeURIComponent(CHECKIN_REQ_ID)}`;
 
+      // ★修正K: 送信前に「未完了のチェックイン」として端末に保存（閉じて開き直しても同じIDで再開）
+      savePendingCheckin_();
+
       let res = null;
 
       // busy / timeout の自動再試行（同一request_idで再送→GAS側冪等チェックが機能）
       for (let attempt = 1; attempt <= CHECKIN_MAX_RETRY; attempt++) {
         if (attempt > 1) {
-          showMiniLoading(`混雑中のため自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
+          showMiniLoading(`混雑中のため自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…\n画面を閉じずにお待ちください`);
         }
+        // ★修正K: 2回目以降・開き直しは retry=1（サーバーが当日の記録を確認して同じチェックインなら成功を返す）
+        const url = baseUrl + ((attempt > 1 || RESUMED_PENDING) ? `&retry=1` : "");
         try {
-          res = await jsonp(url);
+          res = await jsonp(url, CHECKIN_JSONP_TIMEOUT_MS);
         } catch (err) {
           if (attempt < CHECKIN_MAX_RETRY) {
             const waitMs = Math.min(CHECKIN_BASE_WAIT_MS * attempt, 12000)
                          + Math.floor(Math.random() * 2000);
-            showMiniLoading(`通信エラー・自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
+            showMiniLoading(`通信が混み合っています・自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…\n画面を閉じずにお待ちください`);
             await new Promise(r => setTimeout(r, waitMs));
             continue;
           }
           showRetryButton_("通信に失敗しました。電波の良い場所で「もう一度チェックインする」を押してください。");
-          showBanner("通信に失敗しました。電波の良い場所で再度お試しください。", "danger");
+          // ★修正K: 同じIDで送り直すので、押し直しても二重に記録されないことを明記
+          showBanner("通信に失敗しました。「もう一度チェックインする」を押してください（二重に記録されることはありません）。", "danger");
           return;
         }
 
@@ -2205,12 +2261,13 @@
           if (attempt < CHECKIN_MAX_RETRY) {
             const retryAfterMs = Number(res.retry_after || 3) * 1000;
             const jitter = Math.floor(Math.random() * 2000);
-            showMiniLoading(`混雑中のため自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…`);
+            showMiniLoading(`混雑中のため自動再試行中 (${attempt}/${CHECKIN_MAX_RETRY})…\n画面を閉じずにお待ちください`);
             await new Promise(r => setTimeout(r, retryAfterMs + jitter));
             continue;
           }
           showRetryButton_("混雑しています。少し待ってから「もう一度チェックインする」を押してください。");
-          showBanner("チェックインに失敗しました。受付へお声がけください。", "danger");
+          // ★修正K: 処理が裏で完了している可能性があるため「失敗」と断定しない
+          showBanner("混み合っています。少し待って「もう一度チェックインする」を押してください（二重に記録されることはありません）。", "danger");
           return;
         }
 
@@ -2219,6 +2276,10 @@
 
       await dispatchAutoCheckinResponse_(res, phone);
 
+    } catch (e) {
+      // ★修正K: 想定外のエラーでローディング幕が残り続けないようにする
+      try { console.error(e); } catch(_) {}
+      showRetryButton_("エラーが発生しました。「もう一度チェックインする」を押してください。");
     } finally {
       AUTO_IN_FLIGHT = false;
       hideMiniLoading();
@@ -2286,7 +2347,8 @@
         onPick: async (o) => {
           SELECTED_CLASS_ID = String(o.class_id || "");
           FORCE_UNRESOLVED  = false;
-          CHECKIN_REQ_ID    = newReqId_();
+          // ★修正K: request_id は作り直さない（同じチェックインの続き）。
+          //   先行リクエストが裏で記録済みだった場合に二重記録にならず、その記録で成功が返る。
           await runAutoCheckin();
         },
         onOther: async () => {
@@ -2304,6 +2366,7 @@
 
     // 4.6) ★V3: 2回目以降のスキャン（本日すでに別クラスにチェックイン済み）
     if (res && res.status === "already_today") {
+      clearPendingCheckin_();   // ★修正K: 別リクエストで記録済み（＝このIDの未完了分ではない）
       LINKED_MEMBERS = Array.isArray(res.linked_members) ? res.linked_members : LINKED_MEMBERS;
       hideOverlay();
       showAlreadyToday_(res);
@@ -2319,6 +2382,7 @@
 
     // 6) すでにチェックイン済み
     if (res && res.status === "already") {
+      clearPendingCheckin_();   // ★修正K
       LINKED_MEMBERS = Array.isArray(res.linked_members) ? res.linked_members : LINKED_MEMBERS;
       markDoneToday_(CURRENT_CLASS.class_id);
       showSuccess(res.message || "本日はこのクラスのチェックインは完了しています。", "チェックイン済み");
@@ -2364,7 +2428,11 @@
     if (phoneUsed) {
       try {
         showMiniLoading("LINE連携中…");
-        const linkRes = await issueLinkCodeAndSend_(phoneUsed);
+        // ★修正K: 連携処理が詰まってもスタンプ遷移を止めない（最大10秒で打ち切り。チェックインは完了済み）
+        const linkRes = await Promise.race([
+          issueLinkCodeAndSend_(phoneUsed),
+          new Promise(r => setTimeout(() => r({ ok:false, reason:'link_timeout' }), 10000))
+        ]);
         if (!linkRes.ok && FORCE_PHONE) {
           showBanner("LINE連携でエラーが発生しましたが、チェックインは完了しています。", "info");
         }
@@ -2476,6 +2544,16 @@
         text: "force_phone=1 のため電話番号の入力が必要です。"
       });
       return;
+    }
+
+    // ★★ 修正K: 前回スタンプまで進めなかったチェックイン（当日・同じLINE）があれば同じIDで再開
+    //   → サーバーが「記録済みの同じチェックイン」と判定すれば成功が返り、スタンプへ進める
+    //   ※会員（member_id）は引き継がない：記録されていなかった場合に、兄弟の別の会員を
+    //     勝手にチェックインしないため（複数会員のLINEは従来どおり会員選択から）
+    const pend = loadPendingCheckin_();
+    if (pend) {
+      CHECKIN_REQ_ID  = String(pend.rid);
+      RESUMED_PENDING = true;
     }
 
     // ★ QR読込＝チェックイン意思とみなし、自動でチェックイン処理を開始
