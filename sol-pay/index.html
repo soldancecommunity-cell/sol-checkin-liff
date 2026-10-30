@@ -809,6 +809,24 @@
     .guideSteps li small{ display: block; margin-top: 3px; font-size: 11px; color: var(--muted); line-height: 1.55; }
     .guideNote{ font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 4px; }
     .guideActions{ display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+    /* ★ 月謝の対象月（今月分／来月分）の選択 2026-10-29 */
+    .monthPick{ display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .monthOpt{
+      appearance: none; -webkit-appearance: none;
+      width: 100%; text-align: left;
+      border-radius: 16px; padding: 14px 14px 13px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.05);
+      color: var(--text); cursor: pointer; touch-action: manipulation;
+      font-family: inherit;
+    }
+    .monthOpt.reco{ border-color: rgba(45,212,191,.75); background: rgba(45,212,191,.10); }
+    .monthOpt:disabled{ opacity: .5; cursor: default; }
+    .monthOptHead{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 16px; font-weight: 900; }
+    .monthOptBadge{ font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #0b0d12; }
+    .monthOptDesc{ margin-top: 6px; font-size: 12.5px; line-height: 1.6; color: rgba(234,240,255,.88); }
+    .monthOptWarn{ margin-top: 6px; font-size: 12px; line-height: 1.55; color: #fbbf24; font-weight: 700; }
+    .monthPickPlan{ text-align: center; font-size: 13px; color: var(--muted); margin: -2px 0 10px; }
     .guideBtn{
       appearance: none; -webkit-appearance: none;
       border: 0; border-radius: 14px;
@@ -1114,7 +1132,7 @@
         <div>
           <div class="manualNoteTitle">クレジットカードをお持ちでない方向け</div>
           <div class="manualNoteDesc">
-            <strong>こちらは当月分のみの都度払い</strong>です。毎月手動でのお支払いが必要になります。可能であればカード・Apple Payタブからのお申し込みを推奨しています。<br><br>
+            <strong>こちらは1か月分ずつの都度払い</strong>です（お支払いのときに「今月分」か「来月分」を選べます）。毎月手動でのお支払いが必要になります。可能であればカード・Apple Payタブからのお申し込みを推奨しています。<br><br>
           
             <strong>単発決済で月謝をお支払いいただく方へ</strong><br>
             クレジットカードの月額決済が利用できない方は、単発決済にて月謝をお支払いいただけます。<br>
@@ -1137,7 +1155,7 @@
           <div class="top">
             <div>
               <h3>月4回プラン</h3>
-              <div class="meta">月4回まで・当月のみ有効</div>
+              <div class="meta">月4回まで・選んだ月のみ有効</div>
             </div>
             <div class="price">
               <div class="yen">¥6,000</div>
@@ -1160,7 +1178,7 @@
           <div class="top">
             <div>
               <h3>月8回プラン</h3>
-              <div class="meta">月8回まで・当月のみ有効</div>
+              <div class="meta">月8回まで・選んだ月のみ有効</div>
             </div>
             <div class="price">
               <div class="yen">¥9,900</div>
@@ -1183,7 +1201,7 @@
           <div class="top">
             <div>
               <h3>月12回プラン</h3>
-              <div class="meta">月12回まで・当月のみ有効</div>
+              <div class="meta">月12回まで・選んだ月のみ有効</div>
             </div>
             <div class="price">
               <div class="yen">¥15,000</div>
@@ -1206,7 +1224,7 @@
           <div class="top">
             <div>
               <h3>通い放題</h3>
-              <div class="meta">回数制限なし・当月のみ有効</div>
+              <div class="meta">回数制限なし・選んだ月のみ有効</div>
             </div>
             <div class="price">
               <div class="yen">¥19,800</div>
@@ -1935,6 +1953,102 @@ function escapeJs_(s){
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'");
 }
+/* ==========================================================
+ *  ★ 月謝の対象月（今月分／来月分）2026-10-29
+ *  月謝のボタンを押したら、何月分の月謝かを選んでもらう。
+ *  月の後半に「今月分」を買ってしまい、ほとんど使えないまま1か月分を払うのを防ぐ。
+ *  （サーバーも同じ決まりで確かめる：月謝の対象月.js）
+ *  ========================================================== */
+const MONTHLY_CARD_PLANS = ["month4", "month8", "month12", "unlimited"];
+function isMonthlyPlan_(plan){
+  const p = String(plan || "");
+  return MONTHLY_CARD_PLANS.indexOf(p) >= 0 || /^(month4|month8|month12|unlimited)_manual$/.test(p);
+}
+
+/** 日本時間の今（スマホの時刻設定が日本以外でも日本時間で数える） */
+function jstNow_(){
+  const d = new Date(Date.now() + 9 * 3600 * 1000);
+  return { ms: Date.now(), y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes() };
+}
+function ymStr_(y, m){ return String(y) + String(m).padStart(2, "0"); }
+/** その月の1日 hour 時（日本時間）のミリ秒 */
+function jstMonthStartMs_(y, m, hour){ return Date.UTC(y, m - 1, 1, hour || 0) - 9 * 3600 * 1000; }
+
+function monthPickInfo_(plan){
+  const j = jstNow_();
+  const nm = j.m === 12 ? 1 : j.m + 1;
+  const ny = j.m === 12 ? j.y + 1 : j.y;
+  const lastDay = new Date(Date.UTC(j.y, j.m, 0)).getUTCDate();
+  const isCard = MONTHLY_CARD_PLANS.indexOf(String(plan)) >= 0;
+  const nextFirstNoon = jstMonthStartMs_(ny, nm, 12);
+  return {
+    isCard,
+    thisYm: ymStr_(j.y, j.m), nextYm: ymStr_(ny, nm),
+    thisM: j.m, nextM: nm,
+    daysLeft: lastDay - j.d + 1,
+    laterHalf: j.d >= 16,
+    // カードの今月分：翌月1日12:00 まで48時間（＋10分）を切ると Stripe で作れない
+    cardThisBlocked: isCard && (nextFirstNoon - j.ms) < (48 * 3600 + 10 * 60) * 1000,
+    // カードの来月分：1日の 0:00〜12:10 は起点（翌月1日12:00）が1か月を超える（サーバーは 12:05 まで止める）
+    cardNextBlocked: isCard && j.d === 1 && (j.h * 60 + j.mi) < 12 * 60 + 10
+  };
+}
+
+function planLabelForPick_(plan){
+  const btn = document.querySelector(`.btn[data-plan="${plan}"]`);
+  const card = btn ? btn.closest(".plan") : null;
+  const name = card && card.querySelector("h3") ? card.querySelector("h3").textContent.trim() : "";
+  const yen = card && card.querySelector(".yen") ? card.querySelector(".yen").textContent.trim() : "";
+  return [name, yen].filter(Boolean).join("　");
+}
+
+let _monthPickPlan = "";
+function openMonthPick_(plan){
+  const k = monthPickInfo_(plan);
+  _monthPickPlan = plan;
+
+  const thisOpt = { key: "this", ym: k.thisYm, disabled: k.cardThisBlocked,
+    title: `今月分（${k.thisM}月分${k.isCard ? "から" : ""}）`,
+    desc: k.isCard
+      ? `今日、${k.thisM}月分を一括でお支払い。${k.nextM}月1日からは毎月1日に自動でお支払いされます。`
+      : `${k.thisM}月末まで有効です。`,
+    warn: k.cardThisBlocked
+      ? `月末のため、カードの今月分はお申し込みいただけません（${k.thisM}月のレッスンは都度払いになります）。`
+      : (k.laterHalf ? `${k.thisM}月は残り${k.daysLeft}日です。今月分を選ぶと${k.thisM}月分の月謝が1か月分かかります。` : "") };
+  const nextOpt = { key: "next", ym: k.nextYm, disabled: k.cardNextBlocked,
+    title: `来月分（${k.nextM}月分${k.isCard ? "から" : ""}）`,
+    desc: k.isCard
+      ? `今日のお支払いはありません。${k.nextM}月1日 12:00 に初回のお引き落とし、以後毎月1日に自動でお支払いされます。`
+      : `${k.nextM}月のレッスンに使えます（${k.thisM}月のレッスンには使えません）。`,
+    warn: k.cardNextBlocked ? "カードの来月分は、本日12:10以降にお申し込みいただけます。" : "" };
+
+  const recoNext = k.laterHalf || k.cardThisBlocked;
+  const opts = recoNext ? [nextOpt, thisOpt] : [thisOpt, nextOpt];
+  const reco = opts.find(o => !o.disabled);
+
+  const optHtml = opts.map(o => `
+    <button type="button" class="monthOpt${o === reco ? " reco" : ""}" data-pick="${o.key}" ${o.disabled ? "disabled" : ""}
+      onclick="pickMonth_('${o.key}', '${o.ym}')">
+      <div class="monthOptHead">${escapeHtml(o.title)}${o === reco && recoNext ? '<span class="monthOptBadge">おすすめ</span>' : ""}</div>
+      <div class="monthOptDesc">${escapeHtml(o.desc)}</div>
+      ${o.warn ? `<div class="monthOptWarn">⚠ ${escapeHtml(o.warn)}</div>` : ""}
+    </button>`).join("");
+
+  openGuide_({
+    icon: "🗓",
+    title: "何月分の月謝ですか？",
+    html: `<div class="monthPickPlan">${escapeHtml(planLabelForPick_(plan))}</div><div class="monthPick">${optHtml}</div>`,
+    buttons: [{ label: "やめる", kind: "text" }]
+  });
+}
+
+function pickMonth_(key, ym){
+  const plan = _monthPickPlan;
+  closeGuide_();
+  if (!plan) return;
+  startPayWith_(plan, { ym: ym, picked: true, isNext: key === "next" });
+}
+
 async function startPay(plan){
   if (!booted || paying) return;
 
@@ -1943,6 +2057,19 @@ async function startPay(plan){
     showToast("会員が未選択です。\n上の会員選択から先に選んでください。", "warn");
     return;
   }
+
+  // ★月謝は「今月分／来月分」を選んでから
+  if (isMonthlyPlan_(plan)) { openMonthPick_(plan); return; }
+  return startPayWith_(plan, {});
+}
+
+async function startPayWith_(plan, pick){
+  if (!booted || paying) return;
+  if (!memberId){
+    showToast("会員が未選択です。\n上の会員選択から先に選んでください。", "warn");
+    return;
+  }
+  pick = pick || {};
 
   paying = true;
   showOverlay(); // ★ ローディング表示
@@ -1965,7 +2092,8 @@ async function startPay(plan){
     url.searchParams.set("token", API_TOKEN_PAY);
     url.searchParams.set("lineUserId", lineUserId);
     url.searchParams.set("plan", plan);
-    url.searchParams.set("yyyymm", yyyymmNow());
+    url.searchParams.set("yyyymm", pick.picked ? pick.ym : yyyymmNow());
+    if (pick.picked) url.searchParams.set("month_pick", "1"); // ★今月分／来月分を選んだ
     url.searchParams.set("member_id", memberId); // ★必須
 
     const res = await jsonp(url.toString());
@@ -1976,8 +2104,11 @@ async function startPay(plan){
 
       if (code === "already_paid_this_month") {
         const days = res.remain_days ? `（翌月まであと ${res.remain_days} 日）` : "";
+        const ymTxt = String(res.yyyymm || "");
         showToast(
-          "月謝プランを購入済みです。\nプラン変更は「プラン変更」ボタンから行ってください。\n" + days,
+          res.is_next_month
+            ? `${Number(ymTxt.slice(4, 6)) || ""}月分の月謝はお支払い済みです。`
+            : "月謝プランを購入済みです。\nプラン変更は「プラン変更」ボタンから行ってください。\n" + days,
           "warn"
         );
         // ボタンを元に戻して終了（例外は投げない）
@@ -2003,6 +2134,12 @@ async function startPay(plan){
         "initial_price_not_configured"    : "プランの初期設定が完了していません。受付にお問い合わせください。",
         "stripe_create_session_failed"    : "決済ページの作成に失敗しました。しばらくしてから再試行してください。",
         "STRIPE_PM_CONFIG_ONETIME 未設定"  : "システムエラーが発生しました。受付にお問い合わせください。",
+        // ★月謝の対象月（今月分／来月分）
+        "target_month_passed"             : "月が変わりました。お手数ですが、もう一度プランを選んでください。",
+        "target_month_invalid"            : "対象の月が正しくありません。画面を再読み込みしてください。",
+        "card_this_month_too_late"        : "月末のため、カードの今月分はお申し込みいただけません。「来月分」をお選びください（今月のレッスンは都度払いになります）。",
+        "card_next_month_too_early"       : "カードの来月分は、本日12:10以降にお申し込みいただけます。",
+        "card_member_auto_renew"          : "カードの月謝会員の方は、毎月1日に自動でお支払いされます（来月分を別にお支払いいただく必要はありません）。\nプランの変更・停止は「プラン変更」ボタン、または公式LINEへご連絡ください。",
       };
       // ★ codeがstripe_create_session_failedで始まる場合、Stripeの生エラーも補足表示
       const baseCode = code ? code.split(':')[0].trim() : '';
@@ -2027,7 +2164,7 @@ async function startPay(plan){
       if (baseCode === 'stripe_create_session_failed') {
         console.error('[startPay] Stripe error:', code, res);
       }
-      showToast(friendlyMsg, "bad");
+      showToast(friendlyMsg, (baseCode === "card_member_auto_renew" || baseCode === "card_next_month_too_early") ? "warn" : "bad");
       // ★バグ修正: 表示済みフラグを付けて throw（catch 側で汎用メッセージに上書きされないように）
       const shownErr = new Error(code || "create_checkout failed");
       shownErr._shown = true;
